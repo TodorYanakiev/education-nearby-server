@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+        <sonar.organization>todoryanakiev</sonar.organization>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -73,6 +74,7 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+            <version>1.18.42</version>
 			<optional>true</optional>
 		</dependency>
 		<dependency>
@@ -85,6 +87,11 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.12</version>
+        </dependency>
 	</dependencies>
 
 	<build>
@@ -113,6 +120,34 @@
 					</excludes>
 				</configuration>
 			</plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.10</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>**/model/**</exclude>
+                        <exclude>**/dtos/**</exclude>
+                        <exclude>**/repositories/**</exclude>
+                        <exclude>**/enums/**</exclude>
+                        <exclude>**/exeptions/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
 		</plugins>
 	</build>
 
