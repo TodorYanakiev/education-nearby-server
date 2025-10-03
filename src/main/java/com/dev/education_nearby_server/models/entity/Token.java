@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@Table(name = "tokens")
 public class Token {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,6 +33,7 @@ public class Token {
     public String value;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "token_type", nullable = false)
     public TokenType tokenType = TokenType.BEARER;
 
     public boolean revoked;
