@@ -1,0 +1,12 @@
+CREATE TABLE _users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    firstname VARCHAR(255) NOT NULL,
+    lastname VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP,
+    deleted_at TIMESTAMP
+);
