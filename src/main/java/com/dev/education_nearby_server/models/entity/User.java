@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
@@ -46,6 +47,10 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String email;
 
+    @NotNull(message = "The username should not be null!")
+    @Column(unique = true)
+    private String username;
+
     @NotNull(message = "The password should not be null!")
     @Length(min = 8, message = "The length should be at least 8!")
     private String password;
@@ -53,6 +58,9 @@ public class User implements UserDetails {
     @NotNull
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @OneToMany(mappedBy = "user")
+    private List<Token> tokens;
 
     private boolean enabled;
 
@@ -67,7 +75,7 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        return "";
+        return username;
     }
 
     @Override
