@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.models.entity;
 
+import com.dev.education_nearby_server.enums.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
