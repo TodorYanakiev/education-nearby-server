@@ -17,6 +17,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.Length;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -64,6 +65,7 @@ public class User implements UserDetails {
 
     private boolean enabled;
 
+    @CreatedDate
     private LocalDateTime createdAt;
 
     private LocalDateTime deletedAt;
