@@ -7,6 +7,6 @@ CREATE TABLE _users (
     password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP,
-    deleted_at TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
