@@ -16,6 +16,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -30,11 +33,14 @@ public class Token {
     private Long id;
 
     @Column(unique = true)
-    public String value;
+    public String token;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "token_type", nullable = false)
     public TokenType tokenType = TokenType.BEARER;
+
+    @CreatedDate
+    private LocalDateTime createdAt;
 
     public boolean revoked;
 
