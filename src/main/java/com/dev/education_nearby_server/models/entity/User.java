@@ -50,7 +50,6 @@ public class User implements UserDetails {
     private String email;
 
     @NotNull(message = "The username should not be null!")
-    @Column(unique = true)
     private String username;
 
     @NotNull(message = "The password should not be null!")

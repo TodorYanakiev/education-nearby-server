@@ -1,7 +1,9 @@
 package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.JwtService;
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
+import com.dev.education_nearby_server.exceptions.user.UserCreateException;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
@@ -31,12 +33,17 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
 
     public AuthenticationResponse register(RegisterRequest request) {
+        if (repository.findByEmail(request.getEmail()).isPresent())
+            throw new UserCreateException(false);
+        if (!request.getPassword().equals(request.getRepeatedPassword())) throw new UserCreateException("Passwords do not match!");
+        if (request.getPassword().length() < 8) throw new UserCreateException("Password must be at least 8 characters long!");
         User user = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole())
+                .username(request.getUsername())
+                .role(Role.USER)
                 .build();
         User savedUser = repository.save(user);
         String jwtToken = jwtService.generateToken(user);
