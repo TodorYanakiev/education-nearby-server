@@ -21,8 +21,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ExceptionResponse> handleRuntimeExceptions(RuntimeException exception) {
-        // Log data
-        exception.printStackTrace();
         return handleApiExceptions(new InternalServerErrorException());
     }
 
