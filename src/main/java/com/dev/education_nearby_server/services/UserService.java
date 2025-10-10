@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.exceptions.user.UserPasswordException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -21,11 +22,11 @@ public class UserService {
         User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new IllegalStateException("Wrong password");
+            throw new UserPasswordException("Wrong password");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmationPassword())) {
-            throw new IllegalStateException("Password are not the same");
+            throw new UserPasswordException("Password are not the same");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

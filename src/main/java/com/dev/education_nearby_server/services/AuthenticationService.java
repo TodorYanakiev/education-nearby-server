@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.config.JwtService;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.exceptions.user.UserCreateException;
+import com.dev.education_nearby_server.exceptions.user.UserDisabledException;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
@@ -34,7 +35,9 @@ public class AuthenticationService {
 
     public AuthenticationResponse register(RegisterRequest request) {
         if (repository.findByEmail(request.getEmail()).isPresent())
-            throw new UserCreateException(false);
+            throw new UserCreateException(true);
+        if (repository.findByUsername(request.getUsername()).isPresent())
+            throw new UserCreateException("User with such username already exists!");
         if (!request.getPassword().equals(request.getRepeatedPassword())) throw new UserCreateException("Passwords do not match!");
         if (request.getPassword().length() < 8) throw new UserCreateException("Password must be at least 8 characters long!");
         User user = User.builder()
@@ -44,6 +47,7 @@ public class AuthenticationService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .username(request.getUsername())
                 .role(Role.USER)
+                .enabled(true)
                 .build();
         User savedUser = repository.save(user);
         String jwtToken = jwtService.generateToken(user);
@@ -56,14 +60,16 @@ public class AuthenticationService {
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        User user = repository.findByEmail(request.getEmail())
+            .orElseThrow();
+        if (!user.isEnabled())
+            throw new UserDisabledException();
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
                         request.getPassword()
                 )
         );
-        User user = repository.findByEmail(request.getEmail())
-                .orElseThrow();
         String jwtToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
@@ -102,14 +108,14 @@ public class AuthenticationService {
     ) throws IOException {
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         final String refreshToken;
-        final String userEmail;
+        final String username;
         if (authHeader == null ||!authHeader.startsWith("Bearer ")) {
             return;
         }
         refreshToken = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(refreshToken);
-        if (userEmail != null) {
-            var user = this.repository.findByEmail(userEmail)
+        username = jwtService.extractUsername(refreshToken);
+        if (username != null) {
+            var user = this.repository.findByUsername(username)
                     .orElseThrow();
             if (jwtService.isTokenValid(refreshToken, user)) {
                 var accessToken = jwtService.generateToken(user);
