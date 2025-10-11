@@ -13,8 +13,6 @@ jobs:
         with:
           java-version: 21
           distribution: 'zulu'
-      - name: mvn clean install
-        run: mvn clean install
       - name: Cache SonarQube packages
         uses: actions/cache@v4
         with:
