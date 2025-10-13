@@ -21,6 +21,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.io.Serializable;
 
 @Data
 @Builder
@@ -29,14 +30,15 @@ import java.time.LocalDateTime;
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "tokens")
-public class Token {
+public class Token implements Serializable {
+    private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
     private Long id;
 
     @Column(unique = true)
-    public String token;
+    public String tokenValue;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "token_type", nullable = false)

@@ -154,7 +154,7 @@ class AuthenticationServiceTest {
         ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
         verify(tokenRepository).save(tokenCaptor.capture());
         Token savedToken = tokenCaptor.getValue();
-        assertEquals("access-token", savedToken.getToken());
+        assertEquals("access-token", savedToken.getTokenValue());
         assertThat(savedToken.getTokenType()).isEqualTo(com.dev.education_nearby_server.enums.TokenType.BEARER);
         assertThat(savedToken.isExpired()).isFalse();
         assertThat(savedToken.isRevoked()).isFalse();
@@ -187,7 +187,7 @@ class AuthenticationServiceTest {
                 .password("encoded")
                 .build();
         Token existingToken = Token.builder()
-                .token("old-token")
+                .tokenValue("old-token")
                 .expired(false)
                 .revoked(false)
                 .user(user)

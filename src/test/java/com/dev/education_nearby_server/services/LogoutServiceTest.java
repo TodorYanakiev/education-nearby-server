@@ -52,7 +52,7 @@ class LogoutServiceTest {
         request.addHeader("Authorization", "Bearer test-token");
 
         Token token = Token.builder()
-                .token("test-token")
+                .tokenValue("test-token")
                 .expired(false)
                 .revoked(false)
                 .build();

@@ -55,7 +55,7 @@ class AuthenticationServiceIT {
 
         List<Token> tokens = tokenRepository.findAll();
         assertThat(tokens).hasSize(1);
-        assertThat(tokens.getFirst().getToken()).isEqualTo(response.getAccessToken());
+        assertThat(tokens.getFirst().getTokenValue()).isEqualTo(response.getAccessToken());
         assertThat(tokens.getFirst().isExpired()).isFalse();
         assertThat(tokens.getFirst().isRevoked()).isFalse();
     }
@@ -65,7 +65,7 @@ class AuthenticationServiceIT {
         RegisterRequest request = buildRegisterRequest();
         AuthenticationResponse registration = authenticationService.register(request);
         tokenRepository.findByToken(registration.getAccessToken()).ifPresent(token -> {
-            token.setToken(token.getToken() + "-old");
+            token.setTokenValue(token.getTokenValue() + "-old");
             tokenRepository.save(token);
         });
 
@@ -80,7 +80,7 @@ class AuthenticationServiceIT {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
         List<Token> tokens = tokenRepository.findAllValidTokenByUser(user.getId());
         assertThat(tokens).hasSize(1);
-        assertThat(tokens.getFirst().getToken()).isEqualTo(authResponse.getAccessToken());
+        assertThat(tokens.getFirst().getTokenValue()).isEqualTo(authResponse.getAccessToken());
         assertThat(tokens.getFirst().isExpired()).isFalse();
         assertThat(tokens.getFirst().isRevoked()).isFalse();
     }
@@ -89,7 +89,7 @@ class AuthenticationServiceIT {
     void refreshTokenProvidesNewAccessToken() throws IOException{
         AuthenticationResponse registration = authenticationService.register(buildRegisterRequest());
         tokenRepository.findByToken(registration.getAccessToken()).ifPresent(token -> {
-            token.setToken(token.getToken() + "-old");
+            token.setTokenValue(token.getTokenValue() + "-old");
             tokenRepository.save(token);
         });
         User user = userRepository.findByEmail("jane.doe@example.com").orElseThrow();
@@ -106,7 +106,7 @@ class AuthenticationServiceIT {
 
         List<Token> tokens = tokenRepository.findAllValidTokenByUser(user.getId());
         assertThat(tokens).hasSize(1);
-        assertThat(tokens.getFirst().getToken()).isNotBlank();
+        assertThat(tokens.getFirst().getTokenValue()).isNotBlank();
         assertThat(tokens.getFirst().isExpired()).isFalse();
         assertThat(tokens.getFirst().isRevoked()).isFalse();
     }

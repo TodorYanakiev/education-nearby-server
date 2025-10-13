@@ -119,7 +119,7 @@ class AuthenticationControllerIT {
 
     private void markExistingAccessTokenAsOld(String token) {
         tokenRepository.findByToken(token).ifPresent(existing -> {
-            existing.setToken(existing.getToken() + "-old");
+            existing.setTokenValue(existing.getTokenValue() + "-old");
             tokenRepository.save(existing);
         });
     }
