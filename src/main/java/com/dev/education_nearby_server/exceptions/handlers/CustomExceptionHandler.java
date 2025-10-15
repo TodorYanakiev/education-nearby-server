@@ -156,7 +156,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private String prettyDataIntegrityMessage(DataIntegrityViolationException ex) {
-        Throwable cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause() : ex;
+        Throwable cause = ex.getRootCause() != null ? ex.getRootCause() : ex;
         String raw = cause.getMessage();
         if (!StringUtils.hasText(raw)) {
             raw = ex.getMessage();
