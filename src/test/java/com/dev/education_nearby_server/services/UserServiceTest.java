@@ -1,7 +1,7 @@
 package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.enums.Role;
-import com.dev.education_nearby_server.exceptions.user.UserPasswordException;
+import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -46,7 +46,7 @@ class UserServiceTest {
                 .build();
         when(passwordEncoder.matches("old", "encoded")).thenReturn(false);
 
-        assertThrows(UserPasswordException.class, () -> userService.changePassword(request, principal));
+        assertThrows(ValidationException.class, () -> userService.changePassword(request, principal));
     }
 
     @Test
@@ -63,7 +63,7 @@ class UserServiceTest {
                 .build();
         when(passwordEncoder.matches("old", "encoded")).thenReturn(true);
 
-        assertThrows(UserPasswordException.class, () -> userService.changePassword(request, principal));
+        assertThrows(ValidationException.class, () -> userService.changePassword(request, principal));
     }
 
     @Test

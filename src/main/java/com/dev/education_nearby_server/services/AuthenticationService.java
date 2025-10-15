@@ -3,8 +3,10 @@ package com.dev.education_nearby_server.services;
 import com.dev.education_nearby_server.config.JwtService;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
-import com.dev.education_nearby_server.exceptions.user.UserCreateException;
-import com.dev.education_nearby_server.exceptions.user.UserDisabledException;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
@@ -32,14 +34,15 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final ObjectMapper objectMapper;
 
     public AuthenticationResponse register(RegisterRequest request) {
         if (repository.findByEmail(request.getEmail()).isPresent())
-            throw new UserCreateException(true);
+            throw new ConflictException("User with such email already exists!");
         if (repository.findByUsername(request.getUsername()).isPresent())
-            throw new UserCreateException("User with such username already exists!");
-        if (!request.getPassword().equals(request.getRepeatedPassword())) throw new UserCreateException("Passwords do not match!");
-        if (request.getPassword().length() < 8) throw new UserCreateException("Password must be at least 8 characters long!");
+            throw new ConflictException("User with such username already exists!");
+        if (!request.getPassword().equals(request.getRepeatedPassword())) throw new BadRequestException("Passwords do not match!");
+        if (request.getPassword().length() < 8) throw new BadRequestException("Password must be at least 8 characters long!");
         User user = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
@@ -61,9 +64,9 @@ public class AuthenticationService {
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         User user = repository.findByEmail(request.getEmail())
-            .orElseThrow();
+            .orElseThrow(() -> new UnauthorizedException("Invalid credentials!"));
         if (!user.isEnabled())
-            throw new UserDisabledException();
+            throw new AccessDeniedException("The user is disabled");
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -125,7 +128,8 @@ public class AuthenticationService {
                         .accessToken(accessToken)
                         .refreshToken(refreshToken)
                         .build();
-                new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
+                ObjectMapper mapper = this.objectMapper != null ? this.objectMapper : new ObjectMapper();
+                mapper.writeValue(response.getOutputStream(), authResponse);
             }
         }
     }

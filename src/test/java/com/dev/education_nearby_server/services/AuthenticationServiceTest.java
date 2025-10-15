@@ -2,8 +2,8 @@ package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.JwtService;
 import com.dev.education_nearby_server.enums.Role;
-import com.dev.education_nearby_server.exceptions.user.UserCreateException;
-import com.dev.education_nearby_server.exceptions.user.UserDisabledException;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
@@ -77,7 +77,7 @@ class AuthenticationServiceTest {
         RegisterRequest request = baseRegisterRequestBuilder.build();
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(User.builder().build()));
 
-        assertThrows(UserCreateException.class, () -> authenticationService.register(request));
+        assertThrows(com.dev.education_nearby_server.exceptions.common.ConflictException.class, () -> authenticationService.register(request));
         verify(userRepository, never()).save(any(User.class));
         verify(tokenRepository, never()).save(any(Token.class));
     }
@@ -88,7 +88,7 @@ class AuthenticationServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.findByUsername(request.getUsername())).thenReturn(Optional.of(User.builder().build()));
 
-        assertThrows(UserCreateException.class, () -> authenticationService.register(request));
+        assertThrows(com.dev.education_nearby_server.exceptions.common.ConflictException.class, () -> authenticationService.register(request));
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -100,7 +100,7 @@ class AuthenticationServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.findByUsername(request.getUsername())).thenReturn(Optional.empty());
 
-        assertThrows(UserCreateException.class, () -> authenticationService.register(request));
+        assertThrows(BadRequestException.class, () -> authenticationService.register(request));
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -113,7 +113,7 @@ class AuthenticationServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.findByUsername(request.getUsername())).thenReturn(Optional.empty());
 
-        assertThrows(UserCreateException.class, () -> authenticationService.register(request));
+        assertThrows(BadRequestException.class, () -> authenticationService.register(request));
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -170,7 +170,7 @@ class AuthenticationServiceTest {
         User disabledUser = User.builder().enabled(false).build();
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(disabledUser));
 
-        assertThrows(UserDisabledException.class, () -> authenticationService.authenticate(request));
+        assertThrows(AccessDeniedException.class, () -> authenticationService.authenticate(request));
     }
 
     @Test
