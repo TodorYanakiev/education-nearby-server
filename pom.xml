@@ -190,11 +190,6 @@
                         </goals>
                         <configuration>
                             <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
-                            <reports>
-                                <xml>true</xml>
-                                <csv>false</csv>
-                                <html>true</html>
-                            </reports>
                         </configuration>
                     </execution>
                 </executions>

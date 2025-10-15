@@ -1,37 +1,34 @@
 package com.dev.education_nearby_server.exceptions.handlers;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.dev.education_nearby_server.models.dto.response.ExceptionResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import jakarta.servlet.ServletException;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
 
-import java.io.IOException;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 class JwtAuthenticationEntryPointTest {
 
     @Test
-    void commenceWritesJsonErrorBody() throws IOException, ServletException {
-        ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    void commence_writesUnauthorizedResponseBody() throws Exception {
+        ObjectMapper mapper = JsonMapper.builder().findAndAddModules().build();
         JwtAuthenticationEntryPoint entryPoint = new JwtAuthenticationEntryPoint(mapper);
-        MockHttpServletRequest request = new MockHttpServletRequest();
+
         MockHttpServletResponse response = new MockHttpServletResponse();
+        entryPoint.commence(null, response, new BadCredentialsException("Bad credentials"));
 
-        entryPoint.commence(request, response, new BadCredentialsException("Auth required"));
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus());
+        assertEquals("application/json", response.getContentType());
 
-        assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getContentType()).isEqualTo("application/json");
-
-        JsonNode node = mapper.readTree(response.getContentAsString());
-
-        assertThat(node.get("statusCode").asInt()).isEqualTo(401);
-        assertThat(node.get("status").asText()).isEqualTo("UNAUTHORIZED");
-        assertThat(node.get("message").asText()).isEqualTo("Auth required");
-        assertThat(node.hasNonNull("dateTime")).isTrue();
+        ExceptionResponse body = mapper.readValue(response.getContentAsByteArray(), ExceptionResponse.class);
+        assertEquals("Bad credentials", body.getMessage());
+        assertEquals(HttpStatus.UNAUTHORIZED, body.getStatus());
+        assertEquals(401, body.getStatusCode());
+        assertNotNull(body.getDateTime());
     }
 }
+
