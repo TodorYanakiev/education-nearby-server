@@ -1,0 +1,10 @@
+CREATE TABLE tokens (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token_value VARCHAR(255) NOT NULL UNIQUE,
+    token_type VARCHAR(50) NOT NULL DEFAULT 'BEARER',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    revoked BOOLEAN NOT NULL,
+    expired BOOLEAN NOT NULL,
+    user_id BIGINT,
+    CONSTRAINT fk_token_user FOREIGN KEY (user_id) REFERENCES _users(id)
+);
