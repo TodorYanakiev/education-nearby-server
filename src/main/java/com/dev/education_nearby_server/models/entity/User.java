@@ -9,6 +9,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -61,6 +63,10 @@ public class User implements UserDetails {
     @NotNull(message = "The password should not be null!")
     @Length(min = 8, message = "The length should be at least 8!")
     private String password;
+
+    @ManyToOne
+    @JoinColumn(name = "administrated_lyceum_id")
+    private transient Lyceum administratedLyceum;
 
     @NotNull
     @Enumerated(EnumType.STRING)
