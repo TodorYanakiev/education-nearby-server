@@ -51,7 +51,8 @@ public class Lyceum {
 
     private String urlToLibrariesSite;
 
-    private int registrationNumber;
+    // Use wrapper type to allow NULL values from DB
+    private Integer registrationNumber;
 
     @Enumerated(EnumType.STRING)
     private VerificationStatus verificationStatus = VerificationStatus.NOT_VERIFIED;
