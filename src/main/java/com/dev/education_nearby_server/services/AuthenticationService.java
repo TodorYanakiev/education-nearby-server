@@ -110,27 +110,34 @@ public class AuthenticationService {
             HttpServletResponse response
     ) throws IOException {
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        final String refreshToken;
-        final String username;
-        if (authHeader == null ||!authHeader.startsWith("Bearer ")) {
-            return;
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new UnauthorizedException("Missing or invalid refresh token");
         }
-        refreshToken = authHeader.substring(7);
-        username = jwtService.extractUsername(refreshToken);
-        if (username != null) {
-            var user = this.repository.findByUsername(username)
-                    .orElseThrow();
-            if (jwtService.isTokenValid(refreshToken, user)) {
-                var accessToken = jwtService.generateToken(user);
-                revokeAllUserTokens(user);
-                saveUserToken(user, accessToken);
-                var authResponse = AuthenticationResponse.builder()
-                        .accessToken(accessToken)
-                        .refreshToken(refreshToken)
-                        .build();
-                ObjectMapper mapper = this.objectMapper != null ? this.objectMapper : new ObjectMapper();
-                mapper.writeValue(response.getOutputStream(), authResponse);
+        final String refreshToken = authHeader.substring(7);
+        try {
+            final String username = jwtService.extractUsername(refreshToken);
+            if (username == null) {
+                throw new UnauthorizedException("Invalid refresh token");
             }
+            var user = this.repository.findByUsername(username)
+                    .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+            if (!jwtService.isTokenValid(refreshToken, user)) {
+                throw new UnauthorizedException("Invalid refresh token");
+            }
+
+            var accessToken = jwtService.generateToken(user);
+            revokeAllUserTokens(user);
+            saveUserToken(user, accessToken);
+            var authResponse = AuthenticationResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .build();
+            ObjectMapper mapper = this.objectMapper != null ? this.objectMapper : new ObjectMapper();
+            mapper.writeValue(response.getOutputStream(), authResponse);
+        } catch (UnauthorizedException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new UnauthorizedException("Invalid refresh token");
         }
     }
 }
