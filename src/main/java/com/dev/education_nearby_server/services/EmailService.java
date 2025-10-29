@@ -16,12 +16,12 @@ public class EmailService {
                                             @NonNull String lyceumName,
                                             @NonNull String town,
                                             @NonNull String tokenValue) {
-        String subject = "EducationNearby: Rights Verification Request";
+        String subject = "EducationNearby: Verify Lyceum Administration Rights";
         String text = "Hello,\n\n" +
-                "A user has requested rights over the lyceum: '" + lyceumName + "' in '" + town + "'.\n" +
-                "To proceed with the verification, please use the token below in your confirmation flow:\n\n" +
-                "Token: " + tokenValue + "\n\n" +
-                "If you were not expecting this request, you can ignore this email.\n\n" +
+                "You requested administrator rights for the lyceum '" + lyceumName + "' in '" + town + "'.\n" +
+                "Use the verification code below to complete your request:\n\n" +
+                "Verification code: " + tokenValue + "\n\n" +
+                "If you did not initiate this request, please contact our support team immediately.\n\n" +
                 "Regards,\nEducationNearby Team";
 
         SimpleMailMessage message = new SimpleMailMessage();
@@ -31,4 +31,3 @@ public class EmailService {
         mailSender.send(message);
     }
 }
-

@@ -24,6 +24,13 @@ ALTER TABLE _users
         FOREIGN KEY (administrated_lyceum_id)
         REFERENCES lyceums(id);
 
+ALTER TABLE tokens
+    ADD COLUMN lyceum_id BIGINT NULL,
+    ADD INDEX idx_tokens_lyceum (lyceum_id),
+    ADD CONSTRAINT fk_tokens_lyceum
+        FOREIGN KEY (lyceum_id)
+        REFERENCES lyceums(id);
+
 INSERT INTO `lyceums` (`id`, `name`, `chitalishta_url`, `status`, `bulstat`, `chairman`, `secretary`, `phone`, `email`, `region`, `municipality`, `town`, `address`, `url_to_libraries_site`, `registration_number`) VALUES
 (742, '\"Пенчо Славейков -1983\"', 'https://chitalishta.com/community/475/518', 'Действащо', '000049054', 'Татяна Иванова Петрова', 'Тодорка Григорова Симеонова', '056/860902', 'slaveikov.4it_bs@abv.bg', 'БУРГАС', 'БУРГАС', 'ГРАД БУРГАС', 'к-с \"Славейков\" бл.55,вх.3-4,\r\nп.к.8010', 'http://bibliobg.com/community/hash/7f0e7f2fef5b817c49ea61a22ff7a2ed684f25e2', 518),
 (743, '\"Св. Св. Кирил и Методий-1985\"', 'https://chitalishta.com/community/118/135', 'Действащо', '000049403', 'Диан Димитров Димитров', 'Веселина Крумова Николова', '056/852276; 0895506219', 'chitalishte_km@abv.bg', 'БУРГАС', 'БУРГАС', 'ГРАД БУРГАС', 'к-с \"Меден рудник\" бл.25, партер,\r\nп.к.8011', 'http://bibliobg.com/community/hash/208ac20969de05c892827f5d6ae1713655994cb4', 135),

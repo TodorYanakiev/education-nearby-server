@@ -51,7 +51,6 @@ public class Lyceum {
 
     private String urlToLibrariesSite;
 
-    // Use wrapper type to allow NULL values from DB
     private Integer registrationNumber;
 
     @Enumerated(EnumType.STRING)
