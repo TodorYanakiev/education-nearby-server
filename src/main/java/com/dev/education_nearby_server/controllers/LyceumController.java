@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +31,11 @@ public class LyceumController {
     @GetMapping("/verified")
     public ResponseEntity<List<Lyceum>> getVerifiedLyceums() {
         return ResponseEntity.ok(lyceumService.getVerifiedLyceums());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Lyceum> getLyceumById(@PathVariable Long id) {
+        return ResponseEntity.ok(lyceumService.getLyceumById(id));
     }
 
     @PostMapping("/request-rights")

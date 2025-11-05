@@ -59,6 +59,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(WHITE_LIST_URL)
                                 .permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/verified").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .anyRequest()
                                 .authenticated()

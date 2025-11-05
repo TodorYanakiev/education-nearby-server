@@ -1,9 +1,12 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.enums.VerificationStatus;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
+import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
@@ -75,6 +78,19 @@ public class LyceumService {
 
     public List<Lyceum> getAllLyceums() {
         return lyceumRepository.findAll();
+    }
+
+    public Lyceum getLyceumById(Long id) {
+        Lyceum lyceum = lyceumRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
+        if (lyceum.getVerificationStatus() != VerificationStatus.VERIFIED) {
+            User currentUser = getCurrentUser()
+                    .orElseThrow(() -> new UnauthorizedException("You must be authenticated to access this lyceum."));
+            if (currentUser.getRole() != Role.ADMIN) {
+                throw new AccessDeniedException("You do not have permission to access this lyceum.");
+            }
+        }
+        return lyceum;
     }
 
     private String normalize(String input) {
