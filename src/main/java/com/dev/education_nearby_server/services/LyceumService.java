@@ -8,8 +8,10 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
@@ -72,15 +74,59 @@ public class LyceumService {
         return "You are now the administrator of " + lyceum.getName() + " in " + lyceum.getTown() + ".";
     }
 
-    public List<Lyceum> getVerifiedLyceums() {
-        return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED);
+    public List<LyceumResponse> getVerifiedLyceums() {
+        return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
-    public List<Lyceum> getAllLyceums() {
-        return lyceumRepository.findAll();
+    public List<LyceumResponse> getAllLyceums() {
+        return lyceumRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
-    public Lyceum getLyceumById(Long id) {
+    public LyceumResponse createLyceum(LyceumCreateRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Lyceum payload must not be null.");
+        }
+        String name = normalize(request.getName());
+        String town = normalize(request.getTown());
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Lyceum name must not be blank.");
+        }
+        if (town == null || town.isBlank()) {
+            throw new BadRequestException("Lyceum town must not be blank.");
+        }
+        boolean exists = lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase(name, town).isPresent();
+        if (exists) {
+            throw new ConflictException("Lyceum with the same name and town already exists.");
+        }
+
+        Lyceum lyceum = new Lyceum();
+        lyceum.setName(name);
+        lyceum.setTown(town);
+        lyceum.setChitalishtaUrl(normalize(request.getChitalishtaUrl()));
+        lyceum.setStatus(normalize(request.getStatus()));
+        lyceum.setBulstat(normalize(request.getBulstat()));
+        lyceum.setChairman(normalize(request.getChairman()));
+        lyceum.setSecretary(normalize(request.getSecretary()));
+        lyceum.setPhone(normalize(request.getPhone()));
+        lyceum.setEmail(normalize(request.getEmail()));
+        lyceum.setRegion(normalize(request.getRegion()));
+        lyceum.setMunicipality(normalize(request.getMunicipality()));
+        lyceum.setAddress(normalize(request.getAddress()));
+        lyceum.setUrlToLibrariesSite(normalize(request.getUrlToLibrariesSite()));
+        lyceum.setRegistrationNumber(request.getRegistrationNumber());
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+
+        Lyceum savedLyceum = lyceumRepository.save(lyceum);
+        return mapToResponse(savedLyceum);
+    }
+
+    public LyceumResponse getLyceumById(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
         if (lyceum.getVerificationStatus() != VerificationStatus.VERIFIED) {
@@ -90,7 +136,7 @@ public class LyceumService {
                 throw new AccessDeniedException("You do not have permission to access this lyceum.");
             }
         }
-        return lyceum;
+        return mapToResponse(lyceum);
     }
 
     private String normalize(String input) {
@@ -219,5 +265,29 @@ public class LyceumService {
         });
 
         tokenRepository.saveAll(activeTokens);
+    }
+
+    private LyceumResponse mapToResponse(Lyceum lyceum) {
+        if (lyceum == null) {
+            return null;
+        }
+        return LyceumResponse.builder()
+                .id(lyceum.getId())
+                .name(lyceum.getName())
+                .chitalishtaUrl(lyceum.getChitalishtaUrl())
+                .status(lyceum.getStatus())
+                .bulstat(lyceum.getBulstat())
+                .chairman(lyceum.getChairman())
+                .secretary(lyceum.getSecretary())
+                .phone(lyceum.getPhone())
+                .email(lyceum.getEmail())
+                .region(lyceum.getRegion())
+                .municipality(lyceum.getMunicipality())
+                .town(lyceum.getTown())
+                .address(lyceum.getAddress())
+                .urlToLibrariesSite(lyceum.getUrlToLibrariesSite())
+                .registrationNumber(lyceum.getRegistrationNumber())
+                .verificationStatus(lyceum.getVerificationStatus())
+                .build();
     }
 }

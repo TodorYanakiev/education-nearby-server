@@ -60,6 +60,7 @@ public class SecurityConfiguration {
                                 .permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/verified").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .anyRequest()
                                 .authenticated()

@@ -1,11 +1,13 @@
 package com.dev.education_nearby_server.controllers;
 
+import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
-import com.dev.education_nearby_server.models.entity.Lyceum;
+import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,23 +26,28 @@ public class LyceumController {
     private final LyceumService lyceumService;
 
     @GetMapping
-    public ResponseEntity<List<Lyceum>> getAllLyceums() {
+    public ResponseEntity<List<LyceumResponse>> getAllLyceums() {
         return ResponseEntity.ok(lyceumService.getAllLyceums());
     }
 
     @GetMapping("/verified")
-    public ResponseEntity<List<Lyceum>> getVerifiedLyceums() {
+    public ResponseEntity<List<LyceumResponse>> getVerifiedLyceums() {
         return ResponseEntity.ok(lyceumService.getVerifiedLyceums());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Lyceum> getLyceumById(@PathVariable Long id) {
+    public ResponseEntity<LyceumResponse> getLyceumById(@PathVariable Long id) {
         return ResponseEntity.ok(lyceumService.getLyceumById(id));
     }
 
     @PostMapping("/request-rights")
     public ResponseEntity<String> requestRightsOverLyceum(@Valid @RequestBody LyceumRightsRequest request) {
         return ResponseEntity.ok(lyceumService.requestRightsOverLyceum(request));
+    }
+
+    @PostMapping
+    public ResponseEntity<LyceumResponse> createLyceum(@Valid @RequestBody LyceumCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(lyceumService.createLyceum(request));
     }
 
     @PostMapping("/verify-rights")
