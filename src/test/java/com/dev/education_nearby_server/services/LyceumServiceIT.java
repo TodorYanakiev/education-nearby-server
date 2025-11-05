@@ -3,10 +3,14 @@ package com.dev.education_nearby_server.services;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.enums.VerificationStatus;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
@@ -25,6 +29,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +60,101 @@ class LyceumServiceIT {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void createLyceumPersistsEntityAndReturnsResponse() {
+        LyceumCreateRequest request = LyceumCreateRequest.builder()
+                .name("New Lyceum")
+                .town("Varna")
+                .email("contact@example.org")
+                .build();
+
+        LyceumResponse response = lyceumService.createLyceum(request);
+
+        assertThat(response.getId()).isNotNull();
+        assertThat(response.getName()).isEqualTo("New Lyceum");
+        assertThat(response.getTown()).isEqualTo("Varna");
+        assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
+
+        Lyceum persisted = lyceumRepository.findById(response.getId()).orElseThrow();
+        assertThat(persisted.getName()).isEqualTo("New Lyceum");
+        assertThat(persisted.getTown()).isEqualTo("Varna");
+        assertThat(persisted.getEmail()).isEqualTo("contact@example.org");
+        assertThat(persisted.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
+    }
+
+    @Test
+    void createLyceumRejectsDuplicates() {
+        persistLyceum("Duplicate", "Varna", "mail@example.org");
+        LyceumCreateRequest request = LyceumCreateRequest.builder()
+                .name("Duplicate")
+                .town("Varna")
+                .build();
+
+        assertThatThrownBy(() -> lyceumService.createLyceum(request))
+                .isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void getAllLyceumsReturnsMappedResponses() {
+        persistLyceum("First", "Varna", "first@example.org");
+        persistLyceum("Second", "Sofia", "second@example.org");
+
+        List<LyceumResponse> responses = lyceumService.getAllLyceums();
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses).extracting(LyceumResponse::getName)
+                .containsExactlyInAnyOrder("First", "Second");
+    }
+
+    @Test
+    void getLyceumByIdReturnsResponseForVerifiedLyceum() {
+        Lyceum lyceum = persistLyceum("Verified", "Varna", "verified@example.org");
+        lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
+        lyceumRepository.save(lyceum);
+
+        LyceumResponse response = lyceumService.getLyceumById(lyceum.getId());
+
+        assertThat(response.getId()).isEqualTo(lyceum.getId());
+        assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.VERIFIED);
+    }
+
+    @Test
+    void getLyceumByIdRequiresAuthenticationForNotVerifiedLyceum() {
+        Lyceum lyceum = persistLyceum("Restricted", "Varna", "restricted@example.org");
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+        lyceumRepository.save(lyceum);
+        SecurityContextHolder.clearContext();
+
+        assertThatThrownBy(() -> lyceumService.getLyceumById(lyceum.getId()))
+                .isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void getLyceumByIdRequiresAdminRoleWhenNotVerified() {
+        Lyceum lyceum = persistLyceum("Restricted", "Varna", "restricted@example.org");
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+        lyceumRepository.save(lyceum);
+        User user = persistUser("user@example.org", "user");
+        authenticate(user);
+
+        assertThatThrownBy(() -> lyceumService.getLyceumById(lyceum.getId()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void getLyceumByIdReturnsResponseWhenAdminRequestsNotVerifiedLyceum() {
+        Lyceum lyceum = persistLyceum("Restricted", "Varna", "restricted@example.org");
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+        lyceumRepository.save(lyceum);
+        User admin = persistUser("admin@example.org", "admin", Role.ADMIN);
+        authenticate(admin);
+
+        LyceumResponse response = lyceumService.getLyceumById(lyceum.getId());
+
+        assertThat(response.getId()).isEqualTo(lyceum.getId());
+        assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
     }
 
     @Test
@@ -215,13 +315,17 @@ class LyceumServiceIT {
     }
 
     private User persistUser(String email, String username) {
+        return persistUser(email, username, Role.USER);
+    }
+
+    private User persistUser(String email, String username, Role role) {
         User user = User.builder()
                 .firstname("John")
                 .lastname("Doe")
                 .email(email)
                 .username(username)
                 .password("password123")
-                .role(Role.USER)
+                .role(role)
                 .enabled(true)
                 .build();
         return userRepository.save(user);

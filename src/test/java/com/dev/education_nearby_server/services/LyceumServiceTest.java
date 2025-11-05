@@ -3,11 +3,14 @@ package com.dev.education_nearby_server.services;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.enums.VerificationStatus;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
@@ -77,10 +80,174 @@ class LyceumServiceTest {
         when(lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED))
                 .thenReturn(List.of(verifiedLyceum));
 
-        List<Lyceum> result = lyceumService.getVerifiedLyceums();
+        List<LyceumResponse> result = lyceumService.getVerifiedLyceums();
 
-        assertThat(result).containsExactly(verifiedLyceum);
+        assertThat(result).hasSize(1);
+        LyceumResponse response = result.getFirst();
+        assertThat(response.getId()).isEqualTo(15L);
+        assertThat(response.getName()).isEqualTo("Verified Lyceum");
+        assertThat(response.getTown()).isEqualTo("Sofia");
+        assertThat(response.getEmail()).isEqualTo("verified@example.com");
         verify(lyceumRepository).findAllByVerificationStatus(VerificationStatus.VERIFIED);
+    }
+
+    @Test
+    void getAllLyceumsReturnsRepositoryResult() {
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findAll()).thenReturn(List.of(lyceum));
+
+        List<LyceumResponse> result = lyceumService.getAllLyceums();
+
+        assertThat(result).hasSize(1);
+        LyceumResponse response = result.getFirst();
+        assertThat(response.getId()).isEqualTo(3L);
+        assertThat(response.getName()).isEqualTo("Lyceum");
+        assertThat(response.getTown()).isEqualTo("Varna");
+        assertThat(response.getEmail()).isEqualTo("contact@example.com");
+        verify(lyceumRepository).findAll();
+    }
+
+    @Test
+    void createLyceumThrowsWhenRequestNull() {
+        assertThrows(BadRequestException.class, () -> lyceumService.createLyceum(null));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void createLyceumThrowsWhenNameBlank() {
+        LyceumCreateRequest request = LyceumCreateRequest.builder()
+                .name("  ")
+                .town("Varna")
+                .build();
+
+        assertThrows(BadRequestException.class, () -> lyceumService.createLyceum(request));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void createLyceumThrowsWhenTownBlank() {
+        LyceumCreateRequest request = LyceumCreateRequest.builder()
+                .name("Lyceum")
+                .town(" ")
+                .build();
+
+        assertThrows(BadRequestException.class, () -> lyceumService.createLyceum(request));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void createLyceumThrowsWhenDuplicateExists() {
+        LyceumCreateRequest request = LyceumCreateRequest.builder()
+                .name("Lyceum")
+                .town("Varna")
+                .build();
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Lyceum", "Varna"))
+                .thenReturn(Optional.of(new Lyceum()));
+
+        assertThrows(ConflictException.class, () -> lyceumService.createLyceum(request));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void createLyceumNormalizesAndSavesEntity() {
+        LyceumCreateRequest request = LyceumCreateRequest.builder()
+                .name("  New Lyceum ")
+                .town("  Varna ")
+                .chitalishtaUrl("  https://example.org  ")
+                .status("  Active ")
+                .bulstat(" 12345 ")
+                .chairman(" John  Doe ")
+                .secretary(" Jane  Doe ")
+                .phone("  123 456 ")
+                .email(" admin@example.org ")
+                .region("  Region ")
+                .municipality("  Municipality ")
+                .address("  Address 1 ")
+                .urlToLibrariesSite(" https://library.example.org ")
+                .registrationNumber(42)
+                .build();
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("New Lyceum", "Varna"))
+                .thenReturn(Optional.empty());
+        ArgumentCaptor<Lyceum> lyceumCaptor = ArgumentCaptor.forClass(Lyceum.class);
+        Lyceum saved = createLyceum(20L, "New Lyceum", "Varna", "admin@example.org");
+        when(lyceumRepository.save(any(Lyceum.class))).thenReturn(saved);
+
+        LyceumResponse response = lyceumService.createLyceum(request);
+
+        verify(lyceumRepository).save(lyceumCaptor.capture());
+        Lyceum persisted = lyceumCaptor.getValue();
+        assertThat(persisted.getId()).isNull();
+        assertThat(persisted.getName()).isEqualTo("New Lyceum");
+        assertThat(persisted.getTown()).isEqualTo("Varna");
+        assertThat(persisted.getChitalishtaUrl()).isEqualTo("https://example.org");
+        assertThat(persisted.getStatus()).isEqualTo("Active");
+        assertThat(persisted.getBulstat()).isEqualTo("12345");
+        assertThat(persisted.getChairman()).isEqualTo("John Doe");
+        assertThat(persisted.getSecretary()).isEqualTo("Jane Doe");
+        assertThat(persisted.getPhone()).isEqualTo("123 456");
+        assertThat(persisted.getEmail()).isEqualTo("admin@example.org");
+        assertThat(persisted.getRegion()).isEqualTo("Region");
+        assertThat(persisted.getMunicipality()).isEqualTo("Municipality");
+        assertThat(persisted.getAddress()).isEqualTo("Address 1");
+        assertThat(persisted.getUrlToLibrariesSite()).isEqualTo("https://library.example.org");
+        assertThat(persisted.getRegistrationNumber()).isEqualTo(42);
+        assertThat(persisted.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
+
+        assertThat(response.getId()).isEqualTo(20L);
+        assertThat(response.getName()).isEqualTo("New Lyceum");
+        assertThat(response.getTown()).isEqualTo("Varna");
+        assertThat(response.getEmail()).isEqualTo("admin@example.org");
+        assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
+    }
+
+    @Test
+    void getLyceumByIdReturnsResponseWhenVerified() {
+        Lyceum lyceum = createLyceum(5L, "Lyceum", "Varna", "admin@example.com");
+        lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
+        when(lyceumRepository.findById(5L)).thenReturn(Optional.of(lyceum));
+
+        LyceumResponse response = lyceumService.getLyceumById(5L);
+
+        assertThat(response.getId()).isEqualTo(5L);
+        assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.VERIFIED);
+        verify(lyceumRepository).findById(5L);
+    }
+
+    @Test
+    void getLyceumByIdThrowsUnauthorizedWhenNotVerifiedAndAnonymous() {
+        Lyceum lyceum = createLyceum(6L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+        when(lyceumRepository.findById(6L)).thenReturn(Optional.of(lyceum));
+        SecurityContextHolder.clearContext();
+
+        assertThrows(UnauthorizedException.class, () -> lyceumService.getLyceumById(6L));
+    }
+
+    @Test
+    void getLyceumByIdThrowsAccessDeniedWhenNotVerifiedAndUserNotAdmin() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        User user = createUser(100L);
+        mockAuthenticatedUser(user);
+
+        assertThrows(AccessDeniedException.class, () -> lyceumService.getLyceumById(7L));
+    }
+
+    @Test
+    void getLyceumByIdReturnsResponseWhenAdminRequestsNonVerifiedLyceum() {
+        Lyceum lyceum = createLyceum(8L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
+        when(lyceumRepository.findById(8L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(200L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        LyceumResponse response = lyceumService.getLyceumById(8L);
+
+        assertThat(response.getId()).isEqualTo(8L);
+        assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
+        verify(lyceumRepository).findById(8L);
     }
 
     @Test
