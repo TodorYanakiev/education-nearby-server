@@ -69,6 +69,10 @@ public class LyceumService {
         return "You are now the administrator of " + lyceum.getName() + " in " + lyceum.getTown() + ".";
     }
 
+    public List<Lyceum> getVerifiedLyceums() {
+        return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED);
+    }
+
     private String normalize(String input) {
         if (input == null) return null;
         return input

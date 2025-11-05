@@ -71,6 +71,19 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getVerifiedLyceumsReturnsRepositoryResult() {
+        Lyceum verifiedLyceum = createLyceum(15L, "Verified Lyceum", "Sofia", "verified@example.com");
+        verifiedLyceum.setVerificationStatus(VerificationStatus.VERIFIED);
+        when(lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED))
+                .thenReturn(List.of(verifiedLyceum));
+
+        List<Lyceum> result = lyceumService.getVerifiedLyceums();
+
+        assertThat(result).containsExactly(verifiedLyceum);
+        verify(lyceumRepository).findAllByVerificationStatus(VerificationStatus.VERIFIED);
+    }
+
+    @Test
     void requestRightsReturnsMessageWhenLyceumEmailMissing() {
         Lyceum lyceum = createLyceum(10L, "Test Lyceum", "Sofia", null);
         LyceumRightsRequest request = LyceumRightsRequest.builder()

@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.services.LyceumService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
@@ -37,6 +40,19 @@ class LyceumControllerTest {
         verificationRequest = LyceumRightsVerificationRequest.builder()
                 .verificationCode("code")
                 .build();
+    }
+
+    @Test
+    void getVerifiedLyceumsReturnsServiceResponse() {
+        Lyceum lyceum = new Lyceum();
+        List<Lyceum> lyceums = List.of(lyceum);
+        when(lyceumService.getVerifiedLyceums()).thenReturn(lyceums);
+
+        ResponseEntity<List<Lyceum>> response = lyceumController.getVerifiedLyceums();
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lyceums);
+        verify(lyceumService).getVerifiedLyceums();
     }
 
     @Test
