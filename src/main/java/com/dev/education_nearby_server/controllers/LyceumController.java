@@ -22,6 +22,11 @@ public class LyceumController {
 
     private final LyceumService lyceumService;
 
+    @GetMapping
+    public ResponseEntity<List<Lyceum>> getAllLyceums() {
+        return ResponseEntity.ok(lyceumService.getAllLyceums());
+    }
+
     @GetMapping("/verified")
     public ResponseEntity<List<Lyceum>> getVerifiedLyceums() {
         return ResponseEntity.ok(lyceumService.getVerifiedLyceums());

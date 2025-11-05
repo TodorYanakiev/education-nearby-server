@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.config;
 
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.handlers.JwtAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -58,6 +59,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(WHITE_LIST_URL)
                                 .permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/verified").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .anyRequest()
                                 .authenticated()
                 )

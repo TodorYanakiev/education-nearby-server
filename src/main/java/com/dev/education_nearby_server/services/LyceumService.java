@@ -73,6 +73,10 @@ public class LyceumService {
         return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED);
     }
 
+    public List<Lyceum> getAllLyceums() {
+        return lyceumRepository.findAll();
+    }
+
     private String normalize(String input) {
         if (input == null) return null;
         return input
