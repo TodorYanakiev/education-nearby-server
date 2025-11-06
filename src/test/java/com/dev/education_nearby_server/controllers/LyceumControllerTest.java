@@ -138,6 +138,15 @@ class LyceumControllerTest {
     }
 
     @Test
+    void assignAdministratorReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.assignAdministrator(2L, 5L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).assignAdministrator(2L, 5L);
+    }
+
+    @Test
     void deleteLyceumReturnsNoContent() {
         ResponseEntity<Void> response = lyceumController.deleteLyceum(1L);
 

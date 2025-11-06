@@ -67,6 +67,15 @@ public class LyceumController {
         return ResponseEntity.ok(lyceumService.updateLyceum(id, request));
     }
 
+    @PutMapping("/{lyceumId}/administrators/{userId}")
+    public ResponseEntity<Void> assignAdministrator(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId
+    ) {
+        lyceumService.assignAdministrator(lyceumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteLyceum(@PathVariable Long id) {

@@ -174,6 +174,30 @@ public class LyceumService {
     }
 
     @Transactional
+    public void assignAdministrator(Long lyceumId, Long userId) {
+        Lyceum lyceum = lyceumRepository.findById(lyceumId)
+                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + lyceumId + " not found."));
+
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+
+        Lyceum administrated = user.getAdministratedLyceum();
+        if (administrated != null && !administrated.getId().equals(lyceumId)) {
+            throw new ConflictException("User already administrates another lyceum.");
+        }
+
+        user.setAdministratedLyceum(lyceum);
+        lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
+        syncAdministratorsCollection(lyceum, user);
+
+        userRepository.save(user);
+        lyceumRepository.save(lyceum);
+    }
+
+    @Transactional
     public void deleteLyceum(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
@@ -273,6 +297,17 @@ public class LyceumService {
         }
     }
 
+    private void syncAdministratorsCollection(Lyceum lyceum, User user) {
+        if (lyceum.getAdministrators() == null) {
+            lyceum.setAdministrators(new java.util.ArrayList<>());
+        }
+        boolean alreadyAdministrator = lyceum.getAdministrators().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(user.getId()));
+        if (!alreadyAdministrator) {
+            lyceum.getAdministrators().add(user);
+        }
+    }
+
     private Lyceum requireLyceum(Token token) {
         Lyceum lyceum = token.getLyceum();
         if (lyceum == null) {
@@ -291,6 +326,7 @@ public class LyceumService {
     private void assignLyceumAdministration(User user, Lyceum lyceum) {
         user.setAdministratedLyceum(lyceum);
         lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
+        syncAdministratorsCollection(lyceum, user);
         lyceumRepository.save(lyceum);
         userRepository.save(user);
     }

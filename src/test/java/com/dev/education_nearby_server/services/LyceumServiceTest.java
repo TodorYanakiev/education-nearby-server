@@ -7,6 +7,7 @@ import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
@@ -187,6 +188,73 @@ class LyceumServiceTest {
 
         assertThrows(AccessDeniedException.class, () -> lyceumService.updateLyceum(7L, request));
         verify(lyceumRepository, never()).save(any());
+    }
+
+    @Test
+    void assignAdministratorThrowsWhenCurrentUserNotAuthorized() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", null);
+        User current = createUser(1L);
+        mockAuthenticatedUser(current);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(current.getId())).thenReturn(Optional.of(current));
+
+        assertThrows(AccessDeniedException.class, () -> lyceumService.assignAdministrator(7L, 5L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void assignAdministratorThrowsWhenTargetUserMissing() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", null);
+        User admin = createUser(2L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> lyceumService.assignAdministrator(7L, 5L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void assignAdministratorThrowsWhenTargetAdministratesAnotherLyceum() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", null);
+        Lyceum otherLyceum = createLyceum(9L, "Other", "Sofia", null);
+        User admin = createUser(2L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        User target = createUser(5L);
+        target.setAdministratedLyceum(otherLyceum);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        assertThrows(ConflictException.class, () -> lyceumService.assignAdministrator(7L, target.getId()));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void assignAdministratorAllowsAdminUser() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", null);
+        User admin = createUser(2L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        User target = createUser(5L);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        lyceumService.assignAdministrator(7L, target.getId());
+
+        assertThat(target.getAdministratedLyceum()).isEqualTo(lyceum);
+        verify(userRepository).save(target);
+        verify(lyceumRepository).save(lyceum);
     }
 
     @Test

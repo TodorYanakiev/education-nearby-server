@@ -30,6 +30,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -282,6 +283,36 @@ class LyceumControllerIT {
                 .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."));
 
         verify(lyceumService).updateLyceum(eq(9L), any());
+    }
+
+    @Test
+    void assignAdministratorRequiresAuthentication() throws Exception {
+        mockMvc.perform(put("/api/v1/lyceums/3/administrators/7"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void assignAdministratorReturnsNoContentForAdmin() throws Exception {
+        mockMvc.perform(put("/api/v1/lyceums/3/administrators/7")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).assignAdministrator(3L, 7L);
+    }
+
+    @Test
+    void assignAdministratorForbiddenWhenServiceDeniesAccess() throws Exception {
+        doThrow(new AccessDeniedException("You do not have permission to modify this lyceum."))
+                .when(lyceumService).assignAdministrator(3L, 7L);
+
+        mockMvc.perform(put("/api/v1/lyceums/3/administrators/7")
+                        .with(user("tester").roles("USER")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."));
+
+        verify(lyceumService).assignAdministrator(3L, 7L);
     }
 
     @Test
