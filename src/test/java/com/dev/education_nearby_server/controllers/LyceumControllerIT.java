@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -148,6 +149,24 @@ class LyceumControllerIT {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void deleteLyceumRequiresAdminRole() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/7")
+                        .with(user("tester").roles("USER")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void deleteLyceumReturnsNoContentForAdmin() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/7")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).deleteLyceum(7L);
     }
 
     @Test

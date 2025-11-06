@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,5 +55,12 @@ public class LyceumController {
     @PostMapping("/verify-rights")
     public ResponseEntity<String> verifyRightsOverLyceum(@Valid @RequestBody LyceumRightsVerificationRequest request) {
         return ResponseEntity.ok(lyceumService.verifyRightsOverLyceum(request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteLyceum(@PathVariable Long id) {
+        lyceumService.deleteLyceum(id);
+        return ResponseEntity.noContent().build();
     }
 }

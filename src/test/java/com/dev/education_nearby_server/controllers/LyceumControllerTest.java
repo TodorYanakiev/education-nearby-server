@@ -120,4 +120,13 @@ class LyceumControllerTest {
         assertThat(response.getBody()).isEqualTo("verified");
         verify(lyceumService).verifyRightsOverLyceum(verificationRequest);
     }
+
+    @Test
+    void deleteLyceumReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.deleteLyceum(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).deleteLyceum(1L);
+    }
 }
