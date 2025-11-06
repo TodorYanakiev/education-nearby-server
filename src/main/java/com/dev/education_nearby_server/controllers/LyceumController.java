@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,6 +57,14 @@ public class LyceumController {
     @PostMapping("/verify-rights")
     public ResponseEntity<String> verifyRightsOverLyceum(@Valid @RequestBody LyceumRightsVerificationRequest request) {
         return ResponseEntity.ok(lyceumService.verifyRightsOverLyceum(request));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<LyceumResponse> updateLyceum(
+            @PathVariable Long id,
+            @Valid @RequestBody LyceumUpdateRequest request
+    ) {
+        return ResponseEntity.ok(lyceumService.updateLyceum(id, request));
     }
 
     @DeleteMapping("/{id}")

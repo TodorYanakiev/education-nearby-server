@@ -11,6 +11,7 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
@@ -127,6 +128,51 @@ public class LyceumService {
         return mapToResponse(savedLyceum);
     }
 
+    public LyceumResponse updateLyceum(Long id, LyceumUpdateRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Lyceum payload must not be null.");
+        }
+
+        Lyceum lyceum = lyceumRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
+
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        String name = normalize(request.getName());
+        String town = normalize(request.getTown());
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Lyceum name must not be blank.");
+        }
+        if (town == null || town.isBlank()) {
+            throw new BadRequestException("Lyceum town must not be blank.");
+        }
+
+        lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase(name, town)
+                .filter(existing -> !existing.getId().equals(id))
+                .ifPresent(existing -> {
+                    throw new ConflictException("Lyceum with the same name and town already exists.");
+                });
+
+        lyceum.setName(name);
+        lyceum.setChitalishtaUrl(normalize(request.getChitalishtaUrl()));
+        lyceum.setStatus(normalize(request.getStatus()));
+        lyceum.setBulstat(normalize(request.getBulstat()));
+        lyceum.setChairman(normalize(request.getChairman()));
+        lyceum.setSecretary(normalize(request.getSecretary()));
+        lyceum.setPhone(normalize(request.getPhone()));
+        lyceum.setEmail(normalize(request.getEmail()));
+        lyceum.setRegion(normalize(request.getRegion()));
+        lyceum.setMunicipality(normalize(request.getMunicipality()));
+        lyceum.setTown(town);
+        lyceum.setAddress(normalize(request.getAddress()));
+        lyceum.setUrlToLibrariesSite(normalize(request.getUrlToLibrariesSite()));
+        lyceum.setRegistrationNumber(request.getRegistrationNumber());
+
+        Lyceum updatedLyceum = lyceumRepository.save(lyceum);
+        return mapToResponse(updatedLyceum);
+    }
+
     @Transactional
     public void deleteLyceum(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
@@ -214,6 +260,16 @@ public class LyceumService {
     private void ensureTokenBelongsToUser(Token token, User user) {
         if (token.getUser() == null || !token.getUser().getId().equals(user.getId())) {
             throw new UnauthorizedException("You are not allowed to use this verification code.");
+        }
+    }
+
+    private void ensureUserCanModifyLyceum(User user, Lyceum lyceum) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+        Lyceum administrated = user.getAdministratedLyceum();
+        if (administrated == null || !administrated.getId().equals(lyceum.getId())) {
+            throw new AccessDeniedException("You do not have permission to modify this lyceum.");
         }
     }
 

@@ -1,14 +1,22 @@
 package com.dev.education_nearby_server.controllers;
 
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.entity.Lyceum;
+import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.LyceumRepository;
+import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.services.LyceumService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -28,6 +37,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,6 +54,18 @@ class LyceumControllerIT {
 
     @MockitoBean
     private LyceumService lyceumService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private LyceumRepository lyceumRepository;
+
+    @AfterEach
+    void cleanUpData() {
+        userRepository.deleteAll();
+        lyceumRepository.deleteAll();
+    }
 
     @Test
     void getVerifiedLyceumsReturnsServicePayload() throws Exception {
@@ -149,6 +171,117 @@ class LyceumControllerIT {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void updateLyceumRequiresAuthentication() throws Exception {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+
+        mockMvc.perform(put("/api/v1/lyceums/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void updateLyceumReturnsPayloadForAdmin() throws Exception {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        LyceumResponse response = LyceumResponse.builder()
+                .id(7L)
+                .name("Updated")
+                .town("Varna")
+                .build();
+        when(lyceumService.updateLyceum(eq(7L), any())).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/lyceums/7")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7L))
+                .andExpect(jsonPath("$.name").value("Updated"));
+
+        verify(lyceumService).updateLyceum(eq(7L), any());
+    }
+
+    @Test
+    void updateLyceumReturnsPayloadForLyceumAdministrator() throws Exception {
+        Lyceum lyceum = new Lyceum();
+        lyceum.setName("Lyceum");
+        lyceum.setTown("Varna");
+        lyceum = lyceumRepository.save(lyceum);
+
+        User user = User.builder()
+                .firstname("Test")
+                .lastname("User")
+                .email("lyc-admin@example.com")
+                .username("lyc-admin")
+                .password("password123")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        user.setAdministratedLyceum(lyceum);
+        userRepository.save(user);
+
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        LyceumResponse response = LyceumResponse.builder()
+                .id(lyceum.getId())
+                .name("Updated")
+                .town("Varna")
+                .build();
+        when(lyceumService.updateLyceum(eq(lyceum.getId()), any())).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/lyceums/" + lyceum.getId())
+                        .with(user("lyc-admin").roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(lyceum.getId()))
+                .andExpect(jsonPath("$.name").value("Updated"));
+
+        verify(lyceumService).updateLyceum(eq(lyceum.getId()), any());
+    }
+
+    @Test
+    void updateLyceumForbiddenForNonAdministratingUser() throws Exception {
+        User user = User.builder()
+                .firstname("Test")
+                .lastname("User")
+                .email("regular@example.com")
+                .username("regular")
+                .password("password123")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        userRepository.save(user);
+
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+
+        when(lyceumService.updateLyceum(eq(9L), any()))
+                .thenThrow(new AccessDeniedException("You do not have permission to modify this lyceum."));
+
+        mockMvc.perform(put("/api/v1/lyceums/9")
+                        .with(user("regular").roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."));
+
+        verify(lyceumService).updateLyceum(eq(9L), any());
     }
 
     @Test

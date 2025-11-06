@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import org.junit.jupiter.api.BeforeEach;
@@ -119,6 +120,21 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo("verified");
         verify(lyceumService).verifyRightsOverLyceum(verificationRequest);
+    }
+
+    @Test
+    void updateLyceumReturnsServiceResponse() {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        when(lyceumService.updateLyceum(1L, request)).thenReturn(lyceumResponse);
+
+        ResponseEntity<LyceumResponse> response = lyceumController.updateLyceum(1L, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lyceumResponse);
+        verify(lyceumService).updateLyceum(1L, request);
     }
 
     @Test

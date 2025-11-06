@@ -10,6 +10,7 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
@@ -105,6 +106,87 @@ class LyceumServiceTest {
         assertThat(response.getTown()).isEqualTo("Varna");
         assertThat(response.getEmail()).isEqualTo("contact@example.com");
         verify(lyceumRepository).findAll();
+    }
+
+    @Test
+    void updateLyceumThrowsWhenUnauthenticated() {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", null);
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+
+        assertThrows(UnauthorizedException.class, () -> lyceumService.updateLyceum(7L, request));
+        verify(lyceumRepository, never()).save(any());
+    }
+
+    @Test
+    void updateLyceumAllowsAdminUser() {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", null);
+
+        User admin = createUser(10L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Updated", "Varna"))
+                .thenReturn(Optional.empty());
+        when(lyceumRepository.save(existing)).thenReturn(existing);
+
+        LyceumResponse response = lyceumService.updateLyceum(7L, request);
+
+        assertThat(response.getId()).isEqualTo(7L);
+        assertThat(existing.getName()).isEqualTo("Updated");
+        verify(lyceumRepository).save(existing);
+    }
+
+    @Test
+    void updateLyceumAllowsLyceumAdministrator() {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", null);
+
+        User user = createUser(11L);
+        user.setAdministratedLyceum(existing);
+        mockAuthenticatedUser(user);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Updated", "Varna"))
+                .thenReturn(Optional.empty());
+        when(lyceumRepository.save(existing)).thenReturn(existing);
+
+        LyceumResponse response = lyceumService.updateLyceum(7L, request);
+
+        assertThat(response.getId()).isEqualTo(7L);
+        assertThat(existing.getName()).isEqualTo("Updated");
+        verify(lyceumRepository).save(existing);
+    }
+
+    @Test
+    void updateLyceumThrowsWhenUserNotAdministrator() {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", null);
+
+        User user = createUser(12L);
+        mockAuthenticatedUser(user);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(AccessDeniedException.class, () -> lyceumService.updateLyceum(7L, request));
+        verify(lyceumRepository, never()).save(any());
     }
 
     @Test
