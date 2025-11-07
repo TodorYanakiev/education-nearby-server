@@ -86,6 +86,19 @@ class LyceumControllerTest {
     }
 
     @Test
+    void filterLyceumsReturnsServiceResponse() {
+        List<LyceumResponse> lyceums = List.of(lyceumResponse);
+        when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 3)).thenReturn(lyceums);
+
+        ResponseEntity<List<LyceumResponse>> response =
+                lyceumController.filterLyceums("Varna", 42.5, 23.3, 3);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lyceums);
+        verify(lyceumService).filterLyceums("Varna", 42.5, 23.3, 3);
+    }
+
+    @Test
     void requestRightsReturnsServiceResponse() {
         when(lyceumService.requestRightsOverLyceum(rightsRequest)).thenReturn("ok");
 

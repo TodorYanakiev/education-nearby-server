@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -42,6 +43,16 @@ public class LyceumController {
     @GetMapping("/{id}")
     public ResponseEntity<LyceumResponse> getLyceumById(@PathVariable Long id) {
         return ResponseEntity.ok(lyceumService.getLyceumById(id));
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<List<LyceumResponse>> filterLyceums(
+            @RequestParam(required = false) String town,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ResponseEntity.ok(lyceumService.filterLyceums(town, latitude, longitude, limit));
     }
 
     @PostMapping("/request-rights")

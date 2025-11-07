@@ -26,6 +26,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -90,6 +91,8 @@ class LyceumServiceTest {
         assertThat(response.getName()).isEqualTo("Verified Lyceum");
         assertThat(response.getTown()).isEqualTo("Sofia");
         assertThat(response.getEmail()).isEqualTo("verified@example.com");
+        assertThat(response.getLongitude()).isEqualTo(23.5);
+        assertThat(response.getLatitude()).isEqualTo(42.7);
         verify(lyceumRepository).findAllByVerificationStatus(VerificationStatus.VERIFIED);
     }
 
@@ -106,7 +109,80 @@ class LyceumServiceTest {
         assertThat(response.getName()).isEqualTo("Lyceum");
         assertThat(response.getTown()).isEqualTo("Varna");
         assertThat(response.getEmail()).isEqualTo("contact@example.com");
+        assertThat(response.getLongitude()).isEqualTo(23.5);
+        assertThat(response.getLatitude()).isEqualTo(42.7);
         verify(lyceumRepository).findAll();
+    }
+
+    @Test
+    void filterLyceumsDelegatesToRepositoryWithPagination() {
+        Lyceum lyceum = createLyceum(30L, "Central", "Varna", "central@example.com");
+        lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
+        when(lyceumRepository.filterLyceums(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(lyceum));
+
+        ArgumentCaptor<String> townCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Double> latCaptor = ArgumentCaptor.forClass(Double.class);
+        ArgumentCaptor<Double> lonCaptor = ArgumentCaptor.forClass(Double.class);
+        ArgumentCaptor<String> statusCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        List<LyceumResponse> result = lyceumService.filterLyceums("Varna", 42.5, 23.3, 2);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getName()).isEqualTo("Central");
+
+        verify(lyceumRepository).filterLyceums(
+                townCaptor.capture(),
+                latCaptor.capture(),
+                lonCaptor.capture(),
+                statusCaptor.capture(),
+                pageableCaptor.capture()
+        );
+        assertThat(townCaptor.getValue()).isEqualTo("Varna");
+        assertThat(latCaptor.getValue()).isEqualTo(42.5);
+        assertThat(lonCaptor.getValue()).isEqualTo(23.3);
+        assertThat(statusCaptor.getValue()).isEqualTo(VerificationStatus.VERIFIED.name());
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(2);
+    }
+
+    @Test
+    void filterLyceumsTreatsBlankTownAsNullAndUnpaged() {
+        when(lyceumRepository.filterLyceums(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        ArgumentCaptor<String> townCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Double> latCaptor = ArgumentCaptor.forClass(Double.class);
+        ArgumentCaptor<Double> lonCaptor = ArgumentCaptor.forClass(Double.class);
+        ArgumentCaptor<String> statusCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        lyceumService.filterLyceums("   ", null, null, null);
+
+        verify(lyceumRepository).filterLyceums(
+                townCaptor.capture(),
+                latCaptor.capture(),
+                lonCaptor.capture(),
+                statusCaptor.capture(),
+                pageableCaptor.capture()
+        );
+        assertThat(townCaptor.getValue()).isNull();
+        assertThat(latCaptor.getValue()).isNull();
+        assertThat(lonCaptor.getValue()).isNull();
+        assertThat(statusCaptor.getValue()).isEqualTo(VerificationStatus.VERIFIED.name());
+        assertThat(pageableCaptor.getValue().isPaged()).isFalse();
+    }
+
+    @Test
+    void filterLyceumsThrowsWhenCoordinatesIncomplete() {
+        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", 42.5, null, 3));
+        verify(lyceumRepository, never()).filterLyceums(any(), any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void filterLyceumsThrowsWhenLimitNonPositive() {
+        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", null, null, 0));
+        verify(lyceumRepository, never()).filterLyceums(any(), any(), any(), any(), any(Pageable.class));
     }
 
     @Test
@@ -170,6 +246,32 @@ class LyceumServiceTest {
         assertThat(response.getId()).isEqualTo(7L);
         assertThat(existing.getName()).isEqualTo("Updated");
         verify(lyceumRepository).save(existing);
+    }
+
+    @Test
+    void updateLyceumPreservesOptionalFieldsWhenNotProvided() {
+        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", "contact@example.com");
+
+        User admin = createUser(13L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Updated", "Varna"))
+                .thenReturn(Optional.empty());
+        when(lyceumRepository.save(existing)).thenReturn(existing);
+
+        lyceumService.updateLyceum(7L, request);
+
+        assertThat(existing.getBulstat()).isEqualTo("123456789");
+        assertThat(existing.getEmail()).isEqualTo("contact@example.com");
+        assertThat(existing.getLongitude()).isEqualTo(23.5);
+        assertThat(existing.getLatitude()).isEqualTo(42.7);
     }
 
     @Test
@@ -253,6 +355,9 @@ class LyceumServiceTest {
         lyceumService.assignAdministrator(7L, target.getId());
 
         assertThat(target.getAdministratedLyceum()).isEqualTo(lyceum);
+        assertThat(lyceum.getAdministrators())
+                .extracting(User::getId)
+                .contains(target.getId());
         verify(userRepository).save(target);
         verify(lyceumRepository).save(lyceum);
     }
@@ -315,11 +420,15 @@ class LyceumServiceTest {
                 .address("  Address 1 ")
                 .urlToLibrariesSite(" https://library.example.org ")
                 .registrationNumber(42)
+                .longitude(23.456)
+                .latitude(43.21)
                 .build();
         when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("New Lyceum", "Varna"))
                 .thenReturn(Optional.empty());
         ArgumentCaptor<Lyceum> lyceumCaptor = ArgumentCaptor.forClass(Lyceum.class);
         Lyceum saved = createLyceum(20L, "New Lyceum", "Varna", "admin@example.org");
+        saved.setLongitude(23.456);
+        saved.setLatitude(43.21);
         when(lyceumRepository.save(any(Lyceum.class))).thenReturn(saved);
 
         LyceumResponse response = lyceumService.createLyceum(request);
@@ -341,12 +450,16 @@ class LyceumServiceTest {
         assertThat(persisted.getAddress()).isEqualTo("Address 1");
         assertThat(persisted.getUrlToLibrariesSite()).isEqualTo("https://library.example.org");
         assertThat(persisted.getRegistrationNumber()).isEqualTo(42);
+        assertThat(persisted.getLongitude()).isEqualTo(23.456);
+        assertThat(persisted.getLatitude()).isEqualTo(43.21);
         assertThat(persisted.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
 
         assertThat(response.getId()).isEqualTo(20L);
         assertThat(response.getName()).isEqualTo("New Lyceum");
         assertThat(response.getTown()).isEqualTo("Varna");
         assertThat(response.getEmail()).isEqualTo("admin@example.org");
+        assertThat(response.getLongitude()).isEqualTo(23.456);
+        assertThat(response.getLatitude()).isEqualTo(43.21);
         assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
     }
 
@@ -778,6 +891,19 @@ class LyceumServiceTest {
         lyceum.setName(name);
         lyceum.setTown(town);
         lyceum.setEmail(email);
+        lyceum.setChitalishtaUrl("http://example.com");
+        lyceum.setStatus("Active");
+        lyceum.setBulstat("123456789");
+        lyceum.setChairman("Chairman");
+        lyceum.setSecretary("Secretary");
+        lyceum.setPhone("+359123456");
+        lyceum.setRegion("Region");
+        lyceum.setMunicipality("Municipality");
+        lyceum.setAddress("Some address");
+        lyceum.setUrlToLibrariesSite("http://library.example.com");
+        lyceum.setRegistrationNumber(42);
+        lyceum.setLongitude(23.5);
+        lyceum.setLatitude(42.7);
         lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
         return lyceum;
     }

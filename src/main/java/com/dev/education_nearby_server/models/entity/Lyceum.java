@@ -62,6 +62,10 @@ public class Lyceum implements Serializable {
 
     private Integer registrationNumber;
 
+    private Double longitude;
+
+    private Double latitude;
+
     @Enumerated(EnumType.STRING)
     private VerificationStatus verificationStatus = VerificationStatus.NOT_VERIFIED;
 

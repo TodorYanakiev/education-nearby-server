@@ -29,5 +29,7 @@ public class LyceumResponse {
     private String address;
     private String urlToLibrariesSite;
     private Integer registrationNumber;
+    private Double longitude;
+    private Double latitude;
     private VerificationStatus verificationStatus;
 }

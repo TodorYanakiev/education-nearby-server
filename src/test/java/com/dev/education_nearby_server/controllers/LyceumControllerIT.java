@@ -143,6 +143,37 @@ class LyceumControllerIT {
     }
 
     @Test
+    void filterLyceumsReturnsServicePayload() throws Exception {
+        LyceumResponse response = LyceumResponse.builder()
+                .id(10L)
+                .name("Nearby Lyceum")
+                .town("Varna")
+                .build();
+        when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 3)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/lyceums/filter")
+                        .param("town", "Varna")
+                        .param("latitude", "42.5")
+                        .param("longitude", "23.3")
+                        .param("limit", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(10L))
+                .andExpect(jsonPath("$[0].name").value("Nearby Lyceum"));
+
+        verify(lyceumService).filterLyceums("Varna", 42.5, 23.3, 3);
+    }
+
+    @Test
+    void filterLyceumsWorksWithoutParams() throws Exception {
+        when(lyceumService.filterLyceums(null, null, null, null)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/lyceums/filter"))
+                .andExpect(status().isOk());
+
+        verify(lyceumService).filterLyceums(null, null, null, null);
+    }
+
+    @Test
     void createLyceumRequiresAdminRole() throws Exception {
         LyceumCreateRequest request = LyceumCreateRequest.builder()
                 .name("Lyceum")

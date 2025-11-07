@@ -45,4 +45,8 @@ public class LyceumCreateRequest {
     private String urlToLibrariesSite;
 
     private Integer registrationNumber;
+
+    private Double longitude;
+
+    private Double latitude;
 }

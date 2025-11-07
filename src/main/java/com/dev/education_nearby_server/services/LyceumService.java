@@ -20,15 +20,19 @@ import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +42,8 @@ public class LyceumService {
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
+    private static final String NOT_FOUND_MESSAGE = " not found.";
 
     public String requestRightsOverLyceum(LyceumRightsRequest request) {
         String normalizedName = normalize(request.getLyceumName());
@@ -90,6 +96,31 @@ public class LyceumService {
                 .toList();
     }
 
+    public List<LyceumResponse> filterLyceums(String town, Double latitude, Double longitude, Integer limit) {
+        String normalizedTown = normalize(town);
+        if (normalizedTown != null && normalizedTown.isBlank()) {
+            normalizedTown = null;
+        }
+        if ((latitude == null) != (longitude == null)) {
+            throw new BadRequestException("Both latitude and longitude must be provided to filter by location.");
+        }
+        if (limit != null && limit <= 0) {
+            throw new BadRequestException("Limit must be greater than zero.");
+        }
+
+        Pageable pageable = limit != null ? PageRequest.of(0, limit) : Pageable.unpaged();
+        List<Lyceum> lyceums = lyceumRepository.filterLyceums(
+                normalizedTown,
+                latitude,
+                longitude,
+                VerificationStatus.VERIFIED.name(),
+                pageable
+        );
+        return lyceums.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     public LyceumResponse createLyceum(LyceumCreateRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -122,6 +153,8 @@ public class LyceumService {
         lyceum.setAddress(normalize(request.getAddress()));
         lyceum.setUrlToLibrariesSite(normalize(request.getUrlToLibrariesSite()));
         lyceum.setRegistrationNumber(request.getRegistrationNumber());
+        lyceum.setLongitude(request.getLongitude());
+        lyceum.setLatitude(request.getLatitude());
         lyceum.setVerificationStatus(VerificationStatus.NOT_VERIFIED);
 
         Lyceum savedLyceum = lyceumRepository.save(lyceum);
@@ -134,7 +167,7 @@ public class LyceumService {
         }
 
         Lyceum lyceum = lyceumRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));
 
         User currentUser = getManagedCurrentUser();
         ensureUserCanModifyLyceum(currentUser, lyceum);
@@ -155,19 +188,27 @@ public class LyceumService {
                 });
 
         lyceum.setName(name);
-        lyceum.setChitalishtaUrl(normalize(request.getChitalishtaUrl()));
-        lyceum.setStatus(normalize(request.getStatus()));
-        lyceum.setBulstat(normalize(request.getBulstat()));
-        lyceum.setChairman(normalize(request.getChairman()));
-        lyceum.setSecretary(normalize(request.getSecretary()));
-        lyceum.setPhone(normalize(request.getPhone()));
-        lyceum.setEmail(normalize(request.getEmail()));
-        lyceum.setRegion(normalize(request.getRegion()));
-        lyceum.setMunicipality(normalize(request.getMunicipality()));
         lyceum.setTown(town);
-        lyceum.setAddress(normalize(request.getAddress()));
-        lyceum.setUrlToLibrariesSite(normalize(request.getUrlToLibrariesSite()));
-        lyceum.setRegistrationNumber(request.getRegistrationNumber());
+        applyOptionalString(request.getChitalishtaUrl(), lyceum::setChitalishtaUrl);
+        applyOptionalString(request.getStatus(), lyceum::setStatus);
+        applyOptionalString(request.getBulstat(), lyceum::setBulstat);
+        applyOptionalString(request.getChairman(), lyceum::setChairman);
+        applyOptionalString(request.getSecretary(), lyceum::setSecretary);
+        applyOptionalString(request.getPhone(), lyceum::setPhone);
+        applyOptionalString(request.getEmail(), lyceum::setEmail);
+        applyOptionalString(request.getRegion(), lyceum::setRegion);
+        applyOptionalString(request.getMunicipality(), lyceum::setMunicipality);
+        applyOptionalString(request.getAddress(), lyceum::setAddress);
+        applyOptionalString(request.getUrlToLibrariesSite(), lyceum::setUrlToLibrariesSite);
+        if (request.getRegistrationNumber() != null) {
+            lyceum.setRegistrationNumber(request.getRegistrationNumber());
+        }
+        if (request.getLongitude() != null) {
+            lyceum.setLongitude(request.getLongitude());
+        }
+        if (request.getLatitude() != null) {
+            lyceum.setLatitude(request.getLatitude());
+        }
 
         Lyceum updatedLyceum = lyceumRepository.save(lyceum);
         return mapToResponse(updatedLyceum);
@@ -176,13 +217,13 @@ public class LyceumService {
     @Transactional
     public void assignAdministrator(Long lyceumId, Long userId) {
         Lyceum lyceum = lyceumRepository.findById(lyceumId)
-                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + lyceumId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + lyceumId + NOT_FOUND_MESSAGE));
 
         User currentUser = getManagedCurrentUser();
         ensureUserCanModifyLyceum(currentUser, lyceum);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + NOT_FOUND_MESSAGE));
 
         Lyceum administrated = user.getAdministratedLyceum();
         if (administrated != null && !administrated.getId().equals(lyceumId)) {
@@ -200,7 +241,7 @@ public class LyceumService {
     @Transactional
     public void deleteLyceum(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));
 
         List<User> administrators = userRepository.findAllByAdministratedLyceum_Id(id);
         if (!administrators.isEmpty()) {
@@ -213,7 +254,7 @@ public class LyceumService {
 
     public LyceumResponse getLyceumById(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + id + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));
         if (lyceum.getVerificationStatus() != VerificationStatus.VERIFIED) {
             User currentUser = getCurrentUser()
                     .orElseThrow(() -> new UnauthorizedException("You must be authenticated to access this lyceum."));
@@ -299,7 +340,7 @@ public class LyceumService {
 
     private void syncAdministratorsCollection(Lyceum lyceum, User user) {
         if (lyceum.getAdministrators() == null) {
-            lyceum.setAdministrators(new java.util.ArrayList<>());
+            lyceum.setAdministrators(new ArrayList<>());
         }
         boolean alreadyAdministrator = lyceum.getAdministrators().stream()
                 .anyMatch(existing -> existing.getId() != null && existing.getId().equals(user.getId()));
@@ -374,6 +415,12 @@ public class LyceumService {
         tokenRepository.saveAll(activeTokens);
     }
 
+    private void applyOptionalString(String value, Consumer<String> setter) {
+        if (value != null) {
+            setter.accept(normalize(value));
+        }
+    }
+
     private LyceumResponse mapToResponse(Lyceum lyceum) {
         if (lyceum == null) {
             return null;
@@ -394,6 +441,8 @@ public class LyceumService {
                 .address(lyceum.getAddress())
                 .urlToLibrariesSite(lyceum.getUrlToLibrariesSite())
                 .registrationNumber(lyceum.getRegistrationNumber())
+                .longitude(lyceum.getLongitude())
+                .latitude(lyceum.getLatitude())
                 .verificationStatus(lyceum.getVerificationStatus())
                 .build();
     }
