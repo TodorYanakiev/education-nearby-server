@@ -19,4 +19,6 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
 
     @Query("select t from Token t where t.tokenValue = :token")
     Optional<Token> findByToken(@Param("token") String token);
+
+    void deleteAllByLyceum_Id(Long lyceumId);
 }

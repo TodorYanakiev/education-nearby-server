@@ -865,6 +865,27 @@ class LyceumServiceTest {
         assertEquals(token, savedToken);
     }
 
+    @Test
+    void deleteLyceumRemovesTokensAndUnlinksAdministrators() {
+        Lyceum lyceum = createLyceum(5L, "Lyceum", "Varna", "mail@example.com");
+        User admin = createUser(10L);
+        admin.setAdministratedLyceum(lyceum);
+
+        when(lyceumRepository.findById(5L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findAllByAdministratedLyceum_Id(5L)).thenReturn(List.of(admin));
+
+        lyceumService.deleteLyceum(5L);
+
+        ArgumentCaptor<List<User>> usersCaptor = ArgumentCaptor.forClass(List.class);
+        verify(userRepository).saveAll(usersCaptor.capture());
+        List<User> savedUsers = usersCaptor.getValue();
+        assertThat(savedUsers).containsExactly(admin);
+        assertThat(savedUsers.getFirst().getAdministratedLyceum()).isNull();
+
+        verify(tokenRepository).deleteAllByLyceum_Id(5L);
+        verify(lyceumRepository).delete(lyceum);
+    }
+
     private void mockAuthenticatedUser(User user) {
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());

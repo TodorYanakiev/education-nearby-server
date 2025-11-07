@@ -248,6 +248,7 @@ public class LyceumService {
             userRepository.saveAll(administrators);
         }
 
+        tokenRepository.deleteAllByLyceum_Id(id);
         lyceumRepository.delete(lyceum);
     }
 
