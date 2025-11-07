@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.config;
 
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.handlers.JwtAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -9,10 +10,18 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.Customizer;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
@@ -21,6 +30,8 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @RequiredArgsConstructor
 @EnableMethodSecurity
 public class SecurityConfiguration {
+
+    private static final String API_V1_LYCEUMS = "/api/v1/lyceums/*";
 
     private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
             "/v2/api-docs",
@@ -42,10 +53,20 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(req ->
-                        req.requestMatchers(WHITE_LIST_URL)
+                        req
+                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                                .requestMatchers(WHITE_LIST_URL)
                                 .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/verified").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/filter").permitAll()
+                                .requestMatchers(HttpMethod.GET, API_V1_LYCEUMS).permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
+                                .requestMatchers(HttpMethod.PUT, API_V1_LYCEUMS).authenticated()
+                                .requestMatchers(HttpMethod.DELETE, API_V1_LYCEUMS).hasRole(Role.ADMIN.name())
                                 .anyRequest()
                                 .authenticated()
                 )
@@ -63,5 +84,20 @@ public class SecurityConfiguration {
         ;
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // Adjust origins as needed; patterns allow flexible matching across environments
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        configuration.setAllowCredentials(false);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

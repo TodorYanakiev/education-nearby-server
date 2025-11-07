@@ -54,4 +54,8 @@ public class Token implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     public User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lyceum_id")
+    private Lyceum lyceum;
 }

@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.config.JwtService;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
@@ -219,11 +220,13 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void refreshTokenDoesNothingWhenHeaderMissing() throws IOException {
+    void refreshTokenDoesNothingWhenHeaderMissing() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        authenticationService.refreshToken(request, response);
+        UnauthorizedException ex = assertThrows(UnauthorizedException.class,
+                () -> authenticationService.refreshToken(request, response));
+        assertThat(ex.getMessage()).isEqualTo("Missing or invalid refresh token");
 
         verifyNoInteractions(jwtService, tokenRepository);
     }
