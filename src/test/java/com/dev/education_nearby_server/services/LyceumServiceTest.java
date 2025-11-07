@@ -6,12 +6,11 @@ import com.dev.education_nearby_server.enums.VerificationStatus;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
-import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
-import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
+import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
-import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
@@ -187,7 +186,7 @@ class LyceumServiceTest {
 
     @Test
     void updateLyceumThrowsWhenUnauthenticated() {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -200,7 +199,7 @@ class LyceumServiceTest {
 
     @Test
     void updateLyceumAllowsAdminUser() {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -225,7 +224,7 @@ class LyceumServiceTest {
 
     @Test
     void updateLyceumAllowsLyceumAdministrator() {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -250,7 +249,7 @@ class LyceumServiceTest {
 
     @Test
     void updateLyceumPreservesOptionalFieldsWhenNotProvided() {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -276,7 +275,7 @@ class LyceumServiceTest {
 
     @Test
     void updateLyceumThrowsWhenUserNotAdministrator() {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -370,7 +369,7 @@ class LyceumServiceTest {
 
     @Test
     void createLyceumThrowsWhenNameBlank() {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("  ")
                 .town("Varna")
                 .build();
@@ -381,7 +380,7 @@ class LyceumServiceTest {
 
     @Test
     void createLyceumThrowsWhenTownBlank() {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Lyceum")
                 .town(" ")
                 .build();
@@ -392,7 +391,7 @@ class LyceumServiceTest {
 
     @Test
     void createLyceumThrowsWhenDuplicateExists() {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Lyceum")
                 .town("Varna")
                 .build();
@@ -405,7 +404,7 @@ class LyceumServiceTest {
 
     @Test
     void createLyceumNormalizesAndSavesEntity() {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("  New Lyceum ")
                 .town("  Varna ")
                 .chitalishtaUrl("  https://example.org  ")

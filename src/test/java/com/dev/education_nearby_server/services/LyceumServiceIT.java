@@ -7,7 +7,7 @@ import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
-import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
@@ -64,7 +64,7 @@ class LyceumServiceIT {
 
     @Test
     void createLyceumPersistsEntityAndReturnsResponse() {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("New Lyceum")
                 .town("Varna")
                 .email("contact@example.org")
@@ -87,7 +87,7 @@ class LyceumServiceIT {
     @Test
     void createLyceumRejectsDuplicates() {
         persistLyceum("Duplicate", "Varna", "mail@example.org");
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Duplicate")
                 .town("Varna")
                 .build();

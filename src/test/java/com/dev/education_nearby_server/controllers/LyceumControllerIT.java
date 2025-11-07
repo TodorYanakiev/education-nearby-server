@@ -1,14 +1,13 @@
 package com.dev.education_nearby_server.controllers;
 
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
-import com.dev.education_nearby_server.enums.Role;
-import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
-import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
@@ -175,7 +174,7 @@ class LyceumControllerIT {
 
     @Test
     void createLyceumRequiresAdminRole() throws Exception {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Lyceum")
                 .town("Varna")
                 .build();
@@ -191,7 +190,7 @@ class LyceumControllerIT {
 
     @Test
     void createLyceumValidatesInput() throws Exception {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("")
                 .town("")
                 .build();
@@ -207,7 +206,7 @@ class LyceumControllerIT {
 
     @Test
     void updateLyceumRequiresAuthentication() throws Exception {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -222,7 +221,7 @@ class LyceumControllerIT {
 
     @Test
     void updateLyceumReturnsPayloadForAdmin() throws Exception {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -263,7 +262,7 @@ class LyceumControllerIT {
         user.setAdministratedLyceum(lyceum);
         userRepository.save(user);
 
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();
@@ -298,7 +297,7 @@ class LyceumControllerIT {
                 .build();
         userRepository.save(user);
 
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();

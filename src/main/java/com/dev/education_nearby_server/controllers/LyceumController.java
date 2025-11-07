@@ -1,9 +1,8 @@
 package com.dev.education_nearby_server.controllers;
 
-import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
-import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import jakarta.validation.Valid;
@@ -61,7 +60,7 @@ public class LyceumController {
     }
 
     @PostMapping
-    public ResponseEntity<LyceumResponse> createLyceum(@Valid @RequestBody LyceumCreateRequest request) {
+    public ResponseEntity<LyceumResponse> createLyceum(@Valid @RequestBody LyceumRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(lyceumService.createLyceum(request));
     }
 
@@ -73,7 +72,7 @@ public class LyceumController {
     @PutMapping("/{id}")
     public ResponseEntity<LyceumResponse> updateLyceum(
             @PathVariable Long id,
-            @Valid @RequestBody LyceumUpdateRequest request
+            @Valid @RequestBody LyceumRequest request
     ) {
         return ResponseEntity.ok(lyceumService.updateLyceum(id, request));
     }

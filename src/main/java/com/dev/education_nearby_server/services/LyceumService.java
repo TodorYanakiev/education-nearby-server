@@ -8,10 +8,9 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
-import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
-import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
@@ -121,7 +120,7 @@ public class LyceumService {
                 .toList();
     }
 
-    public LyceumResponse createLyceum(LyceumCreateRequest request) {
+    public LyceumResponse createLyceum(LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
         }
@@ -161,7 +160,7 @@ public class LyceumService {
         return mapToResponse(savedLyceum);
     }
 
-    public LyceumResponse updateLyceum(Long id, LyceumUpdateRequest request) {
+    public LyceumResponse updateLyceum(Long id, LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
         }

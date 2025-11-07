@@ -1,9 +1,8 @@
 package com.dev.education_nearby_server.controllers;
 
-import com.dev.education_nearby_server.models.dto.request.LyceumCreateRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
-import com.dev.education_nearby_server.models.dto.request.LyceumUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import org.junit.jupiter.api.BeforeEach;
@@ -111,7 +110,7 @@ class LyceumControllerTest {
 
     @Test
     void createLyceumReturnsCreatedResponse() {
-        LyceumCreateRequest request = LyceumCreateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Lyceum")
                 .town("Varna")
                 .build();
@@ -137,7 +136,7 @@ class LyceumControllerTest {
 
     @Test
     void updateLyceumReturnsServiceResponse() {
-        LyceumUpdateRequest request = LyceumUpdateRequest.builder()
+        LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
                 .town("Varna")
                 .build();

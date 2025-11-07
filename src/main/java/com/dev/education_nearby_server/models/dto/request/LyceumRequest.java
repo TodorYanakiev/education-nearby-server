@@ -13,7 +13,7 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LyceumCreateRequest {
+public class LyceumRequest {
 
     @NotBlank(message = "Lyceum name must not be blank.")
     private String name;
