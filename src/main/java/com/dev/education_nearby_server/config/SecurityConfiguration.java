@@ -31,6 +31,8 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @EnableMethodSecurity
 public class SecurityConfiguration {
 
+    private static final String API_V1_LYCEUMS = "/api/v1/lyceums/*";
+
     private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
             "/v2/api-docs",
             "/v3/api-docs",
@@ -60,11 +62,11 @@ public class SecurityConfiguration {
                                 .permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/verified").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/filter").permitAll()
-                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*").permitAll()
+                                .requestMatchers(HttpMethod.GET, API_V1_LYCEUMS).permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
-                                .requestMatchers(HttpMethod.PUT, "/api/v1/lyceums/*").authenticated()
-                                .requestMatchers(HttpMethod.DELETE, "/api/v1/lyceums/*").hasRole(Role.ADMIN.name())
+                                .requestMatchers(HttpMethod.PUT, API_V1_LYCEUMS).authenticated()
+                                .requestMatchers(HttpMethod.DELETE, API_V1_LYCEUMS).hasRole(Role.ADMIN.name())
                                 .anyRequest()
                                 .authenticated()
                 )
