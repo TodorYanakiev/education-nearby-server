@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -65,6 +66,9 @@ public class User implements UserDetails {
     @ManyToOne
     @JoinColumn(name = "administrated_lyceum_id")
     private Lyceum administratedLyceum;
+
+    @ManyToMany(mappedBy = "lecturers")
+    private List<Course> coursesLectured;
 
     @NotNull
     @Enumerated(EnumType.STRING)

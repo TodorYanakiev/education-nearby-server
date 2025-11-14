@@ -71,4 +71,7 @@ public class Lyceum implements Serializable {
 
     @OneToMany(mappedBy = "administratedLyceum")
     private List<User> administrators = new ArrayList<>();
+
+    @OneToMany(mappedBy = "lyceum")
+    private List<Course> courses;
 }
