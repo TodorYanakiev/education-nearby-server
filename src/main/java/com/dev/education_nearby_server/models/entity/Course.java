@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -15,13 +17,17 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +37,7 @@ import java.util.Optional;
 @Getter
 @Setter
 @Table(name="courses")
-public class Course {
+public class Course implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
@@ -44,10 +50,16 @@ public class Course {
     private String description;
 
     @NotNull(message = "Type should not be null!")
+    @Enumerated(EnumType.STRING)
     private CourseType type;
 
     @NotNull(message = "Age group list should not be null!")
-    private List<AgeGroup> ageGroupList;
+    @ElementCollection
+    @CollectionTable(name = "course_age_groups", joinColumns = @JoinColumn(name = "course_id"))
+    @Column(name = "age_group", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @OrderColumn(name = "age_group_order")
+    private List<AgeGroup> ageGroupList = new ArrayList<>();
 
     @Embedded
     private CourseSchedule schedule = new CourseSchedule();
@@ -70,7 +82,7 @@ public class Course {
             joinColumns = @JoinColumn(name =  "course_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
-    private List<User> lecturers;
+    private List<User> lecturers = new ArrayList<>();
 
     private String achievements;
 

@@ -40,7 +40,7 @@ public class CourseScheduleSlot {
     /**
      * Number of consecutive classes during this slot.
      */
-    private Integer classesCount;
+    private Integer classesCount = 1;
 
     /**
      * Duration of a single class in minutes to allow precise filtering.

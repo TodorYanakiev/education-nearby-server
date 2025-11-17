@@ -27,7 +27,7 @@ public class CourseImage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, name = "s3_key")
     private String s3Key;
 
     @Column(nullable = false)

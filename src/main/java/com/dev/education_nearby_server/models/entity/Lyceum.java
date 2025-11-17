@@ -73,5 +73,5 @@ public class Lyceum implements Serializable {
     private List<User> administrators = new ArrayList<>();
 
     @OneToMany(mappedBy = "lyceum")
-    private List<Course> courses;
+    private List<Course> courses = new ArrayList<>();
 }
