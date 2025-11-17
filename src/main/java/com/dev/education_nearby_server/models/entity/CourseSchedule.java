@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.models.entity;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embeddable;
@@ -9,17 +10,21 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Aggregates the recurring slots and one-off special cases for a course.
+ * Aggregates the recurring slots and one-off exceptions for a course.
  */
 @Embeddable
 @Getter
 @Setter
 @NoArgsConstructor
-public class CourseSchedule {
+public class CourseSchedule implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @ElementCollection
     @CollectionTable(name = "course_schedule_slots", joinColumns = @JoinColumn(name = "course_id"))
@@ -29,5 +34,6 @@ public class CourseSchedule {
     @ElementCollection
     @CollectionTable(name = "course_schedule_special_cases", joinColumns = @JoinColumn(name = "course_id"))
     @OrderColumn(name = "special_case_order")
+    @JsonAlias("exceptions")
     private List<CourseScheduleSpecialCase> specialCases = new ArrayList<>();
 }

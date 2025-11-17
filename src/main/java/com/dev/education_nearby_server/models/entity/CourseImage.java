@@ -16,18 +16,23 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 @Entity
 @Table(name = "course_images")
 @Getter
 @Setter
 @NoArgsConstructor
-public class CourseImage {
+public class CourseImage implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, name = "s3_key")
+    @Column(name = "s3_key", nullable = false, unique = true)
     private String s3Key;
 
     @Column(nullable = false)
