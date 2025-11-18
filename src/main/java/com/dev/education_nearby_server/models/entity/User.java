@@ -75,6 +75,9 @@ public class User implements UserDetails, Serializable {
     @ManyToMany(mappedBy = "lecturers")
     private List<Course> coursesLectured = new ArrayList<>();
 
+    @ManyToMany(mappedBy = "lecturers")
+    private List<Lyceum> lecturedLyceums = new ArrayList<>();
+
     @NotNull
     @Enumerated(EnumType.STRING)
     private Role role;
