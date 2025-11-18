@@ -5,6 +5,7 @@ import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
@@ -27,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -343,6 +345,74 @@ class LyceumControllerIT {
                 .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."));
 
         verify(lyceumService).assignAdministrator(3L, 7L);
+    }
+
+    @Test
+    void addLecturerRequiresAuthentication() throws Exception {
+        LyceumLecturerRequest request = LyceumLecturerRequest.builder()
+                .userId(10L)
+                .lyceumId(3L)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void addLecturerReturnsNoContentForAdmin() throws Exception {
+        LyceumLecturerRequest request = LyceumLecturerRequest.builder()
+                .userId(10L)
+                .lyceumId(3L)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        ArgumentCaptor<LyceumLecturerRequest> captor = ArgumentCaptor.forClass(LyceumLecturerRequest.class);
+        verify(lyceumService).addLecturerToLyceum(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(10L);
+        assertThat(captor.getValue().getLyceumId()).isEqualTo(3L);
+    }
+
+    @Test
+    void addLecturerForbiddenWhenServiceDeniesAccess() throws Exception {
+        LyceumLecturerRequest request = LyceumLecturerRequest.builder()
+                .userId(10L)
+                .lyceumId(3L)
+                .build();
+        doThrow(new AccessDeniedException("You do not have permission to modify this lyceum."))
+                .when(lyceumService).addLecturerToLyceum(any());
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers")
+                        .with(user("tester").roles("USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."));
+
+        verify(lyceumService).addLecturerToLyceum(any());
+    }
+
+    @Test
+    void addLecturerValidatesInput() throws Exception {
+        LyceumLecturerRequest request = LyceumLecturerRequest.builder()
+                .lyceumId(3L)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(lyceumService);
     }
 
     @Test

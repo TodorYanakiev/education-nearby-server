@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
@@ -238,6 +239,56 @@ public class LyceumService {
     }
 
     @Transactional
+    public void addLecturerToLyceum(LyceumLecturerRequest request) {
+        User currentUser = getManagedCurrentUser();
+        if (request.getUserId() == null) {
+            throw new BadRequestException("User id must be provided.");
+        }
+
+        Lyceum lyceum = resolveLyceumForLecturerAssignment(currentUser, request);
+
+        User lecturer = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("User with id " + request.getUserId() + NOT_FOUND_MESSAGE));
+
+        if (lyceum.getLecturers() == null) {
+            lyceum.setLecturers(new ArrayList<>());
+        }
+        boolean alreadyLecturer = lyceum.getLecturers().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lecturer.getId()));
+        if (alreadyLecturer) {
+            throw new ConflictException("User is already a lecturer for this lyceum.");
+        }
+
+        if (lecturer.getLecturedLyceums() == null) {
+            lecturer.setLecturedLyceums(new ArrayList<>());
+        }
+
+        lyceum.getLecturers().add(lecturer);
+        lecturer.getLecturedLyceums().add(lyceum);
+
+        lyceumRepository.save(lyceum);
+        userRepository.save(lecturer);
+    }
+
+    private Lyceum resolveLyceumForLecturerAssignment(User currentUser, LyceumLecturerRequest request) {
+        if (currentUser.getRole() == Role.ADMIN) {
+            if (request.getLyceumId() == null) {
+                throw new BadRequestException("Lyceum id must be provided when assigning as admin.");
+            }
+            return requireLyceum(request.getLyceumId());
+        }
+
+        Lyceum lyceum = currentUser.getAdministratedLyceum();
+        if (lyceum == null) {
+            throw new AccessDeniedException("You do not have permission to modify this lyceum.");
+        }
+        if (request.getLyceumId() != null && !lyceum.getId().equals(request.getLyceumId())) {
+            throw new AccessDeniedException("You do not have permission to modify this lyceum.");
+        }
+        return lyceum;
+    }
+
+    @Transactional
     public void deleteLyceum(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));
@@ -355,6 +406,14 @@ public class LyceumService {
             throw new BadRequestException("Verification code is not associated with a lyceum.");
         }
         return lyceum;
+    }
+
+    private Lyceum requireLyceum(Long lyceumId) {
+        if (lyceumId == null) {
+            throw new BadRequestException("Lyceum id must be provided.");
+        }
+        return lyceumRepository.findById(lyceumId)
+                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + lyceumId + NOT_FOUND_MESSAGE));
     }
 
     private void ensureUserNotAdminOfOtherLyceum(User user, Lyceum lyceum) {

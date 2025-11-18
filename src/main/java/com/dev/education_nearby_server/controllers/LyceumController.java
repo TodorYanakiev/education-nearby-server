@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import jakarta.validation.Valid;
@@ -83,6 +84,12 @@ public class LyceumController {
             @PathVariable Long userId
     ) {
         lyceumService.assignAdministrator(lyceumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/lecturers")
+    public ResponseEntity<Void> addLecturer(@Valid @RequestBody LyceumLecturerRequest request) {
+        lyceumService.addLecturerToLyceum(request);
         return ResponseEntity.noContent().build();
     }
 
