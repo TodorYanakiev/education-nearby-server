@@ -2,7 +2,10 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
+import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import org.junit.jupiter.api.Test;
@@ -51,5 +54,58 @@ class CourseControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(result.getBody()).isEqualTo(response);
         verify(courseService).createCourse(request);
+    }
+
+    @Test
+    void getCourseImagesReturnsResponseFromService() {
+        Long courseId = 7L;
+        List<CourseImageResponse> responses = List.of(
+                CourseImageResponse.builder().id(1L).courseId(courseId).url("url-1").build(),
+                CourseImageResponse.builder().id(2L).courseId(courseId).url("url-2").build()
+        );
+        when(courseService.getCourseImages(courseId)).thenReturn(responses);
+
+        ResponseEntity<List<CourseImageResponse>> result = courseController.getCourseImages(courseId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(responses);
+        verify(courseService).getCourseImages(courseId);
+    }
+
+    @Test
+    void addCourseImageReturnsCreatedResponse() {
+        Long courseId = 9L;
+        CourseImageRequest request = CourseImageRequest.builder()
+                .s3Key("key")
+                .role(ImageRole.MAIN)
+                .altText("alt")
+                .width(100)
+                .height(200)
+                .build();
+        CourseImageResponse response = CourseImageResponse.builder()
+                .id(33L)
+                .courseId(courseId)
+                .url("https://example.com/image.png")
+                .role(ImageRole.MAIN)
+                .build();
+        when(courseService.addCourseImage(courseId, request)).thenReturn(response);
+
+        ResponseEntity<CourseImageResponse> result = courseController.addCourseImage(courseId, request);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(result.getBody()).isEqualTo(response);
+        verify(courseService).addCourseImage(courseId, request);
+    }
+
+    @Test
+    void deleteCourseImageReturnsNoContent() {
+        Long courseId = 5L;
+        Long imageId = 12L;
+
+        ResponseEntity<Void> result = courseController.deleteCourseImage(courseId, imageId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(result.hasBody()).isFalse();
+        verify(courseService).deleteCourseImage(courseId, imageId);
     }
 }
