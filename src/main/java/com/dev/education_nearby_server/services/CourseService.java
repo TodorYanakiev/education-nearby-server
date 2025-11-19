@@ -10,12 +10,16 @@ import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.CourseImage;
+import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.CourseImageRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
+import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -28,8 +32,11 @@ import org.springframework.util.StringUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -37,8 +44,10 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final CourseImageRepository courseImageRepository;
+    private final LyceumRepository lyceumRepository;
     private final UserRepository userRepository;
     private final S3Properties s3Properties;
+    private static final String NOT_FOUND = " not found.";
 
     public List<CourseImageResponse> getCourseImages(Long courseId) {
         Course course = requireCourse(courseId, false);
@@ -81,13 +90,48 @@ public class CourseService {
         ensureUserCanModifyCourse(course);
 
         CourseImage image = courseImageRepository.findById(imageId)
-                .orElseThrow(() -> new NoSuchElementException("Course image with id " + imageId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException("Course image with id " + imageId + NOT_FOUND));
         if (image.getCourse() == null || !image.getCourse().getId().equals(course.getId())) {
             throw new BadRequestException("The provided image does not belong to this course.");
         }
 
         course.getImages().removeIf(existing -> existing.getId() != null && existing.getId().equals(imageId));
         courseImageRepository.delete(image);
+    }
+
+    @Transactional
+    public CourseResponse createCourse(CourseRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Course payload must not be null.");
+        }
+        User currentUser = getManagedCurrentUser();
+
+        Lyceum lyceum = null;
+        if (request.getLyceumId() != null) {
+            lyceum = lyceumRepository.findWithLecturersById(request.getLyceumId())
+                    .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + request.getLyceumId() + NOT_FOUND));
+        }
+
+        ensureUserCanCreateCourse(currentUser, lyceum);
+
+        Course course = new Course();
+        course.setName(request.getName());
+        course.setDescription(request.getDescription());
+        course.setType(request.getType());
+        course.setAgeGroupList(request.getAgeGroupList());
+        course.setSchedule(request.getSchedule() != null ? request.getSchedule() : new com.dev.education_nearby_server.models.entity.CourseSchedule());
+        course.setAddress(trimToNull(request.getAddress()));
+        course.setPrice(request.getPrice());
+        course.setFacebookLink(trimToNull(request.getFacebookLink()));
+        course.setWebsiteLink(trimToNull(request.getWebsiteLink()));
+        course.setAchievements(trimToNull(request.getAchievements()));
+        course.setLyceum(lyceum);
+
+        List<User> lecturers = resolveLecturers(request.getLecturerIds(), currentUser, lyceum);
+        course.setLecturers(lecturers);
+
+        Course saved = courseRepository.save(course);
+        return mapToResponse(saved);
     }
 
     private void ensureSingleRoleIfNeeded(Course course, ImageRole role) {
@@ -249,11 +293,31 @@ public class CourseService {
         Optional<Course> courseOpt = fetchDetails
                 ? courseRepository.findDetailedById(courseId)
                 : courseRepository.findById(courseId);
-        Course course = courseOpt.orElseThrow(() -> new NoSuchElementException("Course with id " + courseId + " not found."));
+        Course course = courseOpt.orElseThrow(() -> new NoSuchElementException("Course with id " + courseId + NOT_FOUND));
         if (course.getImages() == null) {
             course.setImages(new ArrayList<>());
         }
         return course;
+    }
+
+    private void ensureUserCanCreateCourse(User user, Lyceum lyceum) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+        if (lyceum == null) {
+            throw new AccessDeniedException("You do not have permission to create this course.");
+        }
+        Long administratedLyceumId = user.getAdministratedLyceum() == null ? null : user.getAdministratedLyceum().getId();
+        if (administratedLyceumId != null && administratedLyceumId.equals(lyceum.getId())) {
+            return;
+        }
+        boolean isLyceumLecturer = lyceum.getLecturers() != null
+                && lyceum.getLecturers().stream()
+                .anyMatch(lecturer -> lecturer.getId() != null && lecturer.getId().equals(user.getId()));
+        if (isLyceumLecturer) {
+            return;
+        }
+        throw new AccessDeniedException("You do not have permission to create this course.");
     }
 
     private void ensureUserCanModifyCourse(Course course) {
@@ -280,11 +344,37 @@ public class CourseService {
         throw new AccessDeniedException("You do not have permission to modify this course.");
     }
 
+    private List<User> resolveLecturers(List<Long> lecturerIds, User creator, Lyceum lyceum) {
+        Set<Long> lecturerIdSet = new LinkedHashSet<>();
+        if (lecturerIds != null) {
+            lecturerIds.stream()
+                    //.filter(id -> id != null)
+                    .filter(Objects::nonNull)
+                    .forEach(lecturerIdSet::add);
+        }
+        boolean creatorIsLyceumLecturer = lyceum != null
+                && lyceum.getLecturers() != null
+                && lyceum.getLecturers().stream()
+                .anyMatch(lecturer -> lecturer.getId() != null && lecturer.getId().equals(creator.getId()));
+        if (creatorIsLyceumLecturer) {
+            lecturerIdSet.add(creator.getId());
+        }
+
+        if (lecturerIdSet.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<User> lecturers = userRepository.findAllById(lecturerIdSet);
+        if (lecturers.size() != lecturerIdSet.size()) {
+            throw new NoSuchElementException("One or more lecturers were" + NOT_FOUND);
+        }
+        return new ArrayList<>(lecturers);
+    }
+
     private User getManagedCurrentUser() {
         User currentUser = getCurrentUser()
                 .orElseThrow(() -> new UnauthorizedException("You must be authenticated to perform this action."));
         return userRepository.findById(currentUser.getId())
-                .orElseThrow(() -> new UnauthorizedException("User not found."));
+                .orElseThrow(() -> new UnauthorizedException("User" + NOT_FOUND));
     }
 
     private Optional<User> getCurrentUser() {
@@ -311,6 +401,28 @@ public class CourseService {
                 .height(image.getHeight())
                 .mimeType(image.getMimeType())
                 .orderIndex(image.getOrderIndex())
+                .build();
+    }
+
+    private CourseResponse mapToResponse(Course course) {
+        return CourseResponse.builder()
+                .id(course.getId())
+                .name(course.getName())
+                .description(course.getDescription())
+                .type(course.getType())
+                .ageGroupList(course.getAgeGroupList())
+                .schedule(course.getSchedule())
+                .address(course.getAddress())
+                .price(course.getPrice())
+                .facebookLink(course.getFacebookLink())
+                .websiteLink(course.getWebsiteLink())
+                .lyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null)
+                .achievements(course.getAchievements())
+                .lecturerIds(course.getLecturers() == null ? List.of() :
+                        course.getLecturers().stream()
+                                .map(User::getId)
+                                .filter(Objects::nonNull)
+                                .toList())
                 .build();
     }
 

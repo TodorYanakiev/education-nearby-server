@@ -1,7 +1,9 @@
 package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,12 @@ public class CourseController {
     @GetMapping("/{courseId}/images")
     public ResponseEntity<List<CourseImageResponse>> getCourseImages(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseImages(courseId));
+    }
+
+    @PostMapping
+    public ResponseEntity<CourseResponse> createCourse(@Valid @RequestBody CourseRequest request) {
+        CourseResponse response = courseService.createCourse(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/{courseId}/images")
