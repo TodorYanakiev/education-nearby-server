@@ -275,6 +275,68 @@ class CourseServiceTest {
     }
 
     @Test
+    void addCourseImageThrowsWhenKeyAndUrlMissing() {
+        Course course = createCourseEntity(30L);
+        when(courseRepository.findDetailedById(30L)).thenReturn(Optional.of(course));
+        User admin = createUser(60L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseImageRequest request = CourseImageRequest.builder()
+                .role(ImageRole.MAIN)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.addCourseImage(30L, request));
+        verify(courseImageRepository, never()).findByS3Key(any());
+    }
+
+    @Test
+    void addCourseImageThrowsWhenUrlMalformed() {
+        Course course = createCourseEntity(31L);
+        when(courseRepository.findDetailedById(31L)).thenReturn(Optional.of(course));
+        User admin = createUser(61L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseImageRequest request = CourseImageRequest.builder()
+                .url("ht@tp://invalid")
+                .role(ImageRole.MAIN)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.addCourseImage(31L, request));
+        verify(courseImageRepository, never()).findByS3Key(any());
+    }
+
+    @Test
+    void addCourseImageAllowsMultipleGalleryImages() {
+        Course course = createCourseEntity(32L);
+        course.getImages().add(buildCourseImage(10L, course, "courses/32/gallery-1.png", "https://cdn/gallery-1.png", ImageRole.GALLERY, 0));
+        when(courseRepository.findDetailedById(32L)).thenReturn(Optional.of(course));
+        User admin = createUser(62L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        mockS3Properties("courses/", null, "https://cdn.example.com");
+        when(courseImageRepository.findByS3Key("courses/32/gallery-2.png")).thenReturn(Optional.empty());
+        when(courseImageRepository.save(any())).thenAnswer(invocation -> {
+            CourseImage image = invocation.getArgument(0);
+            image.setId(320L);
+            return image;
+        });
+
+        CourseImageRequest request = CourseImageRequest.builder()
+                .s3Key("courses/32/gallery-2.png")
+                .role(ImageRole.GALLERY)
+                .orderIndex(2)
+                .build();
+
+        CourseImageResponse response = courseService.addCourseImage(32L, request);
+
+        assertThat(response.getId()).isEqualTo(320L);
+        assertThat(course.getImages()).hasSize(2);
+        assertThat(course.getImages().getLast().getRole()).isEqualTo(ImageRole.GALLERY);
+    }
+
+    @Test
     void addCourseImageBuildsUrlUsingBucketWhenNoPublicBaseConfigured() {
         Course course = createCourseEntity(70L);
         when(courseRepository.findDetailedById(70L)).thenReturn(Optional.of(course));
@@ -431,6 +493,21 @@ class CourseServiceTest {
     }
 
     @Test
+    void deleteCourseImageThrowsWhenImageCourseMissing() {
+        Course course = createCourseEntity(19L);
+        when(courseRepository.findDetailedById(19L)).thenReturn(Optional.of(course));
+        User admin = createUser(51L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        CourseImage orphan = new CourseImage();
+        orphan.setId(900L);
+        when(courseImageRepository.findById(900L)).thenReturn(Optional.of(orphan));
+
+        assertThrows(BadRequestException.class, () -> courseService.deleteCourseImage(19L, 900L));
+        verify(courseImageRepository, never()).delete(any());
+    }
+
+    @Test
     void deleteCourseImageThrowsWhenNotFound() {
         Course course = createCourseEntity(16L);
         when(courseRepository.findDetailedById(16L)).thenReturn(Optional.of(course));
@@ -441,6 +518,14 @@ class CourseServiceTest {
 
         assertThrows(NoSuchElementException.class, () -> courseService.deleteCourseImage(16L, 55L));
         verify(courseImageRepository, never()).delete(any());
+    }
+
+    @Test
+    void getCourseImagesThrowsWhenCourseNotFound() {
+        when(courseRepository.findById(200L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> courseService.getCourseImages(200L));
+        verify(courseImageRepository, never()).findAllByCourseIdOrderByOrderIndexAscIdAsc(any());
     }
 
     private Course createCourseEntity(Long id) {
