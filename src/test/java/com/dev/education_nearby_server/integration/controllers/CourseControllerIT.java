@@ -182,6 +182,21 @@ class CourseControllerIT {
     }
 
     @Test
+    void addCourseImageValidatesPayload() throws Exception {
+        CourseImageRequest request = CourseImageRequest.builder()
+                .url("https://example.com/missing-role.jpg")
+                .build();
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/images", 10L)
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
     void deleteCourseImageRequiresAuthentication() throws Exception {
         mockMvc.perform(delete("/api/v1/courses/{courseId}/images/{imageId}", 7L, 8L))
                 .andExpect(status().isUnauthorized());

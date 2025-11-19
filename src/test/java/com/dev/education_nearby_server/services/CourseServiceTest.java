@@ -275,6 +275,64 @@ class CourseServiceTest {
     }
 
     @Test
+    void addCourseImageBuildsUrlUsingBucketWhenNoPublicBaseConfigured() {
+        Course course = createCourseEntity(70L);
+        when(courseRepository.findDetailedById(70L)).thenReturn(Optional.of(course));
+        User admin = createUser(23L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        mockS3Properties("courses/", "education-bucket", null);
+        when(courseImageRepository.findByS3Key("courses/70/logo.png")).thenReturn(Optional.empty());
+        when(courseImageRepository.save(any())).thenAnswer(invocation -> {
+            CourseImage image = invocation.getArgument(0);
+            image.setId(700L);
+            return image;
+        });
+
+        CourseImageRequest request = CourseImageRequest.builder()
+                .s3Key("courses/70/logo.png")
+                .role(ImageRole.LOGO)
+                .build();
+
+        CourseImageResponse response = courseService.addCourseImage(70L, request);
+
+        assertThat(response.getUrl()).isEqualTo("https://education-bucket.s3.amazonaws.com/courses/70/logo.png");
+        assertThat(course.getImages()).hasSize(1);
+        assertThat(course.getImages().getFirst().getUrl()).isEqualTo(response.getUrl());
+    }
+
+    @Test
+    void addCourseImageExtractsKeyFromUrlWithBucketPrefix() {
+        Course course = createCourseEntity(71L);
+        when(courseRepository.findDetailedById(71L)).thenReturn(Optional.of(course));
+        User admin = createUser(24L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        mockS3Properties("courses/", "education-bucket", "https://education-bucket.s3.amazonaws.com");
+        when(courseImageRepository.findByS3Key("courses/71/gallery/img.png")).thenReturn(Optional.empty());
+        when(courseImageRepository.save(any())).thenAnswer(invocation -> {
+            CourseImage image = invocation.getArgument(0);
+            image.setId(710L);
+            return image;
+        });
+
+        String url = "https://education-bucket.s3.amazonaws.com/education-bucket/courses/71/gallery/img.png";
+        CourseImageRequest request = CourseImageRequest.builder()
+                .url(url)
+                .role(ImageRole.GALLERY)
+                .orderIndex(5)
+                .build();
+
+        CourseImageResponse response = courseService.addCourseImage(71L, request);
+
+        assertThat(response.getId()).isEqualTo(710L);
+        assertThat(response.getS3Key()).isEqualTo("courses/71/gallery/img.png");
+        assertThat(response.getUrl()).isEqualTo(url);
+        assertThat(course.getImages()).hasSize(1);
+        assertThat(course.getImages().getFirst().getS3Key()).isEqualTo("courses/71/gallery/img.png");
+    }
+
+    @Test
     void addCourseImageThrowsWhenKeyOutsideAllowedPrefix() {
         Course course = createCourseEntity(8L);
         when(courseRepository.findDetailedById(8L)).thenReturn(Optional.of(course));
@@ -358,6 +416,18 @@ class CourseServiceTest {
 
         assertThrows(BadRequestException.class, () -> courseService.deleteCourseImage(14L, 4L));
         verify(courseImageRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteCourseImageThrowsWhenUserCannotModifyCourse() {
+        Course course = createCourseEntity(18L);
+        when(courseRepository.findDetailedById(18L)).thenReturn(Optional.of(course));
+        User user = createUser(50L, Role.USER);
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(AccessDeniedException.class, () -> courseService.deleteCourseImage(18L, 2L));
+        verify(courseImageRepository, never()).findById(any());
     }
 
     @Test
