@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.integration.controllers;
 import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
@@ -60,6 +61,36 @@ class CourseControllerIT {
                 .andExpect(jsonPath("$[1].name").value("Course 2"));
 
         verify(courseService).getAllCourses();
+    }
+
+    @Test
+    void getCourseReturnsPayloadWithoutAuthentication() throws Exception {
+        Long courseId = 5L;
+        CourseResponse response = CourseResponse.builder()
+                .id(courseId)
+                .name("Course")
+                .description("Description")
+                .build();
+
+        when(courseService.getCourseById(courseId)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}", courseId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(courseId))
+                .andExpect(jsonPath("$.name").value("Course"));
+
+        verify(courseService).getCourseById(courseId);
+    }
+
+    @Test
+    void getCourseReturnsNotFoundWhenMissing() throws Exception {
+        Long courseId = 55L;
+        when(courseService.getCourseById(courseId)).thenThrow(new NoSuchElementException("Course not found"));
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}", courseId))
+                .andExpect(status().isNotFound());
+
+        verify(courseService).getCourseById(courseId);
     }
 
     @Test

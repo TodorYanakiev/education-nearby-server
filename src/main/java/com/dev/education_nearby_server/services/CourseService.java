@@ -57,6 +57,12 @@ public class CourseService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public CourseResponse getCourseById(Long courseId) {
+        Course course = requireCourse(courseId, true);
+        return mapToResponse(course);
+    }
+
     public List<CourseImageResponse> getCourseImages(Long courseId) {
         Course course = requireCourse(courseId, false);
         List<CourseImage> images = courseImageRepository.findAllByCourseIdOrderByOrderIndexAscIdAsc(course.getId());

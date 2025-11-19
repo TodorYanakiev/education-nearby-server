@@ -85,6 +85,18 @@ class CourseServiceTest {
     }
 
     @Test
+    void getCourseByIdReturnsResponse() {
+        Course course = createCourseEntity(9L);
+        when(courseRepository.findDetailedById(9L)).thenReturn(Optional.of(course));
+
+        CourseResponse response = courseService.getCourseById(9L);
+
+        assertThat(response.getId()).isEqualTo(9L);
+        assertThat(response.getName()).isEqualTo(course.getName());
+        verify(courseRepository).findDetailedById(9L);
+    }
+
+    @Test
     void createCourseFailsForNonAdminWithoutLyceum() {
         User user = createUser(1L, Role.USER);
         authenticate(user);

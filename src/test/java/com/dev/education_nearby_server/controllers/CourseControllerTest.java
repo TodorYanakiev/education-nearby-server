@@ -32,6 +32,22 @@ class CourseControllerTest {
     private CourseController courseController;
 
     @Test
+    void getCourseReturnsResponseFromService() {
+        Long courseId = 4L;
+        CourseResponse response = CourseResponse.builder()
+                .id(courseId)
+                .name("Course 4")
+                .build();
+        when(courseService.getCourseById(courseId)).thenReturn(response);
+
+        ResponseEntity<CourseResponse> result = courseController.getCourse(courseId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
+        verify(courseService).getCourseById(courseId);
+    }
+
+    @Test
     void getAllCoursesReturnsResponseFromService() {
         List<CourseResponse> responses = List.of(
                 CourseResponse.builder().id(1L).name("Course 1").build(),
