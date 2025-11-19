@@ -49,6 +49,14 @@ public class CourseService {
     private final S3Properties s3Properties;
     private static final String NOT_FOUND = " not found.";
 
+    @Transactional(readOnly = true)
+    public List<CourseResponse> getAllCourses() {
+        return courseRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     public List<CourseImageResponse> getCourseImages(Long courseId) {
         Course course = requireCourse(courseId, false);
         List<CourseImage> images = courseImageRepository.findAllByCourseIdOrderByOrderIndexAscIdAsc(course.getId());

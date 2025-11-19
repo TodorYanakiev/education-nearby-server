@@ -47,6 +47,22 @@ class CourseControllerIT {
     private CourseService courseService;
 
     @Test
+    void getAllCoursesReturnsPayloadWithoutAuthentication() throws Exception {
+        List<CourseResponse> responses = List.of(
+                CourseResponse.builder().id(1L).name("Course 1").build(),
+                CourseResponse.builder().id(2L).name("Course 2").build()
+        );
+        when(courseService.getAllCourses()).thenReturn(responses);
+
+        mockMvc.perform(get("/api/v1/courses"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[1].name").value("Course 2"));
+
+        verify(courseService).getAllCourses();
+    }
+
+    @Test
     void createCourseRequiresAuthentication() throws Exception {
         CourseRequest request = CourseRequest.builder()
                 .name("Course")

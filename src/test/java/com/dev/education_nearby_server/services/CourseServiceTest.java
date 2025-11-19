@@ -69,6 +69,22 @@ class CourseServiceTest {
     }
 
     @Test
+    void getAllCoursesReturnsMappedResponses() {
+        Course first = createCourseEntity(1L);
+        first.getLecturers().add(createUser(5L, Role.USER));
+        Course second = createCourseEntity(2L);
+        second.setLecturers(new ArrayList<>());
+        when(courseRepository.findAll()).thenReturn(List.of(first, second));
+
+        List<CourseResponse> responses = courseService.getAllCourses();
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.get(0).getId()).isEqualTo(1L);
+        assertThat(responses.get(1).getId()).isEqualTo(2L);
+        verify(courseRepository).findAll();
+    }
+
+    @Test
     void createCourseFailsForNonAdminWithoutLyceum() {
         User user = createUser(1L, Role.USER);
         authenticate(user);

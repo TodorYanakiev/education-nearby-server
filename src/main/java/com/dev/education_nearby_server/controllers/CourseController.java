@@ -26,6 +26,11 @@ public class CourseController {
 
     private final CourseService courseService;
 
+    @GetMapping
+    public ResponseEntity<List<CourseResponse>> getAllCourses() {
+        return ResponseEntity.ok(courseService.getAllCourses());
+    }
+
     @GetMapping("/{courseId}/images")
     public ResponseEntity<List<CourseImageResponse>> getCourseImages(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseImages(courseId));
