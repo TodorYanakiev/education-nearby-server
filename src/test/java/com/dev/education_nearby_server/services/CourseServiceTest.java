@@ -12,9 +12,11 @@ import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
+import com.dev.education_nearby_server.models.entity.CourseSchedule;
 import com.dev.education_nearby_server.models.entity.CourseImage;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
@@ -490,6 +492,84 @@ class CourseServiceTest {
 
         verify(courseImageRepository).delete(courseImage);
         assertThat(course.getImages()).isEmpty();
+    }
+
+    @Test
+    void updateCourseUpdatesProvidedFields() {
+        Course course = createCourseEntity(40L);
+        Lyceum existingLyceum = new Lyceum();
+        existingLyceum.setId(5L);
+        existingLyceum.setLecturers(new ArrayList<>());
+        course.setLyceum(existingLyceum);
+        CourseSchedule newSchedule = new CourseSchedule();
+
+        when(courseRepository.findDetailedById(40L)).thenReturn(Optional.of(course));
+        User admin = createUser(70L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        Lyceum newLyceum = new Lyceum();
+        newLyceum.setId(11L);
+        newLyceum.setLecturers(new ArrayList<>());
+        when(lyceumRepository.findWithLecturersById(11L)).thenReturn(Optional.of(newLyceum));
+        when(courseRepository.save(course)).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .name("Updated name")
+                .description("Updated description")
+                .type(CourseType.SPORT)
+                .ageGroupList(List.of(AgeGroup.TEEN))
+                .schedule(newSchedule)
+                .address("  Some address  ")
+                .price(150.5f)
+                .facebookLink("fb-link")
+                .websiteLink("site-link")
+                .achievements("  Awards ")
+                .lyceumId(11L)
+                .build();
+
+        CourseResponse response = courseService.updateCourse(40L, request);
+
+        assertThat(response.getName()).isEqualTo("Updated name");
+        assertThat(course.getDescription()).isEqualTo("Updated description");
+        assertThat(course.getType()).isEqualTo(CourseType.SPORT);
+        assertThat(course.getAgeGroupList()).containsExactly(AgeGroup.TEEN);
+        assertThat(course.getSchedule()).isEqualTo(newSchedule);
+        assertThat(course.getAddress()).isEqualTo("Some address");
+        assertThat(course.getPrice()).isEqualTo(150.5f);
+        assertThat(course.getFacebookLink()).isEqualTo("fb-link");
+        assertThat(course.getWebsiteLink()).isEqualTo("site-link");
+        assertThat(course.getAchievements()).isEqualTo("Awards");
+        assertThat(course.getLyceum()).isEqualTo(newLyceum);
+        verify(courseRepository).save(course);
+    }
+
+    @Test
+    void updateCourseSupportsIncrementalLecturerChanges() {
+        Course course = createCourseEntity(41L);
+        User existingLecturer = createUser(5L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(existingLecturer)));
+        when(courseRepository.findDetailedById(41L)).thenReturn(Optional.of(course));
+
+        User admin = createUser(71L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        User newLecturer = createUser(9L, Role.USER);
+        when(userRepository.findAllById(any())).thenReturn(List.of(newLecturer));
+        when(courseRepository.save(course)).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .lecturerIdsToAdd(List.of(9L))
+                .lecturerIdsToRemove(List.of(5L))
+                .build();
+
+        CourseResponse response = courseService.updateCourse(41L, request);
+
+        assertThat(response.getLecturerIds()).containsExactly(9L);
+        assertThat(course.getLecturers()).hasSize(1);
+        assertThat(course.getLecturers().get(0).getId()).isEqualTo(9L);
+        verify(userRepository).findAllById(any());
+        verify(courseRepository).save(course);
     }
 
     @Test

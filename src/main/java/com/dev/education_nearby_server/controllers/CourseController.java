@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,6 +47,15 @@ public class CourseController {
     public ResponseEntity<CourseResponse> createCourse(@Valid @RequestBody CourseRequest request) {
         CourseResponse response = courseService.createCourse(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/{courseId}")
+    public ResponseEntity<CourseResponse> updateCourse(
+            @PathVariable Long courseId,
+            @RequestBody CourseUpdateRequest request
+    ) {
+        CourseResponse response = courseService.updateCourse(courseId, request);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{courseId}/images")

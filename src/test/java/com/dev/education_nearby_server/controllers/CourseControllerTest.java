@@ -5,6 +5,7 @@ import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
@@ -85,6 +86,25 @@ class CourseControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(result.getBody()).isEqualTo(response);
         verify(courseService).createCourse(request);
+    }
+
+    @Test
+    void updateCourseReturnsResponseFromService() {
+        Long courseId = 11L;
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .name("Updated course")
+                .build();
+        CourseResponse response = CourseResponse.builder()
+                .id(courseId)
+                .name("Updated course")
+                .build();
+        when(courseService.updateCourse(courseId, request)).thenReturn(response);
+
+        ResponseEntity<CourseResponse> result = courseController.updateCourse(courseId, request);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
+        verify(courseService).updateCourse(courseId, request);
     }
 
     @Test

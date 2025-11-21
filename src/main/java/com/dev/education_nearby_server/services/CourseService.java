@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.S3Properties;
+import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
@@ -11,6 +12,7 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
@@ -32,11 +34,13 @@ import org.springframework.util.StringUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -146,6 +150,170 @@ public class CourseService {
 
         Course saved = courseRepository.save(course);
         return mapToResponse(saved);
+    }
+
+    @Transactional
+    public CourseResponse updateCourse(Long courseId, CourseUpdateRequest request) {
+        CourseUpdateRequest validatedRequest = requireValidCourseUpdateRequest(request);
+
+        Course course = requireCourse(courseId, true);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyCourse(currentUser, course);
+
+        updateCourseFields(course, validatedRequest);
+        updateCourseLyceum(course, currentUser, validatedRequest);
+        applyLecturerUpdates(course, currentUser, validatedRequest);
+
+        Course saved = courseRepository.save(course);
+        return mapToResponse(saved);
+    }
+
+    private CourseUpdateRequest requireValidCourseUpdateRequest(CourseUpdateRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Course payload must not be null.");
+        }
+        if (!hasUpdates(request)) {
+            throw new BadRequestException("At least one field must be provided for update.");
+        }
+        return request;
+    }
+
+    private void updateCourseFields(Course course, CourseUpdateRequest request) {
+        updateName(course, request);
+        updateDescription(course, request);
+        updateCourseType(course, request);
+        updateAgeGroups(course, request);
+        updateSchedule(course, request);
+        updateLocationAndLinks(course, request);
+    }
+
+    private void updateName(Course course, CourseUpdateRequest request) {
+        if (request.getName() == null) {
+            return;
+        }
+
+        String trimmedName = trimToNull(request.getName());
+        if (trimmedName == null) {
+            throw new ValidationException("Course name must not be blank.");
+        }
+        course.setName(trimmedName);
+    }
+
+    private void updateDescription(Course course, CourseUpdateRequest request) {
+        if (request.getDescription() == null) {
+            return;
+        }
+
+        String trimmedDescription = trimToNull(request.getDescription());
+        if (trimmedDescription == null) {
+            throw new ValidationException("Course description must not be blank.");
+        }
+        course.setDescription(trimmedDescription);
+    }
+
+    private void updateCourseType(Course course, CourseUpdateRequest request) {
+        if (request.getType() != null) {
+            course.setType(request.getType());
+        }
+    }
+
+    private void updateAgeGroups(Course course, CourseUpdateRequest request) {
+        List<AgeGroup> ageGroups = request.getAgeGroupList();
+        if (ageGroups == null) {
+            return;
+        }
+        if (ageGroups.isEmpty()) {
+            throw new ValidationException("At least one age group must be specified.");
+        }
+        course.setAgeGroupList(new ArrayList<>(ageGroups));
+    }
+
+    private void updateSchedule(Course course, CourseUpdateRequest request) {
+        if (request.getSchedule() != null) {
+            course.setSchedule(request.getSchedule());
+        }
+    }
+
+    private void updateLocationAndLinks(Course course, CourseUpdateRequest request) {
+        if (request.getAddress() != null) {
+            course.setAddress(trimToNull(request.getAddress()));
+        }
+        if (request.getPrice() != null) {
+            course.setPrice(request.getPrice());
+        }
+        if (request.getFacebookLink() != null) {
+            course.setFacebookLink(trimToNull(request.getFacebookLink()));
+        }
+        if (request.getWebsiteLink() != null) {
+            course.setWebsiteLink(trimToNull(request.getWebsiteLink()));
+        }
+        if (request.getAchievements() != null) {
+            course.setAchievements(trimToNull(request.getAchievements()));
+        }
+    }
+
+    private void updateCourseLyceum(Course course, User currentUser, CourseUpdateRequest request) {
+        Long lyceumId = request.getLyceumId();
+        if (lyceumId == null) {
+            return;
+        }
+
+        Lyceum currentLyceum = course.getLyceum();
+        boolean sameLyceum = currentLyceum != null && currentLyceum.getId() != null && currentLyceum.getId().equals(lyceumId);
+        if (!sameLyceum) {
+            Lyceum newLyceum = lyceumRepository.findWithLecturersById(lyceumId)
+                    .orElseThrow(() -> new NoSuchElementException("Lyceum with id " + lyceumId + NOT_FOUND));
+            ensureUserCanCreateCourse(currentUser, newLyceum);
+            course.setLyceum(newLyceum);
+        }
+    }
+
+    private boolean hasUpdates(CourseUpdateRequest request) {
+        return request.getName() != null
+                || request.getDescription() != null
+                || request.getType() != null
+                || request.getAgeGroupList() != null
+                || request.getSchedule() != null
+                || request.getAddress() != null
+                || request.getPrice() != null
+                || request.getFacebookLink() != null
+                || request.getWebsiteLink() != null
+                || request.getLyceumId() != null
+                || request.getAchievements() != null
+                || request.getLecturerIds() != null
+                || request.getLecturerIdsToAdd() != null
+                || request.getLecturerIdsToRemove() != null;
+    }
+
+    private void applyLecturerUpdates(Course course, User currentUser, CourseUpdateRequest request) {
+        if (course.getLecturers() == null) {
+            course.setLecturers(new ArrayList<>());
+        }
+        if (request.getLecturerIds() != null) {
+            List<User> lecturers = resolveLecturers(request.getLecturerIds(), currentUser, course.getLyceum());
+            course.setLecturers(lecturers);
+            return;
+        }
+
+        List<Long> idsToRemove = request.getLecturerIdsToRemove();
+        if (idsToRemove != null) {
+            Set<Long> toRemove = collectLecturerIds(idsToRemove);
+            if (!toRemove.isEmpty()) {
+                course.getLecturers().removeIf(lecturer -> lecturer.getId() != null && toRemove.contains(lecturer.getId()));
+            }
+        }
+
+        List<Long> idsToAdd = request.getLecturerIdsToAdd();
+        if (idsToAdd != null) {
+            List<User> newLecturers = loadLecturers(collectLecturerIds(idsToAdd));
+            for (User lecturer : newLecturers) {
+                boolean alreadyPresent = course.getLecturers().stream()
+                        .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lecturer.getId()));
+                if (!alreadyPresent) {
+                    course.getLecturers().add(lecturer);
+                }
+            }
+        }
     }
 
     private void ensureSingleRoleIfNeeded(Course course, ImageRole role) {
@@ -336,6 +504,10 @@ public class CourseService {
 
     private void ensureUserCanModifyCourse(Course course) {
         User user = getManagedCurrentUser();
+        ensureUserCanModifyCourse(user, course);
+    }
+
+    private void ensureUserCanModifyCourse(User user, Course course) {
         if (user.getRole() == Role.ADMIN) {
             return;
         }
@@ -358,14 +530,43 @@ public class CourseService {
         throw new AccessDeniedException("You do not have permission to modify this course.");
     }
 
-    private List<User> resolveLecturers(List<Long> lecturerIds, User creator, Lyceum lyceum) {
-        Set<Long> lecturerIdSet = new LinkedHashSet<>();
+    private LinkedHashSet<Long> collectLecturerIds(List<Long> lecturerIds) {
+        LinkedHashSet<Long> lecturerIdSet = new LinkedHashSet<>();
         if (lecturerIds != null) {
             lecturerIds.stream()
-                    //.filter(id -> id != null)
                     .filter(Objects::nonNull)
                     .forEach(lecturerIdSet::add);
         }
+        return lecturerIdSet;
+    }
+
+    private List<User> loadLecturers(LinkedHashSet<Long> lecturerIdSet) {
+        if (lecturerIdSet.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<User> lecturers = userRepository.findAllById(lecturerIdSet);
+        if (lecturers.size() != lecturerIdSet.size()) {
+            throw new NoSuchElementException("One or more lecturers were" + NOT_FOUND);
+        }
+        Map<Long, User> userById = new HashMap<>();
+        for (User lecturer : lecturers) {
+            if (lecturer.getId() != null) {
+                userById.put(lecturer.getId(), lecturer);
+            }
+        }
+        List<User> ordered = new ArrayList<>(lecturerIdSet.size());
+        for (Long id : lecturerIdSet) {
+            User lecturer = userById.get(id);
+            if (lecturer == null) {
+                throw new NoSuchElementException("One or more lecturers were" + NOT_FOUND);
+            }
+            ordered.add(lecturer);
+        }
+        return ordered;
+    }
+
+    private List<User> resolveLecturers(List<Long> lecturerIds, User creator, Lyceum lyceum) {
+        LinkedHashSet<Long> lecturerIdSet = collectLecturerIds(lecturerIds);
         boolean creatorIsLyceumLecturer = lyceum != null
                 && lyceum.getLecturers() != null
                 && lyceum.getLecturers().stream()
@@ -374,14 +575,7 @@ public class CourseService {
             lecturerIdSet.add(creator.getId());
         }
 
-        if (lecturerIdSet.isEmpty()) {
-            return new ArrayList<>();
-        }
-        List<User> lecturers = userRepository.findAllById(lecturerIdSet);
-        if (lecturers.size() != lecturerIdSet.size()) {
-            throw new NoSuchElementException("One or more lecturers were" + NOT_FOUND);
-        }
-        return new ArrayList<>(lecturers);
+        return loadLecturers(lecturerIdSet);
     }
 
     private User getManagedCurrentUser() {
