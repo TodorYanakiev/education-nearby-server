@@ -67,6 +67,12 @@ public class CourseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @DeleteMapping("/{courseId}")
+    public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId) {
+        courseService.deleteCourse(courseId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{courseId}/images/{imageId}")
     public ResponseEntity<Void> deleteCourseImage(
             @PathVariable Long courseId,

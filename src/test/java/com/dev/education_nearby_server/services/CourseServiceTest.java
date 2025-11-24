@@ -629,6 +629,48 @@ class CourseServiceTest {
     }
 
     @Test
+    void deleteCourseRemovesOnlyCourseEntity() {
+        Course course = createCourseEntity(25L);
+        Lyceum lyceum = new Lyceum();
+        lyceum.setId(9L);
+        course.setLyceum(lyceum);
+        User lecturer = createUser(60L, Role.USER);
+        course.getLecturers().add(lecturer);
+        when(courseRepository.findDetailedById(25L)).thenReturn(Optional.of(course));
+        User admin = createUser(70L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        courseService.deleteCourse(25L);
+
+        verify(courseRepository).delete(course);
+        verify(lyceumRepository, never()).delete(any());
+        verify(userRepository, never()).delete(any());
+        assertThat(course.getLecturers()).containsExactly(lecturer);
+        assertThat(course.getLyceum()).isEqualTo(lyceum);
+    }
+
+    @Test
+    void deleteCourseThrowsWhenUserCannotModify() {
+        Course course = createCourseEntity(26L);
+        when(courseRepository.findDetailedById(26L)).thenReturn(Optional.of(course));
+        User user = createUser(80L, Role.USER);
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(AccessDeniedException.class, () -> courseService.deleteCourse(26L));
+        verify(courseRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteCourseThrowsWhenNotFound() {
+        when(courseRepository.findDetailedById(31L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> courseService.deleteCourse(31L));
+        verify(courseRepository, never()).delete(any());
+    }
+
+    @Test
     void getCourseImagesThrowsWhenCourseNotFound() {
         when(courseRepository.findById(200L)).thenReturn(Optional.empty());
 

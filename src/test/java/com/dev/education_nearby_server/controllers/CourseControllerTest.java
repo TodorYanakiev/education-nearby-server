@@ -149,6 +149,17 @@ class CourseControllerTest {
     }
 
     @Test
+    void deleteCourseReturnsNoContent() {
+        Long courseId = 15L;
+
+        ResponseEntity<Void> result = courseController.deleteCourse(courseId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(result.hasBody()).isFalse();
+        verify(courseService).deleteCourse(courseId);
+    }
+
+    @Test
     void deleteCourseImageReturnsNoContent() {
         Long courseId = 5L;
         Long imageId = 12L;

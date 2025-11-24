@@ -244,6 +244,25 @@ class CourseControllerIT {
     }
 
     @Test
+    void deleteCourseRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/api/v1/courses/{courseId}", 21L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void deleteCourseReturnsNoContent() throws Exception {
+        Long courseId = 22L;
+
+        mockMvc.perform(delete("/api/v1/courses/{courseId}", courseId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(courseService).deleteCourse(courseId);
+    }
+
+    @Test
     void deleteCourseImageRequiresAuthentication() throws Exception {
         mockMvc.perform(delete("/api/v1/courses/{courseId}/images/{imageId}", 7L, 8L))
                 .andExpect(status().isUnauthorized());

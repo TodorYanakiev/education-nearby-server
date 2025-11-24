@@ -118,6 +118,15 @@ public class CourseService {
     }
 
     @Transactional
+    public void deleteCourse(Long courseId) {
+        Course course = requireCourse(courseId, true);
+        ensureUserCanModifyCourse(course);
+
+        // Remove only the course entity itself; lyceums and lecturers stay untouched.
+        courseRepository.delete(course);
+    }
+
+    @Transactional
     public CourseResponse createCourse(CourseRequest request) {
         if (request == null) {
             throw new BadRequestException("Course payload must not be null.");
