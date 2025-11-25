@@ -5,6 +5,10 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * S3 configuration used for course images: expected bucket, optional public base URL,
+ * and allowed key prefix for validation.
+ */
 @Getter
 @Setter
 @Component

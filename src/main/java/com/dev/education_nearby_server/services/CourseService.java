@@ -45,6 +45,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Map;
 
+/**
+ * Coordinates course lifecycle operations, including filtering, CRUD, lecturer management,
+ * and course image validation/registration with S3 metadata checks.
+ */
 @Service
 @RequiredArgsConstructor
 public class CourseService {
@@ -64,6 +68,10 @@ public class CourseService {
                 .toList();
     }
 
+    /**
+     * Filters courses by optional type, age group, price, recurrence, day, and time ranges.
+     * Empty or null lists are treated as no filter; invalid ranges are rejected.
+     */
     @Transactional(readOnly = true)
     public List<CourseResponse> filterCourses(CourseFilterRequest filterRequest) {
         CourseFilterRequest filters = filterRequest != null ? filterRequest : new CourseFilterRequest();
@@ -107,6 +115,10 @@ public class CourseService {
         return images.stream().map(this::mapToResponse).toList();
     }
 
+    /**
+     * Adds a course image after validating S3 key/url consistency, uniqueness, and role constraints,
+     * then returns the persisted image metadata.
+     */
     @Transactional
     public CourseImageResponse addCourseImage(Long courseId, CourseImageRequest request) {
         Course course = requireCourse(courseId, true);
@@ -160,6 +172,7 @@ public class CourseService {
         courseRepository.delete(course);
     }
 
+    /** Updates mutable course fields, optionally relocating lyceum and adjusting lecturers. */
     @Transactional
     public CourseResponse createCourse(CourseRequest request) {
         if (request == null) {
@@ -195,6 +208,10 @@ public class CourseService {
         return mapToResponse(saved);
     }
 
+    /**
+     * Applies partial updates to a course, enforcing authorization and validating
+     * provided fields before persisting.
+     */
     @Transactional
     public CourseResponse updateCourse(Long courseId, CourseUpdateRequest request) {
         CourseUpdateRequest validatedRequest = requireValidCourseUpdateRequest(request);

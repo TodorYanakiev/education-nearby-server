@@ -23,6 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * REST endpoints for course listing, filtering, CRUD operations, and course image management.
+ */
 @RestController
 @RequestMapping("/api/v1/courses")
 @RequiredArgsConstructor
@@ -35,6 +38,7 @@ public class CourseController {
         return ResponseEntity.ok(courseService.getAllCourses());
     }
 
+    /** Returns courses that match the provided optional filters; empty filters return all courses. */
     @GetMapping("/filter")
     public ResponseEntity<List<CourseResponse>> filterCourses(@Valid @ModelAttribute CourseFilterRequest request) {
         return ResponseEntity.ok(courseService.filterCourses(request));
@@ -65,6 +69,7 @@ public class CourseController {
         return ResponseEntity.ok(response);
     }
 
+    /** Registers a new course image; validates S3 key/url and role before saving. */
     @PostMapping("/{courseId}/images")
     public ResponseEntity<CourseImageResponse> addCourseImage(
             @PathVariable Long courseId,
