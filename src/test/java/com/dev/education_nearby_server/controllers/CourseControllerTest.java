@@ -3,6 +3,8 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.enums.ScheduleRecurrence;
+import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
@@ -61,6 +63,27 @@ class CourseControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(responses);
         verify(courseService).getAllCourses();
+    }
+
+    @Test
+    void filterCoursesReturnsResponseFromService() {
+        CourseFilterRequest request = CourseFilterRequest.builder()
+                .courseTypes(List.of(CourseType.MUSIC, CourseType.SPORT))
+                .minPrice(10.0f)
+                .maxPrice(50.0f)
+                .recurrence(ScheduleRecurrence.WEEKLY)
+                .build();
+        List<CourseResponse> responses = List.of(
+                CourseResponse.builder().id(3L).name("Music course").build(),
+                CourseResponse.builder().id(4L).name("Sport course").build()
+        );
+        when(courseService.filterCourses(request)).thenReturn(responses);
+
+        ResponseEntity<List<CourseResponse>> result = courseController.filterCourses(request);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(responses);
+        verify(courseService).filterCourses(request);
     }
 
     @Test

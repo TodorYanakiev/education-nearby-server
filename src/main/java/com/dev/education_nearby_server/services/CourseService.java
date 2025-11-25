@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
@@ -10,6 +11,7 @@ import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
+import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
@@ -33,6 +35,7 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -57,6 +60,37 @@ public class CourseService {
     public List<CourseResponse> getAllCourses() {
         return courseRepository.findAll()
                 .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CourseResponse> filterCourses(CourseFilterRequest filterRequest) {
+        CourseFilterRequest filters = filterRequest != null ? filterRequest : new CourseFilterRequest();
+
+        Float minPrice = filters.getMinPrice();
+        Float maxPrice = filters.getMaxPrice();
+        validatePriceRange(minPrice, maxPrice);
+        validateStartTimeRange(filters.getStartTimeFrom(), filters.getStartTimeTo());
+
+        List<CourseType> courseTypes = sanitizeList(filters.getCourseTypes());
+        List<AgeGroup> ageGroups = sanitizeList(filters.getAgeGroups());
+        boolean applyCourseTypeFilter = courseTypes != null;
+        boolean applyAgeGroupFilter = ageGroups != null;
+
+        List<Course> courses = courseRepository.filterCourses(
+                defaultList(courseTypes),
+                applyCourseTypeFilter,
+                defaultList(ageGroups),
+                applyAgeGroupFilter,
+                minPrice,
+                maxPrice,
+                filters.getRecurrence(),
+                filters.getDayOfWeek(),
+                filters.getStartTimeFrom(),
+                filters.getStartTimeTo()
+        );
+        return courses.stream()
                 .map(this::mapToResponse)
                 .toList();
     }
@@ -585,6 +619,38 @@ public class CourseService {
         }
 
         return loadLecturers(lecturerIdSet);
+    }
+
+    private <T> List<T> sanitizeList(List<T> values) {
+        if (values == null) {
+            return null;
+        }
+        List<T> sanitized = values.stream()
+                .filter(Objects::nonNull)
+                .toList();
+        return sanitized.isEmpty() ? null : sanitized;
+    }
+
+    private <T> List<T> defaultList(List<T> values) {
+        return values == null ? List.of() : values;
+    }
+
+    private void validatePriceRange(Float minPrice, Float maxPrice) {
+        if (minPrice != null && minPrice < 0) {
+            throw new BadRequestException("Minimum price must be zero or positive.");
+        }
+        if (maxPrice != null && maxPrice < 0) {
+            throw new BadRequestException("Maximum price must be zero or positive.");
+        }
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw new BadRequestException("Minimum price cannot be greater than maximum price.");
+        }
+    }
+
+    private void validateStartTimeRange(LocalTime startTimeFrom, LocalTime startTimeTo) {
+        if (startTimeFrom != null && startTimeTo != null && startTimeTo.isBefore(startTimeFrom)) {
+            throw new BadRequestException("startTimeTo must be after or equal to startTimeFrom.");
+        }
     }
 
     private User getManagedCurrentUser() {

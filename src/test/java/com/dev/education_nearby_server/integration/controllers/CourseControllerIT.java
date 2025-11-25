@@ -3,7 +3,9 @@ package com.dev.education_nearby_server.integration.controllers;
 import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.enums.ScheduleRecurrence;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
+import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
@@ -19,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,6 +65,41 @@ class CourseControllerIT {
                 .andExpect(jsonPath("$[1].name").value("Course 2"));
 
         verify(courseService).getAllCourses();
+    }
+
+    @Test
+    void filterCoursesReturnsPayloadWithoutAuthentication() throws Exception {
+        List<CourseResponse> responses = List.of(
+                CourseResponse.builder().id(101L).name("Morning music").type(CourseType.MUSIC).build(),
+                CourseResponse.builder().id(102L).name("Evening sport").type(CourseType.SPORT).build()
+        );
+        when(courseService.filterCourses(any())).thenReturn(responses);
+
+        mockMvc.perform(get("/api/v1/courses/filter")
+                        .param("courseTypes", CourseType.MUSIC.name())
+                        .param("courseTypes", CourseType.SPORT.name())
+                        .param("ageGroups", AgeGroup.TEEN.name())
+                        .param("minPrice", "15")
+                        .param("maxPrice", "45.5")
+                        .param("recurrence", ScheduleRecurrence.WEEKLY.name())
+                        .param("dayOfWeek", DayOfWeek.MONDAY.name())
+                        .param("startTimeFrom", "09:00")
+                        .param("startTimeTo", "18:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(101L))
+                .andExpect(jsonPath("$[1].type").value("SPORT"));
+
+        ArgumentCaptor<CourseFilterRequest> captor = ArgumentCaptor.forClass(CourseFilterRequest.class);
+        verify(courseService).filterCourses(captor.capture());
+        CourseFilterRequest captured = captor.getValue();
+        assertThat(captured.getCourseTypes()).containsExactly(CourseType.MUSIC, CourseType.SPORT);
+        assertThat(captured.getAgeGroups()).containsExactly(AgeGroup.TEEN);
+        assertThat(captured.getMinPrice()).isEqualTo(15f);
+        assertThat(captured.getMaxPrice()).isEqualTo(45.5f);
+        assertThat(captured.getRecurrence()).isEqualTo(ScheduleRecurrence.WEEKLY);
+        assertThat(captured.getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+        assertThat(captured.getStartTimeFrom()).isEqualTo(LocalTime.of(9, 0));
+        assertThat(captured.getStartTimeTo()).isEqualTo(LocalTime.of(18, 0));
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +33,11 @@ public class CourseController {
     @GetMapping
     public ResponseEntity<List<CourseResponse>> getAllCourses() {
         return ResponseEntity.ok(courseService.getAllCourses());
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<List<CourseResponse>> filterCourses(@Valid @ModelAttribute CourseFilterRequest request) {
+        return ResponseEntity.ok(courseService.filterCourses(request));
     }
 
     @GetMapping("/{courseId}")
