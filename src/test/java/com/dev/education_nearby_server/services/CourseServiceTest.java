@@ -10,6 +10,7 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
+import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
@@ -34,6 +35,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -84,6 +88,86 @@ class CourseServiceTest {
         assertThat(responses.get(0).getId()).isEqualTo(1L);
         assertThat(responses.get(1).getId()).isEqualTo(2L);
         verify(courseRepository).findAll();
+    }
+
+    @Test
+    void filterCoursesUsesDefaultsWhenRequestNull() {
+        Course course = createCourseEntity(1L);
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(course));
+
+        List<CourseResponse> responses = courseService.filterCourses(null);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().getId()).isEqualTo(1L);
+        verify(courseRepository).filterCourses(
+                List.of(),
+                false,
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    @Test
+    void filterCoursesSanitizesNullFilters() {
+        List<CourseType> courseTypes = new ArrayList<>();
+        courseTypes.add(null);
+        List<AgeGroup> ageGroups = new ArrayList<>();
+        ageGroups.add(AgeGroup.TEEN);
+        ageGroups.add(null);
+        CourseFilterRequest request = CourseFilterRequest.builder()
+                .courseTypes(courseTypes)
+                .ageGroups(ageGroups)
+                .minPrice(10f)
+                .maxPrice(20f)
+                .startTimeFrom(LocalTime.of(9, 0))
+                .startTimeTo(LocalTime.of(11, 0))
+                .build();
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(createCourseEntity(2L)));
+
+        courseService.filterCourses(request);
+
+        verify(courseRepository).filterCourses(
+                List.of(),
+                false,
+                List.of(AgeGroup.TEEN),
+                true,
+                10f,
+                20f,
+                null,
+                null,
+                LocalTime.of(9, 0),
+                LocalTime.of(11, 0)
+        );
+    }
+
+    @Test
+    void filterCoursesThrowsWhenMinPriceExceedsMaxPrice() {
+        CourseFilterRequest request = CourseFilterRequest.builder()
+                .minPrice(100f)
+                .maxPrice(50f)
+                .build();
+
+        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void filterCoursesThrowsWhenStartTimeRangeInvalid() {
+        CourseFilterRequest request = CourseFilterRequest.builder()
+                .startTimeFrom(LocalTime.of(12, 0))
+                .startTimeTo(LocalTime.of(10, 0))
+                .build();
+
+        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request));
+        verifyNoInteractions(courseRepository);
     }
 
     @Test
@@ -542,6 +626,91 @@ class CourseServiceTest {
         assertThat(course.getAchievements()).isEqualTo("Awards");
         assertThat(course.getLyceum()).isEqualTo(newLyceum);
         verify(courseRepository).save(course);
+    }
+
+    @Test
+    void updateCourseThrowsWhenRequestNull() {
+        assertThrows(BadRequestException.class, () -> courseService.updateCourse(1L, null));
+        verify(courseRepository, never()).findDetailedById(any());
+    }
+
+    @Test
+    void updateCourseThrowsWhenNoFieldsProvided() {
+        CourseUpdateRequest request = CourseUpdateRequest.builder().build();
+
+        assertThrows(BadRequestException.class, () -> courseService.updateCourse(2L, request));
+        verify(courseRepository, never()).findDetailedById(any());
+    }
+
+    @Test
+    void updateCourseThrowsWhenNameBlank() {
+        Course course = createCourseEntity(44L);
+        when(courseRepository.findDetailedById(44L)).thenReturn(Optional.of(course));
+        User admin = createUser(71L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .name("   ")
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.updateCourse(44L, request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCourseThrowsWhenAgeGroupsEmpty() {
+        Course course = createCourseEntity(45L);
+        when(courseRepository.findDetailedById(45L)).thenReturn(Optional.of(course));
+        User admin = createUser(72L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .ageGroupList(List.of())
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.updateCourse(45L, request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCourseThrowsWhenLecturersNotFound() {
+        Course course = createCourseEntity(46L);
+        when(courseRepository.findDetailedById(46L)).thenReturn(Optional.of(course));
+        User admin = createUser(73L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findAllById(any())).thenReturn(List.of());
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .lecturerIds(List.of(100L))
+                .build();
+
+        assertThrows(NoSuchElementException.class, () -> courseService.updateCourse(46L, request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCoursePreventsLyceumChangeWhenUserLacksPermission() {
+        Course course = createCourseEntity(47L);
+        User lecturer = createUser(80L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(courseRepository.findDetailedById(47L)).thenReturn(Optional.of(course));
+        authenticate(lecturer);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        Lyceum newLyceum = new Lyceum();
+        newLyceum.setId(99L);
+        newLyceum.setLecturers(new ArrayList<>());
+        when(lyceumRepository.findWithLecturersById(99L)).thenReturn(Optional.of(newLyceum));
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .lyceumId(99L)
+                .build();
+
+        assertThrows(AccessDeniedException.class, () -> courseService.updateCourse(47L, request));
+        verify(courseRepository, never()).save(any());
     }
 
     @Test
