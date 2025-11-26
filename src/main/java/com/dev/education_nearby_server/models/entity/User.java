@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -26,7 +27,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -37,7 +41,9 @@ import java.util.List;
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Table(name="_users")
-public class User implements UserDetails {
+public class User implements UserDetails, Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
@@ -65,6 +71,12 @@ public class User implements UserDetails {
     @ManyToOne
     @JoinColumn(name = "administrated_lyceum_id")
     private Lyceum administratedLyceum;
+
+    @ManyToMany(mappedBy = "lecturers")
+    private List<Course> coursesLectured = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "lecturers")
+    private List<Lyceum> lecturedLyceums = new ArrayList<>();
 
     @NotNull
     @Enumerated(EnumType.STRING)

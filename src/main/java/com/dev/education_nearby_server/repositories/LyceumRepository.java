@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.repositories;
 import com.dev.education_nearby_server.enums.VerificationStatus;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,8 @@ import java.util.Optional;
 public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
     Optional<Lyceum> findFirstByNameIgnoreCaseAndTownIgnoreCase(String name, String town);
     List<Lyceum> findAllByVerificationStatus(VerificationStatus status);
+    @EntityGraph(attributePaths = "lecturers")
+    Optional<Lyceum> findWithLecturersById(Long id);
 
     @Query(value = """
             SELECT *

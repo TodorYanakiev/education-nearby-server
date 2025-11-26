@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
@@ -29,6 +30,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -884,6 +887,112 @@ class LyceumServiceTest {
 
         verify(tokenRepository).deleteAllByLyceum_Id(5L);
         verify(lyceumRepository).delete(lyceum);
+    }
+
+    @Test
+    void addLecturerToLyceumAsAdminRequiresLyceumId() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                        .userId(5L)
+                        .build()));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum id must be provided when assigning as admin.");
+        verify(userRepository).findById(admin.getId());
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void addLecturerToLyceumAsAdminLinksBothSides() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                .userId(lecturer.getId())
+                .lyceumId(3L)
+                .build());
+
+        assertThat(lyceum.getLecturers()).containsExactly(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).containsExactly(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void addLecturerToLyceumAsLyceumAdminUsesOwnLyceumWhenIdOmitted() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "mail@example.com");
+        User lyceumAdmin = createUser(2L);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User lecturer = createUser(8L);
+
+        mockAuthenticatedUser(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                .userId(lecturer.getId())
+                .build());
+
+        assertThat(lyceum.getLecturers()).containsExactly(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).containsExactly(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void addLecturerToLyceumThrowsWhenLyceumAdminTargetsOtherLyceum() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "mail@example.com");
+        User lyceumAdmin = createUser(2L);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+
+        mockAuthenticatedUser(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                        .userId(9L)
+                        .lyceumId(99L)
+                        .build()));
+
+        assertThat(ex.getMessage()).isEqualTo("You do not have permission to modify this lyceum.");
+        verifyNoInteractions(lyceumRepository);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void addLecturerToLyceumThrowsWhenLecturerAlreadyAssigned() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                        .userId(lecturer.getId())
+                        .lyceumId(3L)
+                        .build()));
+
+        assertThat(ex.getMessage()).isEqualTo("User is already a lecturer for this lyceum.");
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+        verify(userRepository, never()).save(any(User.class));
     }
 
     private void mockAuthenticatedUser(User user) {

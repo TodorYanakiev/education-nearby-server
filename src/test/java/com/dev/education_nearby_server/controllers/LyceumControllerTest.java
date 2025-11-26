@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.controllers;
 
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
@@ -156,6 +157,20 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
         verify(lyceumService).assignAdministrator(2L, 5L);
+    }
+
+    @Test
+    void addLecturerReturnsNoContent() {
+        LyceumLecturerRequest request = LyceumLecturerRequest.builder()
+                .userId(10L)
+                .lyceumId(3L)
+                .build();
+
+        ResponseEntity<Void> response = lyceumController.addLecturer(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).addLecturerToLyceum(request);
     }
 
     @Test

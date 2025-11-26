@@ -1,13 +1,16 @@
 package com.dev.education_nearby_server.models.entity;
 
 import com.dev.education_nearby_server.enums.VerificationStatus;
+import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.OneToMany;
 import lombok.Getter;
@@ -71,4 +74,15 @@ public class Lyceum implements Serializable {
 
     @OneToMany(mappedBy = "administratedLyceum")
     private List<User> administrators = new ArrayList<>();
+
+    @OneToMany(mappedBy = "lyceum")
+    private List<Course> courses = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "lyceum_lecturers",
+            joinColumns = @JoinColumn(name = "lyceum_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private List<User> lecturers = new ArrayList<>();
 }
