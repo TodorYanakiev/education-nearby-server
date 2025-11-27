@@ -6,12 +6,23 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+/**
+ * Helper service for sending outbound emails related to platform workflows.
+ */
 @Service
 @RequiredArgsConstructor
 public class EmailService {
 
     private final JavaMailSender mailSender;
 
+    /**
+     * Sends a verification email containing a token for lyceum administration claims.
+     *
+     * @param to recipient email address
+     * @param lyceumName target lyceum name
+     * @param town lyceum town for context
+     * @param tokenValue verification code to be used during confirmation
+     */
     public void sendLyceumVerificationEmail(@NonNull String to,
                                             @NonNull String lyceumName,
                                             @NonNull String town,

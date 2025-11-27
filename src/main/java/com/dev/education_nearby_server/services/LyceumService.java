@@ -34,6 +34,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+/**
+ * Handles lyceum discovery, administration verification, and lecturer/administrator management.
+ */
 @Service
 @RequiredArgsConstructor
 public class LyceumService {
@@ -45,6 +48,12 @@ public class LyceumService {
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
 
+    /**
+     * Starts the administrator verification flow for a lyceum by sending a token to the lyceum email.
+     *
+     * @param request request containing lyceum name/town and requester info
+     * @return user-facing message describing the outcome
+     */
     public String requestRightsOverLyceum(LyceumRightsRequest request) {
         String normalizedName = normalize(request.getLyceumName());
         String normalizedTown = normalize(request.getTown());
@@ -70,6 +79,12 @@ public class LyceumService {
         return "We have sent you an email at " + lyceum.getEmail() + " with a verification code.";
     }
 
+    /**
+     * Confirms administrator rights using a verification code and assigns the user as administrator.
+     *
+     * @param request verification payload containing the token
+     * @return confirmation message once rights are granted
+     */
     public String verifyRightsOverLyceum(LyceumRightsVerificationRequest request) {
         String code = extractVerificationCode(request);
         User currentUser = getManagedCurrentUser();
@@ -82,6 +97,11 @@ public class LyceumService {
         return "You are now the administrator of " + lyceum.getName() + " in " + lyceum.getTown() + ".";
     }
 
+    /**
+     * Lists only lyceums that passed administrator verification.
+     *
+     * @return verified lyceums
+     */
     public List<LyceumResponse> getVerifiedLyceums() {
         return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED)
                 .stream()
@@ -89,6 +109,11 @@ public class LyceumService {
                 .toList();
     }
 
+    /**
+     * Lists all lyceums regardless of verification status.
+     *
+     * @return every lyceum
+     */
     public List<LyceumResponse> getAllLyceums() {
         return lyceumRepository.findAll()
                 .stream()
@@ -96,6 +121,15 @@ public class LyceumService {
                 .toList();
     }
 
+    /**
+     * Filters lyceums by town and/or coordinates; only verified lyceums are returned.
+     *
+     * @param town optional town filter (case-insensitive)
+     * @param latitude optional latitude used with longitude
+     * @param longitude optional longitude used with latitude
+     * @param limit optional max results to return
+     * @return lyceums that match the provided filters
+     */
     public List<LyceumResponse> filterLyceums(String town, Double latitude, Double longitude, Integer limit) {
         String normalizedTown = normalize(town);
         if (normalizedTown != null && normalizedTown.isBlank()) {
@@ -121,6 +155,12 @@ public class LyceumService {
                 .toList();
     }
 
+    /**
+     * Creates a new lyceum record after validating required fields and uniqueness by name and town.
+     *
+     * @param request lyceum payload to persist
+     * @return created lyceum response
+     */
     public LyceumResponse createLyceum(LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -161,6 +201,13 @@ public class LyceumService {
         return mapToResponse(savedLyceum);
     }
 
+    /**
+     * Updates lyceum fields while enforcing authorization and uniqueness constraints.
+     *
+     * @param id lyceum identifier
+     * @param request updated lyceum data
+     * @return updated lyceum response
+     */
     public LyceumResponse updateLyceum(Long id, LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -214,6 +261,12 @@ public class LyceumService {
         return mapToResponse(updatedLyceum);
     }
 
+    /**
+     * Assigns a user as administrator of a lyceum, ensuring permissions and uniqueness.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId user to promote
+     */
     @Transactional
     public void assignAdministrator(Long lyceumId, Long userId) {
         Lyceum lyceum = lyceumRepository.findById(lyceumId)
@@ -238,6 +291,11 @@ public class LyceumService {
         lyceumRepository.save(lyceum);
     }
 
+    /**
+     * Adds a lecturer to a lyceum, validating permissions and preventing duplicates.
+     *
+     * @param request lecturer assignment payload
+     */
     @Transactional
     public void addLecturerToLyceum(LyceumLecturerRequest request) {
         User currentUser = getManagedCurrentUser();
@@ -288,6 +346,11 @@ public class LyceumService {
         return lyceum;
     }
 
+    /**
+     * Deletes a lyceum and clears administrator relationships and tokens.
+     *
+     * @param id lyceum identifier
+     */
     @Transactional
     public void deleteLyceum(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
@@ -303,6 +366,12 @@ public class LyceumService {
         lyceumRepository.delete(lyceum);
     }
 
+    /**
+     * Retrieves a lyceum by id, guarding access to non-verified lyceums for non-admins.
+     *
+     * @param id lyceum identifier
+     * @return lyceum details
+     */
     public LyceumResponse getLyceumById(Long id) {
         Lyceum lyceum = lyceumRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));

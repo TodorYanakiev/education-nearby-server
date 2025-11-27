@@ -26,6 +26,10 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
+/**
+ * Handles authentication workflows: registering users, authenticating credentials,
+ * issuing JWT access/refresh tokens, and refreshing access tokens.
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -36,6 +40,13 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Creates a new user if the email/username are unique and password constraints are met,
+     * then issues JWT access and refresh tokens.
+     *
+     * @param request registration payload
+     * @return tokens for the newly registered account
+     */
     public AuthenticationResponse register(RegisterRequest request) {
         if (repository.findByEmail(request.getEmail()).isPresent())
             throw new ConflictException("User with such email already exists!");
@@ -62,6 +73,12 @@ public class AuthenticationService {
                 .build();
     }
 
+    /**
+     * Authenticates user credentials, revokes existing tokens, and returns a fresh token pair.
+     *
+     * @param request login payload
+     * @return new access/refresh tokens
+     */
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         User user = repository.findByEmail(request.getEmail())
             .orElseThrow(() -> new UnauthorizedException("Invalid credentials!"));
@@ -105,6 +122,14 @@ public class AuthenticationService {
         tokenRepository.saveAll(validUserTokens);
     }
 
+    /**
+     * Validates a refresh token from the Authorization header and streams a new access token.
+     * Refresh tokens remain valid while all previous access tokens are revoked.
+     *
+     * @param request HTTP request containing the bearer refresh token
+     * @param response HTTP response to write the refreshed token payload
+     * @throws IOException if writing to the response fails
+     */
     public void refreshToken(
             HttpServletRequest request,
             HttpServletResponse response

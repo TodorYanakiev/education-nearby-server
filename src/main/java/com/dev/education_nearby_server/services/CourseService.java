@@ -60,6 +60,11 @@ public class CourseService {
     private final S3Properties s3Properties;
     private static final String NOT_FOUND = " not found.";
 
+    /**
+     * Returns all courses without applying filters.
+     *
+     * @return list of all courses
+     */
     @Transactional(readOnly = true)
     public List<CourseResponse> getAllCourses() {
         return courseRepository.findAll()
@@ -71,6 +76,9 @@ public class CourseService {
     /**
      * Filters courses by optional type, age group, price, recurrence, day, and time ranges.
      * Empty or null lists are treated as no filter; invalid ranges are rejected.
+     *
+     * @param filterRequest filter criteria; null values are ignored
+     * @return courses that satisfy the provided filters
      */
     @Transactional(readOnly = true)
     public List<CourseResponse> filterCourses(CourseFilterRequest filterRequest) {
@@ -103,12 +111,24 @@ public class CourseService {
                 .toList();
     }
 
+    /**
+     * Returns course details by id.
+     *
+     * @param courseId course identifier
+     * @return course response
+     */
     @Transactional(readOnly = true)
     public CourseResponse getCourseById(Long courseId) {
         Course course = requireCourse(courseId, true);
         return mapToResponse(course);
     }
 
+    /**
+     * Lists images for a given course id.
+     *
+     * @param courseId course identifier
+     * @return images sorted by order and id
+     */
     public List<CourseImageResponse> getCourseImages(Long courseId) {
         Course course = requireCourse(courseId, false);
         List<CourseImage> images = courseImageRepository.findAllByCourseIdOrderByOrderIndexAscIdAsc(course.getId());
@@ -148,6 +168,12 @@ public class CourseService {
         return mapToResponse(saved);
     }
 
+    /**
+     * Removes a course image after verifying course ownership and association.
+     *
+     * @param courseId course identifier
+     * @param imageId image identifier to delete
+     */
     @Transactional
     public void deleteCourseImage(Long courseId, Long imageId) {
         Course course = requireCourse(courseId, true);
@@ -163,6 +189,11 @@ public class CourseService {
         courseImageRepository.delete(image);
     }
 
+    /**
+     * Deletes a course after ensuring the caller has rights to modify it.
+     *
+     * @param courseId course identifier
+     */
     @Transactional
     public void deleteCourse(Long courseId) {
         Course course = requireCourse(courseId, true);
@@ -172,7 +203,12 @@ public class CourseService {
         courseRepository.delete(course);
     }
 
-    /** Updates mutable course fields, optionally relocating lyceum and adjusting lecturers. */
+    /**
+     * Creates a new course, validating permissions and linking lecturers and lyceum when provided.
+     *
+     * @param request course creation payload
+     * @return persisted course response
+     */
     @Transactional
     public CourseResponse createCourse(CourseRequest request) {
         if (request == null) {
