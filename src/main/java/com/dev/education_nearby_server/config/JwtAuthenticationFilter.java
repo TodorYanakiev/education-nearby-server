@@ -19,6 +19,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+/**
+ * Servlet filter that validates bearer JWTs, loads user details, and populates the SecurityContext.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -28,6 +31,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
     private final TokenRepository tokenRepository;
 
+    /**
+     * Skips auth endpoints, otherwise attempts to parse and validate the Authorization bearer token
+     * and sets authentication when valid; errors are logged in debug only.
+     */
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,

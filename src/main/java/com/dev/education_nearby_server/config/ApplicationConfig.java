@@ -24,6 +24,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Properties;
 
+/**
+ * Core application bean definitions: security, serialization, mapping, auditing, and mail setup.
+ */
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
 @RequiredArgsConstructor
@@ -77,6 +80,9 @@ public class ApplicationConfig {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * Configures JavaMailSender from Spring mail properties if provided; defaults are left unset.
+     */
     @Bean
     public JavaMailSender javaMailSender(Environment env) {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
