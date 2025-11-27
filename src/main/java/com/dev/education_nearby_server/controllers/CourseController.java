@@ -33,33 +33,68 @@ public class CourseController {
 
     private final CourseService courseService;
 
+    /**
+     * Lists all courses without filtering.
+     *
+     * @return every course available to the caller
+     */
     @GetMapping
     public ResponseEntity<List<CourseResponse>> getAllCourses() {
         return ResponseEntity.ok(courseService.getAllCourses());
     }
 
-    /** Returns courses that match the provided optional filters; empty filters return all courses. */
+    /**
+     * Returns courses that match the provided optional filters; empty filters return all courses.
+     *
+     * @param request optional filter fields (category, price, etc.)
+     * @return courses that satisfy the filters
+     */
     @GetMapping("/filter")
     public ResponseEntity<List<CourseResponse>> filterCourses(@Valid @ModelAttribute CourseFilterRequest request) {
         return ResponseEntity.ok(courseService.filterCourses(request));
     }
 
+    /**
+     * Fetches a course by id.
+     *
+     * @param courseId course identifier
+     * @return course details
+     */
     @GetMapping("/{courseId}")
     public ResponseEntity<CourseResponse> getCourse(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseById(courseId));
     }
 
+    /**
+     * Lists images attached to a course.
+     *
+     * @param courseId course identifier
+     * @return images associated with the course
+     */
     @GetMapping("/{courseId}/images")
     public ResponseEntity<List<CourseImageResponse>> getCourseImages(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseImages(courseId));
     }
 
+    /**
+     * Creates a new course.
+     *
+     * @param request validated course payload
+     * @return created course with generated id
+     */
     @PostMapping
     public ResponseEntity<CourseResponse> createCourse(@Valid @RequestBody CourseRequest request) {
         CourseResponse response = courseService.createCourse(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    /**
+     * Updates an existing course.
+     *
+     * @param courseId course identifier
+     * @param request fields to update
+     * @return updated course
+     */
     @PutMapping("/{courseId}")
     public ResponseEntity<CourseResponse> updateCourse(
             @PathVariable Long courseId,
@@ -69,7 +104,13 @@ public class CourseController {
         return ResponseEntity.ok(response);
     }
 
-    /** Registers a new course image; validates S3 key/url and role before saving. */
+    /**
+     * Registers a new course image; validates S3 key/url and role before saving.
+     *
+     * @param courseId course identifier
+     * @param request validated image payload
+     * @return persisted course image
+     */
     @PostMapping("/{courseId}/images")
     public ResponseEntity<CourseImageResponse> addCourseImage(
             @PathVariable Long courseId,
@@ -79,12 +120,25 @@ public class CourseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    /**
+     * Deletes a course.
+     *
+     * @param courseId course identifier
+     * @return empty 204 on success
+     */
     @DeleteMapping("/{courseId}")
     public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId) {
         courseService.deleteCourse(courseId);
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Deletes a course image by id.
+     *
+     * @param courseId course identifier
+     * @param imageId image identifier
+     * @return empty 204 on success
+     */
     @DeleteMapping("/{courseId}/images/{imageId}")
     public ResponseEntity<Void> deleteCourseImage(
             @PathVariable Long courseId,
