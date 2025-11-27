@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Payload for adding a lecturer to a lyceum, optionally specifying the lyceum id.
+ */
 @Getter
 @Setter
 @Builder

@@ -19,6 +19,9 @@ import lombok.Setter;
 import java.io.Serial;
 import java.io.Serializable;
 
+/**
+ * Image metadata stored for a course, either as an S3 key or public URL.
+ */
 @Entity
 @Table(name = "course_images")
 @Getter

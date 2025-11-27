@@ -23,6 +23,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 import java.io.Serializable;
 
+/**
+ * Persisted JWT or verification token used for auth sessions and lyceum verification.
+ */
 @Data
 @Builder
 @NoArgsConstructor

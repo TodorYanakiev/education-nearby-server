@@ -22,6 +22,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Cultural center entity tracked for verification, administration, and course assignments.
+ */
 @Entity
 @NoArgsConstructor
 @Getter

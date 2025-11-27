@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * JWT token pair returned after authentication or registration.
+ */
 @Data
 @Builder
 @AllArgsConstructor

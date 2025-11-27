@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Verification payload carrying the code sent to confirm lyceum administration rights.
+ */
 @Getter
 @Setter
 @Builder

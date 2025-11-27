@@ -9,6 +9,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import com.dev.education_nearby_server.validation.FieldMatch;
 
+/**
+ * Payload for updating a user's password by providing the current password and matching new values.
+ */
 @Getter
 @Setter
 @Builder

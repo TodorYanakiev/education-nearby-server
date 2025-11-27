@@ -9,6 +9,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import com.dev.education_nearby_server.validation.FieldMatch;
 
+/**
+ * Registration payload used to create a new account with validation rules.
+ */
 @Data
 @Builder
 @AllArgsConstructor

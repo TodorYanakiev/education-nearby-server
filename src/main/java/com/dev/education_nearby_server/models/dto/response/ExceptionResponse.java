@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
 
+/**
+ * Standard error envelope returned by exception handlers.
+ */
 @Getter
 @Builder
 @NoArgsConstructor
