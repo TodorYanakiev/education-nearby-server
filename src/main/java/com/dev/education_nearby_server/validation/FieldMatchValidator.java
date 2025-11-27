@@ -6,6 +6,9 @@ import org.springframework.beans.BeanWrapperImpl;
 
 import java.util.Objects;
 
+/**
+ * Compares two fields on the same bean and registers a violation on the second field when they differ.
+ */
 public class FieldMatchValidator implements ConstraintValidator<FieldMatch, Object> {
 
     private String firstField;
@@ -26,6 +29,7 @@ public class FieldMatchValidator implements ConstraintValidator<FieldMatch, Obje
         boolean matches = Objects.equals(first, second);
 
         if (!matches) {
+            // Redirect violation to the second field so clients can display it next to the confirmation input.
             context.disableDefaultConstraintViolation();
             context.buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
                     .addPropertyNode(secondField)

@@ -9,6 +9,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Constraint to ensure two bean properties have equal values (e.g. password and confirmation).
+ */
 @Documented
 @Constraint(validatedBy = FieldMatchValidator.class)
 @Target({ElementType.TYPE, ElementType.ANNOTATION_TYPE})
