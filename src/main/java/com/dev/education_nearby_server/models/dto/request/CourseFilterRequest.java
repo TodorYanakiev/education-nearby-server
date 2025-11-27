@@ -15,6 +15,9 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
 
+/**
+ * Query parameters for filtering courses by type, age group, price, recurrence, and schedule.
+ */
 @Getter
 @Setter
 @Builder

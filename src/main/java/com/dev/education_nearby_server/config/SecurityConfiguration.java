@@ -25,6 +25,9 @@ import java.util.List;
 
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
+/**
+ * Central Spring Security setup: stateless JWT auth, endpoint authorization rules, and CORS defaults.
+ */
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -51,6 +54,9 @@ public class SecurityConfiguration {
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
 
+    /**
+     * Configures stateless security with JWT filter, per-endpoint authorization, and logout handling.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -88,6 +94,9 @@ public class SecurityConfiguration {
         return http.build();
     }
 
+    /**
+     * CORS configuration allowing local development origins and common headers/methods.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

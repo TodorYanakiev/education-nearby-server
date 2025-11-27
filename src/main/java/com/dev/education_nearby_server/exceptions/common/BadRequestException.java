@@ -2,6 +2,9 @@ package com.dev.education_nearby_server.exceptions.common;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * 400 error for syntactically correct requests that contain invalid data.
+ */
 public class BadRequestException extends ApiException {
     public BadRequestException() {
         super("bad request", HttpStatus.BAD_REQUEST);

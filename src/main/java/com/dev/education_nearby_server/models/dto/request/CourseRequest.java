@@ -14,6 +14,9 @@ import lombok.Setter;
 
 import java.util.List;
 
+/**
+ * Payload for creating a course with required metadata and optional associations.
+ */
 @Getter
 @Setter
 @Builder

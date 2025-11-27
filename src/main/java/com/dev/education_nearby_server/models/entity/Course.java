@@ -33,6 +33,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Represents an educational course with schedule, pricing, media, and lecturer associations.
+ */
 @Entity
 @NoArgsConstructor
 @Getter

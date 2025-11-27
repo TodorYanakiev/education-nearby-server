@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * View model for course images exposed via APIs.
+ */
 @Getter
 @Setter
 @Builder

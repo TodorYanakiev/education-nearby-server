@@ -34,6 +34,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * Application user with authentication details, roles, and links to lyceums/courses.
+ */
 @Data
 @Builder
 @NoArgsConstructor

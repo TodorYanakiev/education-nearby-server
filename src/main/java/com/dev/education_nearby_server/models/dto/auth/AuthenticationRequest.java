@@ -8,6 +8,9 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/**
+ * Login payload containing user credentials.
+ */
 @Data
 @Builder
 @AllArgsConstructor

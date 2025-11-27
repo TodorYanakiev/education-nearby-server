@@ -9,12 +9,22 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.stereotype.Service;
 
+/**
+ * Revokes bearer tokens on logout by marking them expired and revoked in storage.
+ */
 @Service
 @RequiredArgsConstructor
 public class LogoutService implements LogoutHandler {
 
     private final TokenRepository tokenRepository;
 
+    /**
+     * Extracts the bearer token from the Authorization header and revokes it if present.
+     *
+     * @param request incoming request containing Authorization header
+     * @param response unused response object from Spring security pipeline
+     * @param authentication current authentication (may be null)
+     */
     @Override
     public void logout(
             HttpServletRequest request,

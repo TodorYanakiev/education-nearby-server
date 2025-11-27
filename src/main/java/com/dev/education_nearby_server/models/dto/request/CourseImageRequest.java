@@ -11,6 +11,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Payload for registering or updating a course image reference (S3 key or URL) with metadata.
+ */
 @Getter
 @Setter
 @Builder

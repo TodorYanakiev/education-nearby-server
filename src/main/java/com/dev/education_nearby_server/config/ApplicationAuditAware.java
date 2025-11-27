@@ -8,7 +8,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 
+/**
+ * Supplies the current authenticated user id for Spring Data auditing fields.
+ */
 public class ApplicationAuditAware implements AuditorAware<Long> {
+    /**
+     * Returns the authenticated user's id when present, otherwise empty for anonymous contexts.
+     */
     @Override
     public Optional<Long> getCurrentAuditor() {
         Authentication authentication =

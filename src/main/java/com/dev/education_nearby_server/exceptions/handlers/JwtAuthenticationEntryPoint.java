@@ -13,12 +13,18 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
+/**
+ * Sends a JSON error response when an unauthenticated request hits a secured endpoint.
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * Builds a consistent unauthorized response body instead of the default HTML error page.
+     */
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
         ExceptionResponse body = ExceptionResponse.builder()

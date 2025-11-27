@@ -7,6 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Lyceum representation returned to clients.
+ */
 @Getter
 @Setter
 @Builder

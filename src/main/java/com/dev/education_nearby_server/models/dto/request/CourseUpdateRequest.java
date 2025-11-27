@@ -13,6 +13,9 @@ import lombok.Setter;
 
 import java.util.List;
 
+/**
+ * Partial update payload for courses; null fields are ignored by the service layer.
+ */
 @Getter
 @Setter
 @Builder

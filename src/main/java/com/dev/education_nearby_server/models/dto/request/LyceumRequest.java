@@ -8,6 +8,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Payload for creating or updating lyceum metadata provided by administrators.
+ */
 @Getter
 @Setter
 @Builder

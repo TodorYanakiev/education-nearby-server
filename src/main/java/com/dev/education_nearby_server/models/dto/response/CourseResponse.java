@@ -11,6 +11,9 @@ import lombok.Setter;
 
 import java.util.List;
 
+/**
+ * Representation of a course returned to API consumers.
+ */
 @Getter
 @Setter
 @Builder

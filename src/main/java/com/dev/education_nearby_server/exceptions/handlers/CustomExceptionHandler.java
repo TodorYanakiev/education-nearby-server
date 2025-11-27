@@ -28,6 +28,10 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import java.time.LocalDateTime;
 
+/**
+ * Centralized exception mapper that normalizes framework, security and validation errors
+ * into a consistent {@link com.dev.education_nearby_server.models.dto.response.ExceptionResponse}.
+ */
 @ControllerAdvice
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
 
@@ -50,11 +54,17 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(body);
     }
 
+    /**
+     * Catch-all for uncaught runtime exceptions mapped to a generic 500 response.
+     */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ExceptionResponse> handleRuntimeExceptions(RuntimeException exception) {
         return handleApiExceptions(new InternalServerErrorException());
     }
 
+    /**
+     * Unwraps authentication service errors so nested ApiExceptions surface cleanly.
+     */
     @ExceptionHandler(InternalAuthenticationServiceException.class)
     public ResponseEntity<ExceptionResponse> handleInternalAuthServiceExceptions(InternalAuthenticationServiceException exception) {
         Throwable cause = exception.getCause();
@@ -85,6 +95,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(apiException);
     }
 
+    /**
+     * Inspects transaction failures for constraint violations to return validation feedback.
+     */
     @ExceptionHandler(TransactionException.class)
     public ResponseEntity<ExceptionResponse> handleTransactionExceptions(org.springframework.transaction.TransactionException exception) {
         if (exception.getRootCause() instanceof ConstraintViolationException) {
@@ -105,6 +118,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
         return handleApiExceptions(new com.dev.education_nearby_server.exceptions.common.ConflictException(message));
     }
 
+    /**
+     * Aggregates validation errors from request body binding into a single message.
+     */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex,
@@ -122,6 +138,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(resp.getStatusCode()).body(resp.getBody());
     }
 
+    /**
+     * Aggregates validation errors from form/query binding into a single message (HttpStatusCode overload).
+     */
     protected ResponseEntity<Object> handleBindException(
             BindException ex,
             HttpHeaders headers,
@@ -155,6 +174,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(resp.getStatusCode()).body(resp.getBody());
     }
 
+    /**
+     * Attempts to convert vendor-specific constraint violation messages into concise, user-friendly text.
+     */
     private String prettyDataIntegrityMessage(DataIntegrityViolationException ex) {
         Throwable cause = ex.getRootCause() != null ? ex.getRootCause() : ex;
         String raw = cause.getMessage();
@@ -211,6 +233,9 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
         return text.substring(i, j);
     }
 
+    /**
+     * Maps known unique key names to user-facing conflict messages.
+     */
     private String mapUniqueKeyToFieldMessage(String keyOrCols) {
         if (!StringUtils.hasText(keyOrCols)) return null;
         String k = keyOrCols.toLowerCase();
