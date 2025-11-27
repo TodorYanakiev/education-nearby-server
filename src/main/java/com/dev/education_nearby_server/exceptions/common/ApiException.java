@@ -3,6 +3,10 @@ package com.dev.education_nearby_server.exceptions.common;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+/**
+ * Base runtime exception for API endpoints that carries the HTTP status and numeric code
+ * so controllers can return uniform error responses.
+ */
 @Getter
 public abstract class ApiException extends RuntimeException {
     private HttpStatus status;
