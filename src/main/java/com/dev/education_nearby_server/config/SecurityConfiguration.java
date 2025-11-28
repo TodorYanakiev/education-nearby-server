@@ -36,6 +36,7 @@ public class SecurityConfiguration {
 
     private static final String API_V1_LYCEUMS = "/api/v1/lyceums/*";
     private static final String API_V1_COURSES = "/api/v1/courses/**";
+    private static final String API_V1_USERS = "/api/v1/users/**";
 
     private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
             "/v2/api-docs",
@@ -71,6 +72,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/filter").permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_LYCEUMS).permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_COURSES).permitAll()
+                                .requestMatchers(HttpMethod.GET, API_V1_USERS).permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
                                 .requestMatchers(HttpMethod.PUT, API_V1_LYCEUMS).authenticated()
