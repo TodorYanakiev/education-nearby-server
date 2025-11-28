@@ -1,7 +1,9 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.Principal;
+import java.util.List;
 
 /**
  * User-facing operations for account maintenance.
@@ -20,6 +23,30 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository repository;
+
+    /**
+     * Returns a view of every user in the system. Intended for administrative dashboards.
+     *
+     * @return all users with public fields only
+     */
+    public List<UserResponse> getAllUsers() {
+        return repository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
+     * Fetches a single user by id.
+     *
+     * @param userId user identifier
+     * @return user with the given id
+     */
+    public UserResponse getUserById(Long userId) {
+        User user = repository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+        return mapToResponse(user);
+    }
 
     /**
      * Changes the authenticated user's password after validating the current password
@@ -43,5 +70,18 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
 
         repository.save(user);
+    }
+
+    private UserResponse mapToResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .firstname(user.getFirstname())
+                .lastname(user.getLastname())
+                .email(user.getEmail())
+                .username(user.getUsername())
+                .role(user.getRole())
+                .administratedLyceumId(user.getAdministratedLyceum() != null ? user.getAdministratedLyceum().getId() : null)
+                .enabled(user.isEnabled())
+                .build();
     }
 }
