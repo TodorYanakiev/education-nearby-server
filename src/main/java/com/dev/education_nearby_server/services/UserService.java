@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
+import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
@@ -49,6 +50,17 @@ public class UserService {
     }
 
     /**
+     * Returns the currently authenticated user.
+     *
+     * @param connectedUser authenticated principal
+     * @return authenticated user representation
+     */
+    public UserResponse getAuthenticatedUser(Principal connectedUser) {
+        User user = resolveUser(connectedUser);
+        return mapToResponse(user);
+    }
+
+    /**
      * Changes the authenticated user's password after validating the current password
      * and new/confirmation match.
      *
@@ -56,8 +68,7 @@ public class UserService {
      * @param connectedUser authenticated principal requesting the change
      */
     public void changePassword(ChangePasswordRequest request, Principal connectedUser) {
-
-        User user = (User) ((UsernamePasswordAuthenticationToken) connectedUser).getPrincipal();
+        User user = resolveUser(connectedUser);
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new ValidationException("Wrong password");
@@ -70,6 +81,18 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
 
         repository.save(user);
+    }
+
+    private User resolveUser(Principal connectedUser) {
+        if (!(connectedUser instanceof UsernamePasswordAuthenticationToken authToken)) {
+            throw new UnauthorizedException("You must be authenticated to perform this action.");
+        }
+        Object principal = authToken.getPrincipal();
+        if (!(principal instanceof User user)) {
+            throw new UnauthorizedException("You must be authenticated to perform this action.");
+        }
+        return repository.findById(user.getId())
+                .orElseThrow(() -> new UnauthorizedException("User not found."));
     }
 
     private UserResponse mapToResponse(User user) {
