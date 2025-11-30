@@ -56,6 +56,19 @@ class UserControllerTest {
     }
 
     @Test
+    void getAuthenticatedUserReturnsServicePayload() {
+        UserResponse user = UserResponse.builder().id(5L).email("me@example.com").build();
+        Principal principal = mock(Principal.class);
+        when(userService.getAuthenticatedUser(principal)).thenReturn(user);
+
+        ResponseEntity<UserResponse> response = userController.getAuthenticatedUser(principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(user);
+        verify(userService).getAuthenticatedUser(principal);
+    }
+
+    @Test
     void changePasswordReturnsOk() {
         ChangePasswordRequest request = ChangePasswordRequest.builder()
                 .currentPassword("old")

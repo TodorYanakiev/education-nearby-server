@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.security.Principal;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,6 +36,7 @@ class UserServiceTest {
     @Test
     void changePasswordThrowsWhenCurrentPasswordInvalid() {
         User user = User.builder()
+                .id(1L)
                 .password("encoded")
                 .role(Role.USER)
                 .build();
@@ -44,6 +46,7 @@ class UserServiceTest {
                 .newPassword("newPassword123")
                 .confirmationPassword("newPassword123")
                 .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encoded")).thenReturn(false);
 
         assertThrows(ValidationException.class, () -> userService.changePassword(request, principal));
@@ -52,6 +55,7 @@ class UserServiceTest {
     @Test
     void changePasswordThrowsWhenConfirmationDiffers() {
         User user = User.builder()
+                .id(1L)
                 .password("encoded")
                 .role(Role.USER)
                 .build();
@@ -61,6 +65,7 @@ class UserServiceTest {
                 .newPassword("newPassword123")
                 .confirmationPassword("different")
                 .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encoded")).thenReturn(true);
 
         assertThrows(ValidationException.class, () -> userService.changePassword(request, principal));
@@ -69,6 +74,7 @@ class UserServiceTest {
     @Test
     void changePasswordEncodesAndPersists() {
         User user = User.builder()
+                .id(1L)
                 .password("encoded")
                 .role(Role.USER)
                 .build();
@@ -78,6 +84,7 @@ class UserServiceTest {
                 .newPassword("newPassword123")
                 .confirmationPassword("newPassword123")
                 .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("old", "encoded")).thenReturn(true);
         when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded");
 

@@ -110,6 +110,31 @@ class UserControllerIT {
     }
 
     @Test
+    void getAuthenticatedUserReturnsCurrentPrincipal() throws Exception {
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .firstname("Gordon")
+                .lastname("Cole")
+                .email("cole@example.com")
+                .username("cole@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        AuthenticationResponse registration = registerViaHttp(registerRequest);
+
+        Long userId = userRepository.findByEmail(registerRequest.getEmail()).orElseThrow().getId();
+
+        MvcResult result = mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + registration.getAccessToken()))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        UserResponse response = objectMapper.readValue(result.getResponse().getContentAsString(), UserResponse.class);
+        assertThat(response.getId()).isEqualTo(userId);
+        assertThat(response.getEmail()).isEqualTo(registerRequest.getEmail());
+        assertThat(response.getRole()).isEqualTo(Role.USER);
+    }
+
+    @Test
     void changePasswordEndpointUpdatesStoredPassword() throws Exception {
         RegisterRequest registerRequest = RegisterRequest.builder()
                 .firstname("Donna")

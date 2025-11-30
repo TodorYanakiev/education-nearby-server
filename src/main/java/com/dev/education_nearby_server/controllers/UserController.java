@@ -48,6 +48,17 @@ public class UserController {
     }
 
     /**
+     * Returns the currently authenticated user's details.
+     *
+     * @param connectedUser authenticated principal
+     * @return authenticated user representation
+     */
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getAuthenticatedUser(Principal connectedUser) {
+        return ResponseEntity.ok(service.getAuthenticatedUser(connectedUser));
+    }
+
+    /**
      * Allows an authenticated user to update their password.
      *
      * @param request validated payload containing current and new passwords
