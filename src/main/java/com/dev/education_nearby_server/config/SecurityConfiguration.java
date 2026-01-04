@@ -74,7 +74,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(HttpMethod.GET, API_V1_COURSES).permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_USERS).permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
-                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").hasRole(Role.ADMIN.name())
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums").permitAll()
                                 .requestMatchers(HttpMethod.PUT, API_V1_LYCEUMS).authenticated()
                                 .requestMatchers(HttpMethod.DELETE, API_V1_LYCEUMS).hasRole(Role.ADMIN.name())
                                 .anyRequest()
