@@ -87,16 +87,7 @@ class LyceumControllerIT {
     }
 
     @Test
-    void getAllLyceumsRequiresAdminRole() throws Exception {
-        mockMvc.perform(get("/api/v1/lyceums")
-                        .with(user("tester").roles("USER")))
-                .andExpect(status().isForbidden());
-
-        verifyNoInteractions(lyceumService);
-    }
-
-    @Test
-    void getAllLyceumsReturnsDataForAdmin() throws Exception {
+    void getAllLyceumsReturnsDataForAnonymous() throws Exception {
         LyceumResponse response = LyceumResponse.builder()
                 .id(5L)
                 .name("Test")
@@ -104,8 +95,7 @@ class LyceumControllerIT {
                 .build();
         when(lyceumService.getAllLyceums()).thenReturn(List.of(response));
 
-        mockMvc.perform(get("/api/v1/lyceums")
-                        .with(user("admin").roles("ADMIN")))
+        mockMvc.perform(get("/api/v1/lyceums"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(5L))
                 .andExpect(jsonPath("$[0].name").value("Test"));
