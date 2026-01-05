@@ -83,6 +83,8 @@ class UserControllerIT {
             assertThat(user.getId()).isNotNull();
             assertThat(user.getRole()).isEqualTo(Role.USER);
             assertThat(user.getUsername()).isNotBlank();
+            assertThat(user.getLecturedCourseIds()).isEmpty();
+            assertThat(user.getLecturedLyceumIds()).isEmpty();
         });
     }
 
@@ -107,6 +109,8 @@ class UserControllerIT {
         assertThat(response.getId()).isEqualTo(userId);
         assertThat(response.getEmail()).isEqualTo(registerRequest.getEmail());
         assertThat(response.getRole()).isEqualTo(Role.USER);
+        assertThat(response.getLecturedCourseIds()).isEmpty();
+        assertThat(response.getLecturedLyceumIds()).isEmpty();
     }
 
     @Test
@@ -132,6 +136,8 @@ class UserControllerIT {
         assertThat(response.getId()).isEqualTo(userId);
         assertThat(response.getEmail()).isEqualTo(registerRequest.getEmail());
         assertThat(response.getRole()).isEqualTo(Role.USER);
+        assertThat(response.getLecturedCourseIds()).isEmpty();
+        assertThat(response.getLecturedLyceumIds()).isEmpty();
     }
 
     @Test

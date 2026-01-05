@@ -104,7 +104,27 @@ public class UserService {
                 .username(user.getUsername())
                 .role(user.getRole())
                 .administratedLyceumId(user.getAdministratedLyceum() != null ? user.getAdministratedLyceum().getId() : null)
+                .lecturedCourseIds(extractLecturedCourseIds(user))
+                .lecturedLyceumIds(extractLecturedLyceumIds(user))
                 .enabled(user.isEnabled())
                 .build();
+    }
+
+    private List<Long> extractLecturedCourseIds(User user) {
+        if (user.getCoursesLectured() == null || user.getCoursesLectured().isEmpty()) {
+            return List.of();
+        }
+        return user.getCoursesLectured().stream()
+                .map(course -> course.getId())
+                .toList();
+    }
+
+    private List<Long> extractLecturedLyceumIds(User user) {
+        if (user.getLecturedLyceums() == null || user.getLecturedLyceums().isEmpty()) {
+            return List.of();
+        }
+        return user.getLecturedLyceums().stream()
+                .map(lyceum -> lyceum.getId())
+                .toList();
     }
 }

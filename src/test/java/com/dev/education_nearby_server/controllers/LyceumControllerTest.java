@@ -4,7 +4,9 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,6 +85,35 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(lyceumResponse);
         verify(lyceumService).getLyceumById(1L);
+    }
+
+    @Test
+    void getLyceumCoursesReturnsServiceResponse() {
+        CourseResponse course = CourseResponse.builder()
+                .id(9L)
+                .name("Course")
+                .build();
+        List<CourseResponse> courses = List.of(course);
+        when(lyceumService.getLyceumCourses(1L)).thenReturn(courses);
+
+        ResponseEntity<List<CourseResponse>> response = lyceumController.getLyceumCourses(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(courses);
+        verify(lyceumService).getLyceumCourses(1L);
+    }
+
+    @Test
+    void getLyceumsByIdsReturnsServiceResponse() {
+        List<Long> ids = List.of(1L, 2L);
+        List<LyceumResponse> lyceums = List.of(lyceumResponse);
+        when(lyceumService.getLyceumsByIds(ids)).thenReturn(lyceums);
+
+        ResponseEntity<List<LyceumResponse>> response = lyceumController.getLyceumsByIds(ids);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lyceums);
+        verify(lyceumService).getLyceumsByIds(ids);
     }
 
     @Test
@@ -171,6 +202,23 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
         verify(lyceumService).addLecturerToLyceum(request);
+    }
+
+    @Test
+    void getLyceumLecturersReturnsServiceResponse() {
+        UserResponse lecturer = UserResponse.builder()
+                .id(4L)
+                .firstname("Tanya")
+                .lastname("Petrova")
+                .build();
+        List<UserResponse> lecturers = List.of(lecturer);
+        when(lyceumService.getLyceumLecturers(1L)).thenReturn(lecturers);
+
+        ResponseEntity<List<UserResponse>> response = lyceumController.getLyceumLecturers(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lecturers);
+        verify(lyceumService).getLyceumLecturers(1L);
     }
 
     @Test

@@ -12,7 +12,10 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
+import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
@@ -45,6 +48,7 @@ public class LyceumService {
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final CourseService courseService;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
 
@@ -385,6 +389,54 @@ public class LyceumService {
         return mapToResponse(lyceum);
     }
 
+    /**
+     * Lists courses linked to a specific lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return courses for the lyceum
+     */
+    public List<CourseResponse> getLyceumCourses(Long lyceumId) {
+        requireLyceum(lyceumId);
+        return courseService.getCoursesByLyceumId(lyceumId);
+    }
+
+    /**
+     * Returns lyceums that match the provided ids.
+     *
+     * @param ids list of lyceum identifiers
+     * @return matching lyceum responses
+     */
+    public List<LyceumResponse> getLyceumsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BadRequestException("Lyceum ids must be provided.");
+        }
+        if (ids.stream().anyMatch(id -> id == null)) {
+            throw new BadRequestException("Lyceum ids must not contain null values.");
+        }
+        return lyceumRepository.findAllById(ids)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
+     * Lists lecturers assigned to a specific lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return lecturers for the lyceum
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getLyceumLecturers(Long lyceumId) {
+        Lyceum lyceum = requireLyceumWithLecturers(lyceumId);
+        List<User> lecturers = lyceum.getLecturers();
+        if (lecturers == null || lecturers.isEmpty()) {
+            return List.of();
+        }
+        return lecturers.stream()
+                .map(this::mapToUserResponse)
+                .toList();
+    }
+
     private String normalize(String input) {
         if (input == null) return null;
         return input
@@ -485,6 +537,14 @@ public class LyceumService {
                 .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + lyceumId + NOT_FOUND_MESSAGE));
     }
 
+    private Lyceum requireLyceumWithLecturers(Long lyceumId) {
+        if (lyceumId == null) {
+            throw new BadRequestException("Lyceum id must be provided.");
+        }
+        return lyceumRepository.findWithLecturersById(lyceumId)
+                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + lyceumId + NOT_FOUND_MESSAGE));
+    }
+
     private void ensureUserNotAdminOfOtherLyceum(User user, Lyceum lyceum) {
         Lyceum administrated = user.getAdministratedLyceum();
         if (administrated != null && !administrated.getId().equals(lyceum.getId())) {
@@ -573,5 +633,38 @@ public class LyceumService {
                 .latitude(lyceum.getLatitude())
                 .verificationStatus(lyceum.getVerificationStatus())
                 .build();
+    }
+
+    private UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .firstname(user.getFirstname())
+                .lastname(user.getLastname())
+                .email(user.getEmail())
+                .username(user.getUsername())
+                .role(user.getRole())
+                .administratedLyceumId(user.getAdministratedLyceum() != null ? user.getAdministratedLyceum().getId() : null)
+                .lecturedCourseIds(extractLecturedCourseIds(user))
+                .lecturedLyceumIds(extractLecturedLyceumIds(user))
+                .enabled(user.isEnabled())
+                .build();
+    }
+
+    private List<Long> extractLecturedCourseIds(User user) {
+        if (user.getCoursesLectured() == null || user.getCoursesLectured().isEmpty()) {
+            return List.of();
+        }
+        return user.getCoursesLectured().stream()
+                .map(Course::getId)
+                .toList();
+    }
+
+    private List<Long> extractLecturedLyceumIds(User user) {
+        if (user.getLecturedLyceums() == null || user.getLecturedLyceums().isEmpty()) {
+            return List.of();
+        }
+        return user.getLecturedLyceums().stream()
+                .map(Lyceum::getId)
+                .toList();
     }
 }

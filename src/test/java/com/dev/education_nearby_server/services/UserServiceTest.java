@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
+import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -150,7 +151,57 @@ class UserServiceTest {
         assertThat(response.getUsername()).isEqualTo("dale@example.com");
         assertThat(response.getRole()).isEqualTo(Role.ADMIN);
         assertThat(response.getAdministratedLyceumId()).isEqualTo(99L);
+        assertThat(response.getLecturedCourseIds()).isEmpty();
+        assertThat(response.getLecturedLyceumIds()).isEmpty();
         assertThat(response.isEnabled()).isTrue();
+    }
+
+    @Test
+    void getAuthenticatedUserMapsLecturedIds() {
+        Course course = new Course();
+        course.setId(33L);
+        Lyceum lyceum = new Lyceum();
+        lyceum.setId(44L);
+        User user = User.builder()
+                .id(15L)
+                .firstname("Audrey")
+                .lastname("Horne")
+                .email("audrey@example.com")
+                .username("audrey@example.com")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        user.setCoursesLectured(List.of(course));
+        user.setLecturedLyceums(List.of(lyceum));
+        Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        when(userRepository.findById(15L)).thenReturn(Optional.of(user));
+
+        var response = userService.getAuthenticatedUser(principal);
+
+        assertThat(response.getLecturedCourseIds()).containsExactly(33L);
+        assertThat(response.getLecturedLyceumIds()).containsExactly(44L);
+    }
+
+    @Test
+    void getAuthenticatedUserMapsEmptyLecturedIdsWhenNullLists() {
+        User user = User.builder()
+                .id(18L)
+                .firstname("Laura")
+                .lastname("Palmer")
+                .email("laura@example.com")
+                .username("laura@example.com")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        user.setCoursesLectured(null);
+        user.setLecturedLyceums(null);
+        Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        when(userRepository.findById(18L)).thenReturn(Optional.of(user));
+
+        var response = userService.getAuthenticatedUser(principal);
+
+        assertThat(response.getLecturedCourseIds()).isEmpty();
+        assertThat(response.getLecturedLyceumIds()).isEmpty();
     }
 
     @Test

@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 /**
  * Representation of user details exposed by the public API.
  */
@@ -23,5 +25,7 @@ public class UserResponse {
     private String username;
     private Role role;
     private Long administratedLyceumId;
+    private List<Long> lecturedCourseIds;
+    private List<Long> lecturedLyceumIds;
     private boolean enabled;
 }

@@ -19,6 +19,9 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @EntityGraph(attributePaths = {"images", "lyceum"})
     Optional<Course> findDetailedById(Long id);
 
+    @EntityGraph(attributePaths = {"lecturers", "lyceum"})
+    List<Course> findAllByLyceum_Id(Long lyceumId);
+
     @Query("""
             SELECT DISTINCT c
             FROM Course c

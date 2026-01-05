@@ -74,6 +74,23 @@ public class CourseService {
     }
 
     /**
+     * Returns courses linked to the provided lyceum id.
+     *
+     * @param lyceumId lyceum identifier
+     * @return courses for the lyceum
+     */
+    @Transactional(readOnly = true)
+    public List<CourseResponse> getCoursesByLyceumId(Long lyceumId) {
+        if (lyceumId == null) {
+            throw new BadRequestException("Lyceum id must be provided.");
+        }
+        return courseRepository.findAllByLyceum_Id(lyceumId)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
      * Filters courses by optional type, age group, price, recurrence, day, and time ranges.
      * Empty or null lists are treated as no filter; invalid ranges are rejected.
      *
