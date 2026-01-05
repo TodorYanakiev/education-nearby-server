@@ -388,6 +388,25 @@ public class LyceumService {
     }
 
     /**
+     * Returns lyceums that match the provided ids.
+     *
+     * @param ids list of lyceum identifiers
+     * @return matching lyceum responses
+     */
+    public List<LyceumResponse> getLyceumsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BadRequestException("Lyceum ids must be provided.");
+        }
+        if (ids.stream().anyMatch(id -> id == null)) {
+            throw new BadRequestException("Lyceum ids must not contain null values.");
+        }
+        return lyceumRepository.findAllById(ids)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
      * Lists lecturers assigned to a specific lyceum.
      *
      * @param lyceumId lyceum identifier

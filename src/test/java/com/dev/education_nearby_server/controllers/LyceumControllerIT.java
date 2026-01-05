@@ -122,6 +122,24 @@ class LyceumControllerIT {
     }
 
     @Test
+    void getLyceumsByIdsReturnsServicePayload() throws Exception {
+        LyceumResponse response = LyceumResponse.builder()
+                .id(2L)
+                .name("Lyceum")
+                .town("Sofia")
+                .build();
+        when(lyceumService.getLyceumsByIds(List.of(2L, 5L))).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/lyceums/by-ids")
+                        .param("ids", "2", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(2L))
+                .andExpect(jsonPath("$[0].name").value("Lyceum"));
+
+        verify(lyceumService).getLyceumsByIds(List.of(2L, 5L));
+    }
+
+    @Test
     void getLyceumByIdMapsServiceNotFound() throws Exception {
         when(lyceumService.getLyceumById(9L))
                 .thenThrow(new NoSuchElementException("missing"));

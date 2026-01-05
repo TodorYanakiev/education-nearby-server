@@ -87,6 +87,19 @@ class LyceumControllerTest {
     }
 
     @Test
+    void getLyceumsByIdsReturnsServiceResponse() {
+        List<Long> ids = List.of(1L, 2L);
+        List<LyceumResponse> lyceums = List.of(lyceumResponse);
+        when(lyceumService.getLyceumsByIds(ids)).thenReturn(lyceums);
+
+        ResponseEntity<List<LyceumResponse>> response = lyceumController.getLyceumsByIds(ids);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lyceums);
+        verify(lyceumService).getLyceumsByIds(ids);
+    }
+
+    @Test
     void filterLyceumsReturnsServiceResponse() {
         List<LyceumResponse> lyceums = List.of(lyceumResponse);
         when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 3)).thenReturn(lyceums);

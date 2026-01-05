@@ -66,6 +66,17 @@ public class LyceumController {
     }
 
     /**
+     * Fetches lyceums that match the provided ids.
+     *
+     * @param ids list of lyceum identifiers
+     * @return lyceums with matching ids
+     */
+    @GetMapping("/by-ids")
+    public ResponseEntity<List<LyceumResponse>> getLyceumsByIds(@RequestParam List<Long> ids) {
+        return ResponseEntity.ok(lyceumService.getLyceumsByIds(ids));
+    }
+
+    /**
      * Filters lyceums by location and pagination.
      *
      * @param town optional town name

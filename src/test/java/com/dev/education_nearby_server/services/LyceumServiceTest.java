@@ -117,6 +117,27 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumsByIdsReturnsRepositoryResult() {
+        Lyceum first = createLyceum(1L, "First", "Sofia", "first@example.com");
+        Lyceum second = createLyceum(2L, "Second", "Varna", "second@example.com");
+        List<Long> ids = List.of(1L, 2L);
+        when(lyceumRepository.findAllById(ids)).thenReturn(List.of(first, second));
+
+        List<LyceumResponse> result = lyceumService.getLyceumsByIds(ids);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getId()).isEqualTo(1L);
+        assertThat(result.get(1).getId()).isEqualTo(2L);
+        verify(lyceumRepository).findAllById(ids);
+    }
+
+    @Test
+    void getLyceumsByIdsThrowsWhenIdsMissing() {
+        assertThrows(BadRequestException.class, () -> lyceumService.getLyceumsByIds(List.of()));
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
     void filterLyceumsDelegatesToRepositoryWithPagination() {
         Lyceum lyceum = createLyceum(30L, "Central", "Varna", "central@example.com");
         lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
