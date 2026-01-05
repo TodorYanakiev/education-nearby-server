@@ -14,6 +14,8 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificati
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
+import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
@@ -31,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -146,6 +149,12 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumCoursesThrowsWhenLyceumIdMissing() {
+        assertThrows(BadRequestException.class, () -> lyceumService.getLyceumCourses(null));
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
     void getLyceumsByIdsReturnsRepositoryResult() {
         Lyceum first = createLyceum(1L, "First", "Sofia", "first@example.com");
         Lyceum second = createLyceum(2L, "Second", "Varna", "second@example.com");
@@ -161,9 +170,75 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumsByIdsReturnsEmptyWhenRepositoryEmpty() {
+        List<Long> ids = List.of(3L, 4L);
+        when(lyceumRepository.findAllById(ids)).thenReturn(List.of());
+
+        List<LyceumResponse> result = lyceumService.getLyceumsByIds(ids);
+
+        assertThat(result).isEmpty();
+        verify(lyceumRepository).findAllById(ids);
+    }
+
+    @Test
     void getLyceumsByIdsThrowsWhenIdsMissing() {
         assertThrows(BadRequestException.class, () -> lyceumService.getLyceumsByIds(List.of()));
         verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void getLyceumsByIdsThrowsWhenIdsNull() {
+        assertThrows(BadRequestException.class, () -> lyceumService.getLyceumsByIds(null));
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void getLyceumsByIdsThrowsWhenIdsContainNull() {
+        assertThrows(BadRequestException.class, () -> lyceumService.getLyceumsByIds(Arrays.asList(1L, null)));
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void getLyceumLecturersMapsLecturedIds() {
+        Lyceum lyceum = createLyceum(8L, "Lyceum", "Varna", "lyceum@example.com");
+        Course course = new Course();
+        course.setId(12L);
+        User lecturer = createUser(20L);
+        lecturer.setCoursesLectured(List.of(course));
+        lecturer.setLecturedLyceums(List.of(lyceum));
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(lyceumRepository.findWithLecturersById(8L)).thenReturn(Optional.of(lyceum));
+
+        List<UserResponse> response = lyceumService.getLyceumLecturers(8L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getLecturedCourseIds()).containsExactly(12L);
+        assertThat(response.getFirst().getLecturedLyceumIds()).containsExactly(8L);
+        verify(lyceumRepository).findWithLecturersById(8L);
+    }
+
+    @Test
+    void getLyceumLecturersReturnsEmptyWhenListNull() {
+        Lyceum lyceum = createLyceum(10L, "Lyceum", "Varna", "lyceum@example.com");
+        lyceum.setLecturers(null);
+        when(lyceumRepository.findWithLecturersById(10L)).thenReturn(Optional.of(lyceum));
+
+        List<UserResponse> response = lyceumService.getLyceumLecturers(10L);
+
+        assertThat(response).isEmpty();
+        verify(lyceumRepository).findWithLecturersById(10L);
+    }
+
+    @Test
+    void getLyceumLecturersReturnsEmptyWhenListEmpty() {
+        Lyceum lyceum = createLyceum(11L, "Lyceum", "Varna", "lyceum@example.com");
+        lyceum.setLecturers(new ArrayList<>());
+        when(lyceumRepository.findWithLecturersById(11L)).thenReturn(Optional.of(lyceum));
+
+        List<UserResponse> response = lyceumService.getLyceumLecturers(11L);
+
+        assertThat(response).isEmpty();
+        verify(lyceumRepository).findWithLecturersById(11L);
     }
 
     @Test

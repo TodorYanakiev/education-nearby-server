@@ -107,6 +107,16 @@ class CourseServiceTest {
     }
 
     @Test
+    void getCoursesByLyceumIdReturnsEmptyWhenRepositoryEmpty() {
+        when(courseRepository.findAllByLyceum_Id(8L)).thenReturn(List.of());
+
+        List<CourseResponse> responses = courseService.getCoursesByLyceumId(8L);
+
+        assertThat(responses).isEmpty();
+        verify(courseRepository).findAllByLyceum_Id(8L);
+    }
+
+    @Test
     void getCoursesByLyceumIdThrowsWhenIdMissing() {
         assertThrows(BadRequestException.class, () -> courseService.getCoursesByLyceumId(null));
         verifyNoInteractions(courseRepository);
