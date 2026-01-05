@@ -10,6 +10,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
@@ -403,6 +404,24 @@ class LyceumControllerIT {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void getLyceumLecturersReturnsServicePayload() throws Exception {
+        UserResponse lecturer = UserResponse.builder()
+                .id(4L)
+                .firstname("Tanya")
+                .lastname("Petrova")
+                .build();
+        when(lyceumService.getLyceumLecturers(6L)).thenReturn(List.of(lecturer));
+
+        mockMvc.perform(get("/api/v1/lyceums/6/lecturers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(4L))
+                .andExpect(jsonPath("$[0].firstname").value("Tanya"))
+                .andExpect(jsonPath("$[0].lastname").value("Petrova"));
+
+        verify(lyceumService).getLyceumLecturers(6L);
     }
 
     @Test

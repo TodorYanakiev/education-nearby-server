@@ -5,6 +5,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificati
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -157,6 +158,17 @@ public class LyceumController {
     public ResponseEntity<Void> addLecturer(@Valid @RequestBody LyceumLecturerRequest request) {
         lyceumService.addLecturerToLyceum(request);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Lists lecturers associated with a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return lecturers assigned to the lyceum
+     */
+    @GetMapping("/{lyceumId}/lecturers")
+    public ResponseEntity<List<UserResponse>> getLyceumLecturers(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(lyceumService.getLyceumLecturers(lyceumId));
     }
 
     /**
