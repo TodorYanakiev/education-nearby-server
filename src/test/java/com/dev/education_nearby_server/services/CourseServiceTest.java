@@ -91,6 +91,28 @@ class CourseServiceTest {
     }
 
     @Test
+    void getCoursesByLyceumIdReturnsMappedResponses() {
+        Course course = createCourseEntity(3L);
+        Lyceum lyceum = new Lyceum();
+        lyceum.setId(7L);
+        course.setLyceum(lyceum);
+        when(courseRepository.findAllByLyceum_Id(7L)).thenReturn(List.of(course));
+
+        List<CourseResponse> responses = courseService.getCoursesByLyceumId(7L);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().getId()).isEqualTo(3L);
+        assertThat(responses.getFirst().getLyceumId()).isEqualTo(7L);
+        verify(courseRepository).findAllByLyceum_Id(7L);
+    }
+
+    @Test
+    void getCoursesByLyceumIdThrowsWhenIdMissing() {
+        assertThrows(BadRequestException.class, () -> courseService.getCoursesByLyceumId(null));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
     void filterCoursesUsesDefaultsWhenRequestNull() {
         Course course = createCourseEntity(1L);
         when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any()))

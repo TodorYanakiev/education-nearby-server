@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
@@ -63,6 +64,17 @@ public class LyceumController {
     @GetMapping("/{id}")
     public ResponseEntity<LyceumResponse> getLyceumById(@PathVariable Long id) {
         return ResponseEntity.ok(lyceumService.getLyceumById(id));
+    }
+
+    /**
+     * Lists courses for a specific lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return courses offered by the lyceum
+     */
+    @GetMapping("/{lyceumId}/courses")
+    public ResponseEntity<List<CourseResponse>> getLyceumCourses(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(lyceumService.getLyceumCourses(lyceumId));
     }
 
     /**

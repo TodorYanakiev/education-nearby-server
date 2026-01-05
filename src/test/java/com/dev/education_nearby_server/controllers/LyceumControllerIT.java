@@ -9,6 +9,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
@@ -119,6 +120,24 @@ class LyceumControllerIT {
                 .andExpect(jsonPath("$.name").value("Lyceum"));
 
         verify(lyceumService).getLyceumById(2L);
+    }
+
+    @Test
+    void getLyceumCoursesReturnsServicePayload() throws Exception {
+        CourseResponse response = CourseResponse.builder()
+                .id(3L)
+                .name("Course")
+                .lyceumId(2L)
+                .build();
+        when(lyceumService.getLyceumCourses(2L)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/lyceums/2/courses"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(3L))
+                .andExpect(jsonPath("$[0].name").value("Course"))
+                .andExpect(jsonPath("$[0].lyceumId").value(2L));
+
+        verify(lyceumService).getLyceumCourses(2L);
     }
 
     @Test

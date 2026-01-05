@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
@@ -84,6 +85,22 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(lyceumResponse);
         verify(lyceumService).getLyceumById(1L);
+    }
+
+    @Test
+    void getLyceumCoursesReturnsServiceResponse() {
+        CourseResponse course = CourseResponse.builder()
+                .id(9L)
+                .name("Course")
+                .build();
+        List<CourseResponse> courses = List.of(course);
+        when(lyceumService.getLyceumCourses(1L)).thenReturn(courses);
+
+        ResponseEntity<List<CourseResponse>> response = lyceumController.getLyceumCourses(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(courses);
+        verify(lyceumService).getLyceumCourses(1L);
     }
 
     @Test

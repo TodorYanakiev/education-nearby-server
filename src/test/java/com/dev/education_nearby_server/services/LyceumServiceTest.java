@@ -12,6 +12,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
@@ -54,6 +55,8 @@ class LyceumServiceTest {
     private UserRepository userRepository;
     @Mock
     private EmailService emailService;
+    @Mock
+    private CourseService courseService;
 
     @InjectMocks
     private LyceumService lyceumService;
@@ -114,6 +117,32 @@ class LyceumServiceTest {
         assertThat(response.getLongitude()).isEqualTo(23.5);
         assertThat(response.getLatitude()).isEqualTo(42.7);
         verify(lyceumRepository).findAll();
+    }
+
+    @Test
+    void getLyceumCoursesReturnsServicePayload() {
+        Lyceum lyceum = createLyceum(5L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(5L)).thenReturn(Optional.of(lyceum));
+        CourseResponse course = CourseResponse.builder()
+                .id(11L)
+                .name("Course")
+                .lyceumId(5L)
+                .build();
+        when(courseService.getCoursesByLyceumId(5L)).thenReturn(List.of(course));
+
+        List<CourseResponse> result = lyceumService.getLyceumCourses(5L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getId()).isEqualTo(11L);
+        verify(courseService).getCoursesByLyceumId(5L);
+    }
+
+    @Test
+    void getLyceumCoursesThrowsWhenLyceumMissing() {
+        when(lyceumRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> lyceumService.getLyceumCourses(9L));
+        verifyNoInteractions(courseService);
     }
 
     @Test

@@ -12,6 +12,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
@@ -47,6 +48,7 @@ public class LyceumService {
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final CourseService courseService;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
 
@@ -385,6 +387,17 @@ public class LyceumService {
             }
         }
         return mapToResponse(lyceum);
+    }
+
+    /**
+     * Lists courses linked to a specific lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return courses for the lyceum
+     */
+    public List<CourseResponse> getLyceumCourses(Long lyceumId) {
+        requireLyceum(lyceumId);
+        return courseService.getCoursesByLyceumId(lyceumId);
     }
 
     /**
