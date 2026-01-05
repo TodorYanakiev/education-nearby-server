@@ -14,6 +14,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificati
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
+import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
@@ -611,7 +612,27 @@ public class LyceumService {
                 .username(user.getUsername())
                 .role(user.getRole())
                 .administratedLyceumId(user.getAdministratedLyceum() != null ? user.getAdministratedLyceum().getId() : null)
+                .lecturedCourseIds(extractLecturedCourseIds(user))
+                .lecturedLyceumIds(extractLecturedLyceumIds(user))
                 .enabled(user.isEnabled())
                 .build();
+    }
+
+    private List<Long> extractLecturedCourseIds(User user) {
+        if (user.getCoursesLectured() == null || user.getCoursesLectured().isEmpty()) {
+            return List.of();
+        }
+        return user.getCoursesLectured().stream()
+                .map(Course::getId)
+                .toList();
+    }
+
+    private List<Long> extractLecturedLyceumIds(User user) {
+        if (user.getLecturedLyceums() == null || user.getLecturedLyceums().isEmpty()) {
+            return List.of();
+        }
+        return user.getLecturedLyceums().stream()
+                .map(Lyceum::getId)
+                .toList();
     }
 }

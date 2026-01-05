@@ -150,6 +150,8 @@ class UserServiceTest {
         assertThat(response.getUsername()).isEqualTo("dale@example.com");
         assertThat(response.getRole()).isEqualTo(Role.ADMIN);
         assertThat(response.getAdministratedLyceumId()).isEqualTo(99L);
+        assertThat(response.getLecturedCourseIds()).isEmpty();
+        assertThat(response.getLecturedLyceumIds()).isEmpty();
         assertThat(response.isEnabled()).isTrue();
     }
 

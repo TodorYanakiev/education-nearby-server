@@ -412,6 +412,8 @@ class LyceumControllerIT {
                 .id(4L)
                 .firstname("Tanya")
                 .lastname("Petrova")
+                .lecturedCourseIds(List.of(11L, 12L))
+                .lecturedLyceumIds(List.of(6L))
                 .build();
         when(lyceumService.getLyceumLecturers(6L)).thenReturn(List.of(lecturer));
 
@@ -419,7 +421,10 @@ class LyceumControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(4L))
                 .andExpect(jsonPath("$[0].firstname").value("Tanya"))
-                .andExpect(jsonPath("$[0].lastname").value("Petrova"));
+                .andExpect(jsonPath("$[0].lastname").value("Petrova"))
+                .andExpect(jsonPath("$[0].lecturedCourseIds[0]").value(11L))
+                .andExpect(jsonPath("$[0].lecturedCourseIds[1]").value(12L))
+                .andExpect(jsonPath("$[0].lecturedLyceumIds[0]").value(6L));
 
         verify(lyceumService).getLyceumLecturers(6L);
     }
