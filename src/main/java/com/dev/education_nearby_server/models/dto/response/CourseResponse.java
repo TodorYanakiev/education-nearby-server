@@ -26,6 +26,7 @@ public class CourseResponse {
     private CourseType type;
     private List<AgeGroup> ageGroupList;
     private CourseSchedule schedule;
+    private List<CourseImageResponse> images;
     private String address;
     private Float price;
     private String facebookLink;

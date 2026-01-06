@@ -86,6 +86,7 @@ class CourseServiceTest {
 
         assertThat(responses).hasSize(2);
         assertThat(responses.get(0).getId()).isEqualTo(1L);
+        assertThat(responses.get(0).getImages()).isEmpty();
         assertThat(responses.get(1).getId()).isEqualTo(2L);
         verify(courseRepository).findAll();
     }
@@ -205,12 +206,19 @@ class CourseServiceTest {
     @Test
     void getCourseByIdReturnsResponse() {
         Course course = createCourseEntity(9L);
+        CourseImage gallery = buildCourseImage(1L, course, "courses/9/gallery.jpg", "https://cdn/gallery.jpg", ImageRole.GALLERY, 0);
+        CourseImage main = buildCourseImage(2L, course, "courses/9/main.jpg", "https://cdn/main.jpg", ImageRole.MAIN, 1);
+        course.getImages().add(main);
+        course.getImages().add(gallery);
         when(courseRepository.findDetailedById(9L)).thenReturn(Optional.of(course));
 
         CourseResponse response = courseService.getCourseById(9L);
 
         assertThat(response.getId()).isEqualTo(9L);
         assertThat(response.getName()).isEqualTo(course.getName());
+        assertThat(response.getImages()).hasSize(2);
+        assertThat(response.getImages().getFirst().getId()).isEqualTo(1L);
+        assertThat(response.getImages().get(1).getRole()).isEqualTo(ImageRole.MAIN);
         verify(courseRepository).findDetailedById(9L);
     }
 
