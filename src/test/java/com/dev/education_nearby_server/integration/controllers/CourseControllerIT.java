@@ -109,6 +109,12 @@ class CourseControllerIT {
                 .id(courseId)
                 .name("Course")
                 .description("Description")
+                .images(List.of(
+                        CourseImageResponse.builder()
+                                .id(11L)
+                                .url("https://example.com/main.jpg")
+                                .role(ImageRole.MAIN)
+                                .build()))
                 .build();
 
         when(courseService.getCourseById(courseId)).thenReturn(response);
@@ -116,7 +122,9 @@ class CourseControllerIT {
         mockMvc.perform(get("/api/v1/courses/{courseId}", courseId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(courseId))
-                .andExpect(jsonPath("$.name").value("Course"));
+                .andExpect(jsonPath("$.name").value("Course"))
+                .andExpect(jsonPath("$.images[0].url").value("https://example.com/main.jpg"))
+                .andExpect(jsonPath("$.images[0].role").value("MAIN"));
 
         verify(courseService).getCourseById(courseId);
     }

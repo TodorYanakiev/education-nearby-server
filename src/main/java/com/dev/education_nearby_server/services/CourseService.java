@@ -37,13 +37,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Map;
 
 /**
  * Coordinates course lifecycle operations, including filtering, CRUD, lecturer management,
@@ -758,6 +759,7 @@ public class CourseService {
     }
 
     private CourseResponse mapToResponse(Course course) {
+        List<CourseImageResponse> images = mapCourseImages(course);
         return CourseResponse.builder()
                 .id(course.getId())
                 .name(course.getName())
@@ -765,6 +767,7 @@ public class CourseService {
                 .type(course.getType())
                 .ageGroupList(course.getAgeGroupList())
                 .schedule(course.getSchedule())
+                .images(images)
                 .address(course.getAddress())
                 .price(course.getPrice())
                 .facebookLink(course.getFacebookLink())
@@ -777,6 +780,19 @@ public class CourseService {
                                 .filter(Objects::nonNull)
                                 .toList())
                 .build();
+    }
+
+    private List<CourseImageResponse> mapCourseImages(Course course) {
+        if (course.getImages() == null || course.getImages().isEmpty()) {
+            return List.of();
+        }
+        Comparator<CourseImage> ordering = Comparator
+                .comparing(CourseImage::getOrderIndex, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(CourseImage::getId, Comparator.nullsLast(Comparator.naturalOrder()));
+        return course.getImages().stream()
+                .sorted(ordering)
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private String trimToNull(String value) {
