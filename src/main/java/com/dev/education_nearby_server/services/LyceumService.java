@@ -297,6 +297,41 @@ public class LyceumService {
     }
 
     /**
+     * Removes a user from lyceum administrators; admin-only.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId user identifier to demote
+     */
+    @Transactional
+    public void removeAdministratorFromLyceum(Long lyceumId, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id must be provided.");
+        }
+        User currentUser = getManagedCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("You do not have permission to modify this lyceum.");
+        }
+        Lyceum lyceum = requireLyceum(lyceumId);
+
+        User administrator = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException(USER_WITH_ID + userId + NOT_FOUND_MESSAGE));
+
+        Lyceum administrated = administrator.getAdministratedLyceum();
+        if (administrated == null || administrated.getId() == null || !administrated.getId().equals(lyceumId)) {
+            throw new BadRequestException("User is not an administrator of this lyceum.");
+        }
+
+        if (lyceum.getAdministrators() != null) {
+            lyceum.getAdministrators()
+                    .removeIf(existing -> existing.getId() != null && existing.getId().equals(userId));
+        }
+        administrator.setAdministratedLyceum(null);
+
+        userRepository.save(administrator);
+        lyceumRepository.save(lyceum);
+    }
+
+    /**
      * Adds a lecturer to a lyceum, validating permissions and preventing duplicates.
      *
      * @param request lecturer assignment payload

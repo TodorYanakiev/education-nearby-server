@@ -191,6 +191,15 @@ class LyceumControllerTest {
     }
 
     @Test
+    void removeAdministratorReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.removeAdministrator(3L, 5L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).removeAdministratorFromLyceum(3L, 5L);
+    }
+
+    @Test
     void addLecturerReturnsNoContent() {
         LyceumLecturerRequest request = LyceumLecturerRequest.builder()
                 .userId(10L)

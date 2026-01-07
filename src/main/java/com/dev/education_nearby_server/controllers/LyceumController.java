@@ -172,6 +172,23 @@ public class LyceumController {
     }
 
     /**
+     * Removes a user from the administrators of a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId user identifier to demote
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{lyceumId}/administrators/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> removeAdministrator(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId
+    ) {
+        lyceumService.removeAdministratorFromLyceum(lyceumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Adds a lecturer to a lyceum.
      *
      * @param request lecturer details and target lyceum

@@ -1015,6 +1015,66 @@ class LyceumServiceTest {
     }
 
     @Test
+    void removeAdministratorRequiresAdminRole() {
+        User user = createUser(1L);
+
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, 11L));
+
+        assertThat(ex.getMessage()).isEqualTo("You do not have permission to modify this lyceum.");
+        verify(userRepository).findById(user.getId());
+        verify(userRepository, never()).findById(11L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void removeAdministratorUnlinksUserFromLyceum() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User target = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        target.setAdministratedLyceum(lyceum);
+        lyceum.setAdministrators(new ArrayList<>(List.of(target)));
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+
+        lyceumService.removeAdministratorFromLyceum(3L, target.getId());
+
+        assertThat(target.getAdministratedLyceum()).isNull();
+        assertThat(lyceum.getAdministrators()).doesNotContain(target);
+        verify(userRepository).save(target);
+        verify(lyceumRepository).save(lyceum);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenUserHasNoLyceum() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User target = createUser(5L);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        when(lyceumRepository.findById(3L))
+                .thenReturn(Optional.of(createLyceum(3L, "Lyceum", "Varna", "mail@example.com")));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, target.getId()));
+
+        assertThat(ex.getMessage()).isEqualTo("User is not an administrator of this lyceum.");
+        verify(userRepository, never()).save(any(User.class));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
     void addLecturerToLyceumAsAdminRequiresLyceumId() {
         User admin = createUser(1L);
         admin.setRole(Role.ADMIN);
