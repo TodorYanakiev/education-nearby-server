@@ -205,6 +205,15 @@ class LyceumControllerTest {
     }
 
     @Test
+    void removeLecturerReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.removeLecturer(2L, 5L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).removeLecturerFromLyceum(2L, 5L);
+    }
+
+    @Test
     void getLyceumLecturersReturnsServiceResponse() {
         UserResponse lecturer = UserResponse.builder()
                 .id(4L)
