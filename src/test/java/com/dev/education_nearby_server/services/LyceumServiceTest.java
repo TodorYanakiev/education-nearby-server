@@ -1263,6 +1263,19 @@ class LyceumServiceTest {
     }
 
     @Test
+    void removeLecturerFromLyceumThrowsWhenLyceumMissing() {
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeLecturerFromLyceum(3L, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum with id 3 not found.");
+        verify(lyceumRepository).findWithLecturersById(3L);
+        verifyNoInteractions(userRepository);
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
     void removeLecturerFromLyceumThrowsWhenUserNotAuthorized() {
         Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
         User user = createUser(1L);
@@ -1321,6 +1334,28 @@ class LyceumServiceTest {
     }
 
     @Test
+    void removeLecturerFromLyceumAllowsLyceumAdministrator() {
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        User lyceumAdmin = createUser(1L);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User lecturer = createUser(5L);
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        lecturer.setLecturedLyceums(new ArrayList<>(List.of(lyceum)));
+
+        mockAuthenticatedUser(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.removeLecturerFromLyceum(3L, lecturer.getId());
+
+        assertThat(lyceum.getLecturers()).doesNotContain(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).doesNotContain(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
     void removeLecturerFromLyceumUnlinksBothSides() {
         User admin = createUser(1L);
         admin.setRole(Role.ADMIN);
@@ -1338,6 +1373,28 @@ class LyceumServiceTest {
 
         assertThat(lyceum.getLecturers()).doesNotContain(lecturer);
         assertThat(lecturer.getLecturedLyceums()).doesNotContain(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void removeLecturerFromLyceumAllowsRemovalWhenOnlyLyceumSidePresent() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        lecturer.setLecturedLyceums(null);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.removeLecturerFromLyceum(3L, lecturer.getId());
+
+        assertThat(lyceum.getLecturers()).doesNotContain(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).isNull();
         verify(lyceumRepository).save(lyceum);
         verify(userRepository).save(lecturer);
     }
