@@ -1031,6 +1031,70 @@ class LyceumServiceTest {
     }
 
     @Test
+    void removeAdministratorThrowsWhenUserIdNull() {
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, null));
+
+        assertThat(ex.getMessage()).isEqualTo("User id must be provided.");
+        verifyNoInteractions(userRepository, lyceumRepository);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenLyceumIdNull() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(null, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum id must be provided.");
+        verify(userRepository).findById(admin.getId());
+        verify(userRepository, never()).findById(5L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenLyceumMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(33L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(33L, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum with id 33 not found.");
+        verify(userRepository).findById(admin.getId());
+        verify(lyceumRepository).findById(33L);
+        verify(userRepository, never()).findById(5L);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenUserMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(9L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, 9L));
+
+        assertThat(ex.getMessage()).isEqualTo("User with id 9 not found.");
+        verify(userRepository).findById(admin.getId());
+        verify(lyceumRepository).findById(3L);
+        verify(userRepository).findById(9L);
+    }
+
+    @Test
     void removeAdministratorUnlinksUserFromLyceum() {
         User admin = createUser(1L);
         admin.setRole(Role.ADMIN);
