@@ -191,6 +191,15 @@ class LyceumControllerTest {
     }
 
     @Test
+    void removeAdministratorReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.removeAdministrator(3L, 5L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).removeAdministratorFromLyceum(3L, 5L);
+    }
+
+    @Test
     void addLecturerReturnsNoContent() {
         LyceumLecturerRequest request = LyceumLecturerRequest.builder()
                 .userId(10L)
@@ -202,6 +211,15 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
         verify(lyceumService).addLecturerToLyceum(request);
+    }
+
+    @Test
+    void removeLecturerReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.removeLecturer(2L, 5L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).removeLecturerFromLyceum(2L, 5L);
     }
 
     @Test
@@ -219,6 +237,23 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(lecturers);
         verify(lyceumService).getLyceumLecturers(1L);
+    }
+
+    @Test
+    void getLyceumAdministratorsReturnsServiceResponse() {
+        UserResponse administrator = UserResponse.builder()
+                .id(9L)
+                .firstname("Admin")
+                .lastname("User")
+                .build();
+        List<UserResponse> administrators = List.of(administrator);
+        when(lyceumService.getLyceumAdministrators(1L)).thenReturn(administrators);
+
+        ResponseEntity<List<UserResponse>> response = lyceumController.getLyceumAdministrators(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(administrators);
+        verify(lyceumService).getLyceumAdministrators(1L);
     }
 
     @Test

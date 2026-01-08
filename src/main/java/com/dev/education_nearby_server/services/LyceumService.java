@@ -51,6 +51,7 @@ public class LyceumService {
     private final CourseService courseService;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
+    private static final String USER_WITH_ID = "User with id ";
 
     /**
      * Starts the administrator verification flow for a lyceum by sending a token to the lyceum email.
@@ -280,7 +281,7 @@ public class LyceumService {
         ensureUserCanModifyLyceum(currentUser, lyceum);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + NOT_FOUND_MESSAGE));
+                .orElseThrow(() -> new NoSuchElementException(USER_WITH_ID + userId + NOT_FOUND_MESSAGE));
 
         Lyceum administrated = user.getAdministratedLyceum();
         if (administrated != null && !administrated.getId().equals(lyceumId)) {
@@ -292,6 +293,41 @@ public class LyceumService {
         syncAdministratorsCollection(lyceum, user);
 
         userRepository.save(user);
+        lyceumRepository.save(lyceum);
+    }
+
+    /**
+     * Removes a user from lyceum administrators; admin-only.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId user identifier to demote
+     */
+    @Transactional
+    public void removeAdministratorFromLyceum(Long lyceumId, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id must be provided.");
+        }
+        User currentUser = getManagedCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("You do not have permission to modify this lyceum.");
+        }
+        Lyceum lyceum = requireLyceum(lyceumId);
+
+        User administrator = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException(USER_WITH_ID + userId + NOT_FOUND_MESSAGE));
+
+        Lyceum administrated = administrator.getAdministratedLyceum();
+        if (administrated == null || administrated.getId() == null || !administrated.getId().equals(lyceumId)) {
+            throw new BadRequestException("User is not an administrator of this lyceum.");
+        }
+
+        if (lyceum.getAdministrators() != null) {
+            lyceum.getAdministrators()
+                    .removeIf(existing -> existing.getId() != null && existing.getId().equals(userId));
+        }
+        administrator.setAdministratedLyceum(null);
+
+        userRepository.save(administrator);
         lyceumRepository.save(lyceum);
     }
 
@@ -310,7 +346,7 @@ public class LyceumService {
         Lyceum lyceum = resolveLyceumForLecturerAssignment(currentUser, request);
 
         User lecturer = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new NoSuchElementException("User with id " + request.getUserId() + NOT_FOUND_MESSAGE));
+                .orElseThrow(() -> new NoSuchElementException(USER_WITH_ID + request.getUserId() + NOT_FOUND_MESSAGE));
 
         if (lyceum.getLecturers() == null) {
             lyceum.setLecturers(new ArrayList<>());
@@ -327,6 +363,38 @@ public class LyceumService {
 
         lyceum.getLecturers().add(lecturer);
         lecturer.getLecturedLyceums().add(lyceum);
+
+        lyceumRepository.save(lyceum);
+        userRepository.save(lecturer);
+    }
+
+    /**
+     * Removes a lecturer from a lyceum after verifying permissions.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId lecturer identifier
+     */
+    @Transactional
+    public void removeLecturerFromLyceum(Long lyceumId, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id must be provided.");
+        }
+        Lyceum lyceum = requireLyceumWithLecturers(lyceumId);
+
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        User lecturer = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException(USER_WITH_ID + userId + NOT_FOUND_MESSAGE));
+
+        boolean removedFromLyceum = lyceum.getLecturers() != null
+                && lyceum.getLecturers().removeIf(existing -> existing.getId() != null && existing.getId().equals(userId));
+        boolean removedFromUser = lecturer.getLecturedLyceums() != null
+                && lecturer.getLecturedLyceums()
+                .removeIf(existing -> existing.getId() != null && existing.getId().equals(lyceum.getId()));
+        if (!removedFromLyceum && !removedFromUser) {
+            throw new BadRequestException("User is not a lecturer for this lyceum.");
+        }
 
         lyceumRepository.save(lyceum);
         userRepository.save(lecturer);
@@ -433,6 +501,27 @@ public class LyceumService {
             return List.of();
         }
         return lecturers.stream()
+                .map(this::mapToUserResponse)
+                .toList();
+    }
+
+    /**
+     * Lists administrators assigned to a specific lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return administrators for the lyceum
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getLyceumAdministrators(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        List<User> administrators = userRepository.findAllByAdministratedLyceum_Id(lyceumId);
+        if (administrators == null || administrators.isEmpty()) {
+            return List.of();
+        }
+        return administrators.stream()
                 .map(this::mapToUserResponse)
                 .toList();
     }

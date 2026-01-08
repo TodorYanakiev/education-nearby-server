@@ -172,6 +172,23 @@ public class LyceumController {
     }
 
     /**
+     * Removes a user from the administrators of a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId user identifier to demote
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{lyceumId}/administrators/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> removeAdministrator(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId
+    ) {
+        lyceumService.removeAdministratorFromLyceum(lyceumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Adds a lecturer to a lyceum.
      *
      * @param request lecturer details and target lyceum
@@ -184,6 +201,22 @@ public class LyceumController {
     }
 
     /**
+     * Removes a lecturer from a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId lecturer identifier
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{lyceumId}/lecturers/{userId}")
+    public ResponseEntity<Void> removeLecturer(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId
+    ) {
+        lyceumService.removeLecturerFromLyceum(lyceumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Lists lecturers associated with a lyceum.
      *
      * @param lyceumId lyceum identifier
@@ -192,6 +225,17 @@ public class LyceumController {
     @GetMapping("/{lyceumId}/lecturers")
     public ResponseEntity<List<UserResponse>> getLyceumLecturers(@PathVariable Long lyceumId) {
         return ResponseEntity.ok(lyceumService.getLyceumLecturers(lyceumId));
+    }
+
+    /**
+     * Lists administrators associated with a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return administrators assigned to the lyceum
+     */
+    @GetMapping("/{lyceumId}/admins")
+    public ResponseEntity<List<UserResponse>> getLyceumAdministrators(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(lyceumService.getLyceumAdministrators(lyceumId));
     }
 
     /**

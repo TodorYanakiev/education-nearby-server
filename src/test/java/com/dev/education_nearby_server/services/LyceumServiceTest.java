@@ -242,6 +242,50 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumAdministratorsMapsAdministratedIds() {
+        Lyceum lyceum = createLyceum(14L, "Lyceum", "Varna", "admin@example.com");
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User assigned = createUser(7L);
+        Course course = new Course();
+        course.setId(33L);
+        assigned.setAdministratedLyceum(lyceum);
+        assigned.setCoursesLectured(List.of(course));
+        assigned.setLecturedLyceums(List.of(lyceum));
+
+        mockAuthenticatedUser(admin);
+        when(lyceumRepository.findById(14L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findAllByAdministratedLyceum_Id(14L)).thenReturn(List.of(assigned));
+
+        List<UserResponse> response = lyceumService.getLyceumAdministrators(14L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(7L);
+        assertThat(response.getFirst().getAdministratedLyceumId()).isEqualTo(14L);
+        assertThat(response.getFirst().getLecturedCourseIds()).containsExactly(33L);
+        assertThat(response.getFirst().getLecturedLyceumIds()).containsExactly(14L);
+        verify(userRepository).findAllByAdministratedLyceum_Id(14L);
+    }
+
+    @Test
+    void getLyceumAdministratorsReturnsEmptyWhenNone() {
+        Lyceum lyceum = createLyceum(15L, "Lyceum", "Varna", "admin@example.com");
+        User admin = createUser(2L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(lyceumRepository.findById(15L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findAllByAdministratedLyceum_Id(15L)).thenReturn(List.of());
+
+        List<UserResponse> response = lyceumService.getLyceumAdministrators(15L);
+
+        assertThat(response).isEmpty();
+        verify(userRepository).findAllByAdministratedLyceum_Id(15L);
+    }
+
+    @Test
     void filterLyceumsDelegatesToRepositoryWithPagination() {
         Lyceum lyceum = createLyceum(30L, "Central", "Varna", "central@example.com");
         lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
@@ -313,6 +357,15 @@ class LyceumServiceTest {
     }
 
     @Test
+    void updateLyceumThrowsWhenRequestNull() {
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.updateLyceum(7L, null));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum payload must not be null.");
+        verifyNoInteractions(lyceumRepository, userRepository);
+    }
+
+    @Test
     void updateLyceumThrowsWhenUnauthenticated() {
         LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
@@ -376,6 +429,42 @@ class LyceumServiceTest {
     }
 
     @Test
+    void updateLyceumUpdatesOptionalFieldsWhenProvided() {
+        LyceumRequest request = LyceumRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .email("  updated@example.com  ")
+                .address("  Some   address  ")
+                .chairman("  Chair   Man ")
+                .bulstat("  987654321 ")
+                .registrationNumber(77)
+                .longitude(24.1)
+                .latitude(42.9)
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", "contact@example.com");
+
+        User admin = createUser(13L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Updated", "Varna"))
+                .thenReturn(Optional.empty());
+        when(lyceumRepository.save(existing)).thenReturn(existing);
+
+        lyceumService.updateLyceum(7L, request);
+
+        assertThat(existing.getEmail()).isEqualTo("updated@example.com");
+        assertThat(existing.getAddress()).isEqualTo("Some address");
+        assertThat(existing.getChairman()).isEqualTo("Chair Man");
+        assertThat(existing.getBulstat()).isEqualTo("987654321");
+        assertThat(existing.getRegistrationNumber()).isEqualTo(77);
+        assertThat(existing.getLongitude()).isEqualTo(24.1);
+        assertThat(existing.getLatitude()).isEqualTo(42.9);
+    }
+
+    @Test
     void updateLyceumPreservesOptionalFieldsWhenNotProvided() {
         LyceumRequest request = LyceumRequest.builder()
                 .name("Updated")
@@ -399,6 +488,54 @@ class LyceumServiceTest {
         assertThat(existing.getEmail()).isEqualTo("contact@example.com");
         assertThat(existing.getLongitude()).isEqualTo(23.5);
         assertThat(existing.getLatitude()).isEqualTo(42.7);
+    }
+
+    @Test
+    void updateLyceumThrowsWhenNameBlank() {
+        LyceumRequest request = LyceumRequest.builder()
+                .name("   ")
+                .town("Varna")
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", null);
+
+        User admin = createUser(10L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.updateLyceum(7L, request));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum name must not be blank.");
+        verify(lyceumRepository, never()).findFirstByNameIgnoreCaseAndTownIgnoreCase(any(), any());
+        verify(lyceumRepository, never()).save(any());
+    }
+
+    @Test
+    void updateLyceumThrowsWhenDuplicateNameAndTownExists() {
+        LyceumRequest request = LyceumRequest.builder()
+                .name("Updated")
+                .town("Varna")
+                .build();
+        Lyceum existing = createLyceum(7L, "Lyceum", "Varna", null);
+        Lyceum duplicate = createLyceum(9L, "Updated", "Varna", null);
+
+        User admin = createUser(14L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(existing));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Updated", "Varna"))
+                .thenReturn(Optional.of(duplicate));
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> lyceumService.updateLyceum(7L, request));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum with the same name and town already exists.");
+        verify(lyceumRepository, never()).save(any());
     }
 
     @Test
@@ -1015,6 +1152,174 @@ class LyceumServiceTest {
     }
 
     @Test
+    void removeAdministratorRequiresAdminRole() {
+        User user = createUser(1L);
+
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, 11L));
+
+        assertThat(ex.getMessage()).isEqualTo("You do not have permission to modify this lyceum.");
+        verify(userRepository).findById(user.getId());
+        verify(userRepository, never()).findById(11L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenUserIdNull() {
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, null));
+
+        assertThat(ex.getMessage()).isEqualTo("User id must be provided.");
+        verifyNoInteractions(userRepository, lyceumRepository);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenLyceumIdNull() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(null, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum id must be provided.");
+        verify(userRepository).findById(admin.getId());
+        verify(userRepository, never()).findById(5L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenLyceumMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(33L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(33L, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum with id 33 not found.");
+        verify(userRepository).findById(admin.getId());
+        verify(lyceumRepository).findById(33L);
+        verify(userRepository, never()).findById(5L);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenUserMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(9L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, 9L));
+
+        assertThat(ex.getMessage()).isEqualTo("User with id 9 not found.");
+        verify(userRepository).findById(admin.getId());
+        verify(lyceumRepository).findById(3L);
+        verify(userRepository).findById(9L);
+    }
+
+    @Test
+    void removeAdministratorUnlinksUserFromLyceum() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User target = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        target.setAdministratedLyceum(lyceum);
+        lyceum.setAdministrators(new ArrayList<>(List.of(target)));
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+
+        lyceumService.removeAdministratorFromLyceum(3L, target.getId());
+
+        assertThat(target.getAdministratedLyceum()).isNull();
+        assertThat(lyceum.getAdministrators()).doesNotContain(target);
+        verify(userRepository).save(target);
+        verify(lyceumRepository).save(lyceum);
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenUserHasNoLyceum() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User target = createUser(5L);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        when(lyceumRepository.findById(3L))
+                .thenReturn(Optional.of(createLyceum(3L, "Lyceum", "Varna", "mail@example.com")));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, target.getId()));
+
+        assertThat(ex.getMessage()).isEqualTo("User is not an administrator of this lyceum.");
+        verify(userRepository, never()).save(any(User.class));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void removeAdministratorThrowsWhenUserAdministratesDifferentLyceum() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User target = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        Lyceum otherLyceum = createLyceum(9L, "Other", "Sofia", "mail@example.com");
+        target.setAdministratedLyceum(otherLyceum);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeAdministratorFromLyceum(3L, target.getId()));
+
+        assertThat(ex.getMessage()).isEqualTo("User is not an administrator of this lyceum.");
+        verify(userRepository, never()).save(any(User.class));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void removeAdministratorClearsUserWhenAdministratorsListNull() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User target = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        target.setAdministratedLyceum(lyceum);
+        lyceum.setAdministrators(null);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+
+        lyceumService.removeAdministratorFromLyceum(3L, target.getId());
+
+        assertThat(target.getAdministratedLyceum()).isNull();
+        assertThat(lyceum.getAdministrators()).isNull();
+        verify(userRepository).save(target);
+        verify(lyceumRepository).save(lyceum);
+    }
+
+    @Test
     void addLecturerToLyceumAsAdminRequiresLyceumId() {
         User admin = createUser(1L);
         admin.setRole(Role.ADMIN);
@@ -1033,6 +1338,41 @@ class LyceumServiceTest {
     }
 
     @Test
+    void addLecturerToLyceumThrowsWhenUserIdMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                        .lyceumId(3L)
+                        .build()));
+
+        assertThat(ex.getMessage()).isEqualTo("User id must be provided.");
+        verify(userRepository).findById(admin.getId());
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void addLecturerToLyceumThrowsWhenUserHasNoAdministratedLyceum() {
+        User user = createUser(2L);
+
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                        .userId(5L)
+                        .build()));
+
+        assertThat(ex.getMessage()).isEqualTo("You do not have permission to modify this lyceum.");
+        verify(userRepository, never()).findById(5L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
     void addLecturerToLyceumAsAdminLinksBothSides() {
         User admin = createUser(1L);
         admin.setRole(Role.ADMIN);
@@ -1047,6 +1387,28 @@ class LyceumServiceTest {
         lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
                 .userId(lecturer.getId())
                 .lyceumId(3L)
+                .build());
+
+        assertThat(lyceum.getLecturers()).containsExactly(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).containsExactly(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void addLecturerToLyceumAsLyceumAdminAllowsMatchingLyceumId() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "mail@example.com");
+        User lyceumAdmin = createUser(2L);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User lecturer = createUser(8L);
+
+        mockAuthenticatedUser(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.addLecturerToLyceum(LyceumLecturerRequest.builder()
+                .userId(lecturer.getId())
+                .lyceumId(7L)
                 .build());
 
         assertThat(lyceum.getLecturers()).containsExactly(lecturer);
@@ -1118,6 +1480,182 @@ class LyceumServiceTest {
         assertThat(ex.getMessage()).isEqualTo("User is already a lecturer for this lyceum.");
         verify(lyceumRepository, never()).save(any(Lyceum.class));
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void removeLecturerFromLyceumThrowsWhenUserIdNull() {
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeLecturerFromLyceum(3L, null));
+
+        assertThat(ex.getMessage()).isEqualTo("User id must be provided.");
+        verifyNoInteractions(lyceumRepository, userRepository);
+    }
+
+    @Test
+    void removeLecturerFromLyceumThrowsWhenLyceumIdNull() {
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeLecturerFromLyceum(null, 3L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum id must be provided.");
+        verifyNoInteractions(lyceumRepository, userRepository);
+    }
+
+    @Test
+    void removeLecturerFromLyceumThrowsWhenLyceumMissing() {
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeLecturerFromLyceum(3L, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("Lyceum with id 3 not found.");
+        verify(lyceumRepository).findWithLecturersById(3L);
+        verifyNoInteractions(userRepository);
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void removeLecturerFromLyceumThrowsWhenUserNotAuthorized() {
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        User user = createUser(1L);
+
+        mockAuthenticatedUser(user);
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> lyceumService.removeLecturerFromLyceum(3L, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("You do not have permission to modify this lyceum.");
+        verify(userRepository, never()).findById(5L);
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void removeLecturerFromLyceumThrowsWhenLecturerMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+        NoSuchElementException ex = assertThrows(NoSuchElementException.class,
+                () -> lyceumService.removeLecturerFromLyceum(3L, 5L));
+
+        assertThat(ex.getMessage()).isEqualTo("User with id 5 not found.");
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void removeLecturerFromLyceumThrowsWhenUserNotLecturer() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>());
+        lecturer.setLecturedLyceums(new ArrayList<>());
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.removeLecturerFromLyceum(3L, lecturer.getId()));
+
+        assertThat(ex.getMessage()).isEqualTo("User is not a lecturer for this lyceum.");
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void removeLecturerFromLyceumAllowsLyceumAdministrator() {
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        User lyceumAdmin = createUser(1L);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User lecturer = createUser(5L);
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        lecturer.setLecturedLyceums(new ArrayList<>(List.of(lyceum)));
+
+        mockAuthenticatedUser(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.removeLecturerFromLyceum(3L, lecturer.getId());
+
+        assertThat(lyceum.getLecturers()).doesNotContain(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).doesNotContain(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void removeLecturerFromLyceumUnlinksBothSides() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        lecturer.setLecturedLyceums(new ArrayList<>(List.of(lyceum)));
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.removeLecturerFromLyceum(3L, lecturer.getId());
+
+        assertThat(lyceum.getLecturers()).doesNotContain(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).doesNotContain(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void removeLecturerFromLyceumAllowsRemovalWhenOnlyLyceumSidePresent() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        lecturer.setLecturedLyceums(null);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.removeLecturerFromLyceum(3L, lecturer.getId());
+
+        assertThat(lyceum.getLecturers()).doesNotContain(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).isNull();
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+    }
+
+    @Test
+    void removeLecturerFromLyceumAllowsRemovalWhenOnlyUserSidePresent() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(null);
+        lecturer.setLecturedLyceums(new ArrayList<>(List.of(lyceum)));
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findWithLecturersById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        lyceumService.removeLecturerFromLyceum(3L, lecturer.getId());
+
+        assertThat(lecturer.getLecturedLyceums()).doesNotContain(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
     }
 
     private void mockAuthenticatedUser(User user) {

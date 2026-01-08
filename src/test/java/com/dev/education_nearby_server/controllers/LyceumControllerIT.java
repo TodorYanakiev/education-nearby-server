@@ -376,6 +376,24 @@ class LyceumControllerIT {
     }
 
     @Test
+    void removeAdministratorRequiresAdminRole() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/3/administrators/7")
+                        .with(user("tester").roles("USER")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void removeAdministratorReturnsNoContentForAdmin() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/3/administrators/7")
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).removeAdministratorFromLyceum(3L, 7L);
+    }
+
+    @Test
     void addLecturerRequiresAuthentication() throws Exception {
         LyceumLecturerRequest request = LyceumLecturerRequest.builder()
                 .userId(10L)
