@@ -242,6 +242,50 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumAdministratorsMapsAdministratedIds() {
+        Lyceum lyceum = createLyceum(14L, "Lyceum", "Varna", "admin@example.com");
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User assigned = createUser(7L);
+        Course course = new Course();
+        course.setId(33L);
+        assigned.setAdministratedLyceum(lyceum);
+        assigned.setCoursesLectured(List.of(course));
+        assigned.setLecturedLyceums(List.of(lyceum));
+
+        mockAuthenticatedUser(admin);
+        when(lyceumRepository.findById(14L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findAllByAdministratedLyceum_Id(14L)).thenReturn(List.of(assigned));
+
+        List<UserResponse> response = lyceumService.getLyceumAdministrators(14L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(7L);
+        assertThat(response.getFirst().getAdministratedLyceumId()).isEqualTo(14L);
+        assertThat(response.getFirst().getLecturedCourseIds()).containsExactly(33L);
+        assertThat(response.getFirst().getLecturedLyceumIds()).containsExactly(14L);
+        verify(userRepository).findAllByAdministratedLyceum_Id(14L);
+    }
+
+    @Test
+    void getLyceumAdministratorsReturnsEmptyWhenNone() {
+        Lyceum lyceum = createLyceum(15L, "Lyceum", "Varna", "admin@example.com");
+        User admin = createUser(2L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(lyceumRepository.findById(15L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findAllByAdministratedLyceum_Id(15L)).thenReturn(List.of());
+
+        List<UserResponse> response = lyceumService.getLyceumAdministrators(15L);
+
+        assertThat(response).isEmpty();
+        verify(userRepository).findAllByAdministratedLyceum_Id(15L);
+    }
+
+    @Test
     void filterLyceumsDelegatesToRepositoryWithPagination() {
         Lyceum lyceum = createLyceum(30L, "Central", "Varna", "central@example.com");
         lyceum.setVerificationStatus(VerificationStatus.VERIFIED);

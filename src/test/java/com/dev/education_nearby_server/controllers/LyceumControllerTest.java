@@ -240,6 +240,23 @@ class LyceumControllerTest {
     }
 
     @Test
+    void getLyceumAdministratorsReturnsServiceResponse() {
+        UserResponse administrator = UserResponse.builder()
+                .id(9L)
+                .firstname("Admin")
+                .lastname("User")
+                .build();
+        List<UserResponse> administrators = List.of(administrator);
+        when(lyceumService.getLyceumAdministrators(1L)).thenReturn(administrators);
+
+        ResponseEntity<List<UserResponse>> response = lyceumController.getLyceumAdministrators(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(administrators);
+        verify(lyceumService).getLyceumAdministrators(1L);
+    }
+
+    @Test
     void deleteLyceumReturnsNoContent() {
         ResponseEntity<Void> response = lyceumController.deleteLyceum(1L);
 
