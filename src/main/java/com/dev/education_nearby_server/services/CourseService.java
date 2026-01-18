@@ -282,6 +282,36 @@ public class CourseService {
         return mapToResponse(saved);
     }
 
+    /**
+     * Adds a lecturer to a course, ensuring permissions and avoiding duplicates.
+     *
+     * @param courseId course identifier
+     * @param userId lecturer identifier
+     */
+    @Transactional
+    public void addLecturerToCourse(Long courseId, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id must be provided.");
+        }
+        Course course = requireCourse(courseId, true);
+        ensureUserCanModifyCourse(course);
+
+        User lecturer = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + NOT_FOUND));
+
+        if (course.getLecturers() == null) {
+            course.setLecturers(new ArrayList<>());
+        }
+
+        boolean alreadyLecturer = course.getLecturers().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lecturer.getId()));
+        if (!alreadyLecturer) {
+            course.getLecturers().add(lecturer);
+        }
+
+        courseRepository.save(course);
+    }
+
     private CourseUpdateRequest requireValidCourseUpdateRequest(CourseUpdateRequest request) {
         if (request == null) {
             throw new BadRequestException("Course payload must not be null.");
