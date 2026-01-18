@@ -105,6 +105,22 @@ public class CourseController {
     }
 
     /**
+     * Adds a lecturer to a course.
+     *
+     * @param courseId course identifier
+     * @param userId lecturer identifier
+     * @return empty 204 on success
+     */
+    @PostMapping("/{courseId}/lecturers/{userId}")
+    public ResponseEntity<Void> addLecturerToCourse(
+            @PathVariable Long courseId,
+            @PathVariable Long userId
+    ) {
+        courseService.addLecturerToCourse(courseId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Registers a new course image; validates S3 key/url and role before saving.
      *
      * @param courseId course identifier

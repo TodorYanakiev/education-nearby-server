@@ -131,6 +131,18 @@ class CourseControllerTest {
     }
 
     @Test
+    void addLecturerToCourseReturnsNoContent() {
+        Long courseId = 20L;
+        Long userId = 30L;
+
+        ResponseEntity<Void> result = courseController.addLecturerToCourse(courseId, userId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(result.hasBody()).isFalse();
+        verify(courseService).addLecturerToCourse(courseId, userId);
+    }
+
+    @Test
     void getCourseImagesReturnsResponseFromService() {
         Long courseId = 7L;
         List<CourseImageResponse> responses = List.of(
