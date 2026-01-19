@@ -53,18 +53,18 @@ class CourseServiceUpdateIntegrationTest {
         CourseUpdateRequest request = CourseUpdateRequest.builder()
                 .ageGroupList(List.of(
                         AgeGroup.TEEN,
-                        AgeGroup.YOUNG_ADULT,
-                        AgeGroup.PRE_TEEN
+                        AgeGroup.ADULT,
+                        AgeGroup.CHILD
                 ))
                 .build();
 
         CourseResponse response = courseService.updateCourse(course.getId(), request);
 
         assertThat(response.getAgeGroupList())
-                .containsExactly(AgeGroup.TEEN, AgeGroup.YOUNG_ADULT, AgeGroup.PRE_TEEN);
+                .containsExactly(AgeGroup.TEEN, AgeGroup.ADULT, AgeGroup.CHILD);
         List<AgeGroup> storedAgeGroups = loadPersistedAgeGroups(course.getId());
         assertThat(storedAgeGroups)
-                .containsExactly(AgeGroup.TEEN, AgeGroup.YOUNG_ADULT, AgeGroup.PRE_TEEN);
+                .containsExactly(AgeGroup.TEEN, AgeGroup.ADULT, AgeGroup.CHILD);
     }
 
     private Course persistCourse() {
