@@ -55,6 +55,17 @@ public class CourseController {
     }
 
     /**
+     * Lists courses assigned to a lecturer.
+     *
+     * @param lecturerId lecturer identifier
+     * @return courses taught by the lecturer
+     */
+    @GetMapping("/lecturers/{lecturerId}")
+    public ResponseEntity<List<CourseResponse>> getCoursesByLecturer(@PathVariable Long lecturerId) {
+        return ResponseEntity.ok(courseService.getCoursesByLecturerId(lecturerId));
+    }
+
+    /**
      * Fetches a course by id.
      *
      * @param courseId course identifier

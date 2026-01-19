@@ -92,6 +92,23 @@ public class CourseService {
     }
 
     /**
+     * Returns courses linked to the provided lecturer id.
+     *
+     * @param lecturerId lecturer identifier
+     * @return courses for the lecturer
+     */
+    @Transactional(readOnly = true)
+    public List<CourseResponse> getCoursesByLecturerId(Long lecturerId) {
+        if (lecturerId == null) {
+            throw new BadRequestException("Lecturer id must be provided.");
+        }
+        return courseRepository.findDistinctByLecturers_Id(lecturerId)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
      * Filters courses by optional type, age group, price, recurrence, day, and time ranges.
      * Empty or null lists are treated as no filter; invalid ranges are rejected.
      *
