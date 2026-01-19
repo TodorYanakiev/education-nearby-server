@@ -125,6 +125,37 @@ class CourseServiceTest {
     }
 
     @Test
+    void getCoursesByLecturerIdReturnsMappedResponses() {
+        Course course = createCourseEntity(4L);
+        User lecturer = createUser(9L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(courseRepository.findDistinctByLecturers_Id(9L)).thenReturn(List.of(course));
+
+        List<CourseResponse> responses = courseService.getCoursesByLecturerId(9L);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().getId()).isEqualTo(4L);
+        assertThat(responses.getFirst().getLecturerIds()).containsExactly(9L);
+        verify(courseRepository).findDistinctByLecturers_Id(9L);
+    }
+
+    @Test
+    void getCoursesByLecturerIdReturnsEmptyWhenRepositoryEmpty() {
+        when(courseRepository.findDistinctByLecturers_Id(10L)).thenReturn(List.of());
+
+        List<CourseResponse> responses = courseService.getCoursesByLecturerId(10L);
+
+        assertThat(responses).isEmpty();
+        verify(courseRepository).findDistinctByLecturers_Id(10L);
+    }
+
+    @Test
+    void getCoursesByLecturerIdThrowsWhenIdMissing() {
+        assertThrows(BadRequestException.class, () -> courseService.getCoursesByLecturerId(null));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
     void filterCoursesUsesDefaultsWhenRequestNull() {
         Course course = createCourseEntity(1L);
         when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any()))
