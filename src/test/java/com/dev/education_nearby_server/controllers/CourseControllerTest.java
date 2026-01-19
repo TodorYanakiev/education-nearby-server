@@ -87,6 +87,22 @@ class CourseControllerTest {
     }
 
     @Test
+    void getCoursesByLecturerReturnsResponseFromService() {
+        Long lecturerId = 12L;
+        List<CourseResponse> responses = List.of(
+                CourseResponse.builder().id(5L).name("Course 5").build(),
+                CourseResponse.builder().id(6L).name("Course 6").build()
+        );
+        when(courseService.getCoursesByLecturerId(lecturerId)).thenReturn(responses);
+
+        ResponseEntity<List<CourseResponse>> result = courseController.getCoursesByLecturer(lecturerId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(responses);
+        verify(courseService).getCoursesByLecturerId(lecturerId);
+    }
+
+    @Test
     void createCourseReturnsCreatedResponse() {
         CourseRequest request = CourseRequest.builder()
                 .name("Course")
@@ -128,6 +144,18 @@ class CourseControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(response);
         verify(courseService).updateCourse(courseId, request);
+    }
+
+    @Test
+    void addLecturerToCourseReturnsNoContent() {
+        Long courseId = 20L;
+        Long userId = 30L;
+
+        ResponseEntity<Void> result = courseController.addLecturerToCourse(courseId, userId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(result.hasBody()).isFalse();
+        verify(courseService).addLecturerToCourse(courseId, userId);
     }
 
     @Test

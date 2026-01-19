@@ -9,6 +9,7 @@ import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
+import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
@@ -120,6 +121,37 @@ class CourseServiceTest {
     @Test
     void getCoursesByLyceumIdThrowsWhenIdMissing() {
         assertThrows(BadRequestException.class, () -> courseService.getCoursesByLyceumId(null));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void getCoursesByLecturerIdReturnsMappedResponses() {
+        Course course = createCourseEntity(4L);
+        User lecturer = createUser(9L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(courseRepository.findDistinctByLecturers_Id(9L)).thenReturn(List.of(course));
+
+        List<CourseResponse> responses = courseService.getCoursesByLecturerId(9L);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.getFirst().getId()).isEqualTo(4L);
+        assertThat(responses.getFirst().getLecturerIds()).containsExactly(9L);
+        verify(courseRepository).findDistinctByLecturers_Id(9L);
+    }
+
+    @Test
+    void getCoursesByLecturerIdReturnsEmptyWhenRepositoryEmpty() {
+        when(courseRepository.findDistinctByLecturers_Id(10L)).thenReturn(List.of());
+
+        List<CourseResponse> responses = courseService.getCoursesByLecturerId(10L);
+
+        assertThat(responses).isEmpty();
+        verify(courseRepository).findDistinctByLecturers_Id(10L);
+    }
+
+    @Test
+    void getCoursesByLecturerIdThrowsWhenIdMissing() {
+        assertThrows(BadRequestException.class, () -> courseService.getCoursesByLecturerId(null));
         verifyNoInteractions(courseRepository);
     }
 
@@ -778,6 +810,133 @@ class CourseServiceTest {
         assertThat(course.getLecturers()).hasSize(1);
         assertThat(course.getLecturers().get(0).getId()).isEqualTo(9L);
         verify(userRepository).findAllById(any());
+        verify(courseRepository).save(course);
+    }
+
+    @Test
+    void addLecturerToCourseThrowsWhenUserIdMissing() {
+        assertThrows(BadRequestException.class, () -> courseService.addLecturerToCourse(1L, null));
+        verifyNoInteractions(courseRepository, userRepository);
+    }
+
+    @Test
+    void addLecturerToCourseThrowsWhenCourseMissing() {
+        when(courseRepository.findDetailedById(50L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> courseService.addLecturerToCourse(50L, 2L));
+
+        verify(courseRepository).findDetailedById(50L);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void addLecturerToCourseThrowsWhenUnauthenticated() {
+        Course course = createCourseEntity(51L);
+        when(courseRepository.findDetailedById(51L)).thenReturn(Optional.of(course));
+
+        assertThrows(UnauthorizedException.class, () -> courseService.addLecturerToCourse(51L, 22L));
+
+        verify(courseRepository).findDetailedById(51L);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void addLecturerToCourseThrowsWhenManagedUserMissing() {
+        Course course = createCourseEntity(52L);
+        when(courseRepository.findDetailedById(52L)).thenReturn(Optional.of(course));
+        User admin = createUser(90L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class, () -> courseService.addLecturerToCourse(52L, 33L));
+
+        verify(userRepository).findById(admin.getId());
+        verify(userRepository, never()).findById(33L);
+    }
+
+    @Test
+    void addLecturerToCourseThrowsWhenUserCannotModifyCourse() {
+        Course course = createCourseEntity(53L);
+        when(courseRepository.findDetailedById(53L)).thenReturn(Optional.of(course));
+        User user = createUser(55L, Role.USER);
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(AccessDeniedException.class, () -> courseService.addLecturerToCourse(53L, 66L));
+
+        verify(userRepository).findById(user.getId());
+        verify(userRepository, never()).findById(66L);
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void addLecturerToCourseAddsLecturerWhenListNull() {
+        Course course = new Course();
+        course.setId(54L);
+        course.setImages(null);
+        course.setLecturers(null);
+        when(courseRepository.findDetailedById(54L)).thenReturn(Optional.of(course));
+        User admin = createUser(91L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        User lecturer = createUser(77L, Role.USER);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        courseService.addLecturerToCourse(54L, lecturer.getId());
+
+        assertThat(course.getImages()).isNotNull();
+        assertThat(course.getLecturers()).containsExactly(lecturer);
+        verify(courseRepository).save(course);
+    }
+
+    @Test
+    void addLecturerToCourseSkipsDuplicateLecturer() {
+        Course course = createCourseEntity(55L);
+        User existingLecturer = createUser(88L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(existingLecturer)));
+        when(courseRepository.findDetailedById(55L)).thenReturn(Optional.of(course));
+        User admin = createUser(92L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(existingLecturer.getId())).thenReturn(Optional.of(existingLecturer));
+
+        courseService.addLecturerToCourse(55L, existingLecturer.getId());
+
+        assertThat(course.getLecturers()).containsExactly(existingLecturer);
+        verify(courseRepository).save(course);
+    }
+
+    @Test
+    void addLecturerToCourseThrowsWhenLecturerMissing() {
+        Course course = createCourseEntity(56L);
+        when(courseRepository.findDetailedById(56L)).thenReturn(Optional.of(course));
+        User admin = createUser(93L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> courseService.addLecturerToCourse(56L, 99L));
+
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void addLecturerToCourseAllowsLyceumAdministrator() {
+        Course course = createCourseEntity(57L);
+        Lyceum lyceum = new Lyceum();
+        lyceum.setId(12L);
+        course.setLyceum(lyceum);
+        when(courseRepository.findDetailedById(57L)).thenReturn(Optional.of(course));
+        User manager = createUser(94L, Role.USER);
+        manager.setAdministratedLyceum(lyceum);
+        authenticate(manager);
+        when(userRepository.findById(manager.getId())).thenReturn(Optional.of(manager));
+        User lecturer = createUser(101L, Role.USER);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        courseService.addLecturerToCourse(57L, lecturer.getId());
+
+        assertThat(course.getLecturers()).containsExactly(lecturer);
         verify(courseRepository).save(course);
     }
 

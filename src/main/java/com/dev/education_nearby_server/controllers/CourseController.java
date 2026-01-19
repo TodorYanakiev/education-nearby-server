@@ -55,6 +55,17 @@ public class CourseController {
     }
 
     /**
+     * Lists courses assigned to a lecturer.
+     *
+     * @param lecturerId lecturer identifier
+     * @return courses taught by the lecturer
+     */
+    @GetMapping("/lecturers/{lecturerId}")
+    public ResponseEntity<List<CourseResponse>> getCoursesByLecturer(@PathVariable Long lecturerId) {
+        return ResponseEntity.ok(courseService.getCoursesByLecturerId(lecturerId));
+    }
+
+    /**
      * Fetches a course by id.
      *
      * @param courseId course identifier
@@ -102,6 +113,22 @@ public class CourseController {
     ) {
         CourseResponse response = courseService.updateCourse(courseId, request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Adds a lecturer to a course.
+     *
+     * @param courseId course identifier
+     * @param userId lecturer identifier
+     * @return empty 204 on success
+     */
+    @PostMapping("/{courseId}/lecturers/{userId}")
+    public ResponseEntity<Void> addLecturerToCourse(
+            @PathVariable Long courseId,
+            @PathVariable Long userId
+    ) {
+        courseService.addLecturerToCourse(courseId, userId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

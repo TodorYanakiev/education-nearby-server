@@ -103,6 +103,23 @@ class CourseControllerIT {
     }
 
     @Test
+    void getCoursesByLecturerReturnsPayloadWithoutAuthentication() throws Exception {
+        Long lecturerId = 12L;
+        List<CourseResponse> responses = List.of(
+                CourseResponse.builder().id(201L).name("Lecturer course 1").build(),
+                CourseResponse.builder().id(202L).name("Lecturer course 2").build()
+        );
+        when(courseService.getCoursesByLecturerId(lecturerId)).thenReturn(responses);
+
+        mockMvc.perform(get("/api/v1/courses/lecturers/{lecturerId}", lecturerId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(201L))
+                .andExpect(jsonPath("$[1].name").value("Lecturer course 2"));
+
+        verify(courseService).getCoursesByLecturerId(lecturerId);
+    }
+
+    @Test
     void getCourseReturnsPayloadWithoutAuthentication() throws Exception {
         Long courseId = 5L;
         CourseResponse response = CourseResponse.builder()
@@ -288,6 +305,26 @@ class CourseControllerIT {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void addLecturerToCourseRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/courses/{courseId}/lecturers/{userId}", 40L, 50L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void addLecturerToCourseReturnsNoContent() throws Exception {
+        Long courseId = 41L;
+        Long userId = 51L;
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/lecturers/{userId}", courseId, userId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(courseService).addLecturerToCourse(courseId, userId);
     }
 
     @Test
