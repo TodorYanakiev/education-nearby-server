@@ -5,6 +5,7 @@ import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
@@ -453,6 +454,56 @@ class LyceumControllerIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/lyceums/lecturers")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void inviteLecturerRequiresAuthentication() throws Exception {
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email("invitee@example.com")
+                .lyceumId(3L)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers/invite")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void inviteLecturerReturnsNoContentForAdmin() throws Exception {
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email("invitee@example.com")
+                .lyceumId(3L)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers/invite")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+
+        ArgumentCaptor<LyceumLecturerInviteRequest> captor = ArgumentCaptor.forClass(LyceumLecturerInviteRequest.class);
+        verify(lyceumService).inviteLecturerByEmail(captor.capture());
+        assertThat(captor.getValue().getEmail()).isEqualTo("invitee@example.com");
+        assertThat(captor.getValue().getLyceumId()).isEqualTo(3L);
+    }
+
+    @Test
+    void inviteLecturerValidatesInput() throws Exception {
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email("")
+                .lyceumId(3L)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/lecturers/invite")
                         .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

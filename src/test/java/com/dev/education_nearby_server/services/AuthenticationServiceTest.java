@@ -56,6 +56,8 @@ class AuthenticationServiceTest {
     private JwtService jwtService;
     @Mock
     private AuthenticationManager authenticationManager;
+    @Mock
+    private LyceumService lyceumService;
 
     @InjectMocks
     private AuthenticationService authenticationService;
@@ -160,6 +162,8 @@ class AuthenticationServiceTest {
         assertThat(savedToken.isExpired()).isFalse();
         assertThat(savedToken.isRevoked()).isFalse();
         assertThat(savedToken.getUser()).isEqualTo(persistedUser);
+
+        verify(lyceumService).acceptLecturerInvitationsFor(persistedUser);
     }
 
     @Test

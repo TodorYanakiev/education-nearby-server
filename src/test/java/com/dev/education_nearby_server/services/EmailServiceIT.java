@@ -1,10 +1,12 @@
 package com.dev.education_nearby_server.services;
 
 import org.junit.jupiter.api.Test;
+import jakarta.mail.Part;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -21,36 +23,43 @@ class EmailServiceIT {
     private JavaMailSender mailSender;
 
     @Test
-    void sendLyceumVerificationEmailUsesConfiguredBean() {
+    void sendLyceumVerificationEmailUsesConfiguredBean() throws Exception {
         emailService.sendLyceumVerificationEmail(
                 "admin@example.com",
                 "Integration Lyceum",
                 "Sofia",
                 "integration-token");
 
-        ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(messageCaptor.capture());
-        SimpleMailMessage message = messageCaptor.getValue();
+        MimeMessage message = messageCaptor.getValue();
 
-        assertThat(message.getTo()).containsExactly("admin@example.com");
+        assertThat(((InternetAddress) message.getAllRecipients()[0]).getAddress())
+                .isEqualTo("admin@example.com");
         assertThat(message.getSubject()).isEqualTo("EducationNearby: Verify Lyceum Administration Rights");
-        assertThat(message.getText())
+
+        EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
+        assertThat(parts.plainText())
                 .contains("Integration Lyceum")
                 .contains("Sofia")
                 .contains("integration-token");
+        assertThat(parts.htmlText()).contains("cid:educationNearbyLogo");
+        assertThat(parts.inlineParts())
+                .extracting(Part::getContentType)
+                .anySatisfy(contentType -> assertThat(contentType).contains("image/png"));
     }
 
     @Test
-    void sendLyceumVerificationEmailBuildsFormattedBody() {
+    void sendLyceumVerificationEmailBuildsFormattedBody() throws Exception {
         emailService.sendLyceumVerificationEmail(
                 "admin@example.com",
                 "Integration Lyceum",
                 "Sofia",
                 "integration-token");
 
-        ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(messageCaptor.capture());
-        SimpleMailMessage message = messageCaptor.getValue();
+        MimeMessage message = messageCaptor.getValue();
 
         String expectedText = """
                 Hello,
@@ -65,6 +74,7 @@ class EmailServiceIT {
                 Regards,
                 EducationNearby Team""";
 
-        assertThat(message.getText()).isEqualTo(expectedText);
+        EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
+        assertThat(parts.plainText()).isEqualTo(expectedText);
     }
 }

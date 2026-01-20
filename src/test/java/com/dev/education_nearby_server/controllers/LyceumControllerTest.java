@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.controllers;
 
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
@@ -211,6 +212,20 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
         verify(lyceumService).addLecturerToLyceum(request);
+    }
+
+    @Test
+    void inviteLecturerReturnsNoContent() {
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email("invitee@example.com")
+                .lyceumId(3L)
+                .build();
+
+        ResponseEntity<Void> response = lyceumController.inviteLecturer(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).inviteLecturerByEmail(request);
     }
 
     @Test
