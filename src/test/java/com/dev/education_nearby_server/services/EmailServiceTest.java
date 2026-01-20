@@ -12,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import java.lang.reflect.Field;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -86,5 +88,58 @@ class EmailServiceTest {
 
         EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
         assertThat(parts.plainText()).isEqualTo(expectedText);
+    }
+
+    @Test
+    void sendLyceumLecturerInvitationEmailMasksLinksInHtml() throws Exception {
+        emailService.sendLyceumLecturerInvitationEmail(
+                "teacher@example.com",
+                "Art Lyceum",
+                "Sofia");
+
+        ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(messageCaptor.capture());
+        MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
+
+        EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
+        assertThat(parts.plainText())
+                .contains("https://shkoli.bg/auth/register")
+                .contains("https://shkoli.bg/auth/login");
+        assertThat(parts.htmlText())
+                .contains(">Регистрация<")
+                .contains(">Вход<")
+                .doesNotContain(">https://shkoli.bg/auth/register<")
+                .doesNotContain(">https://shkoli.bg/auth/login<");
+        assertThat(parts.inlineParts())
+                .extracting(Part::getContentType)
+                .anySatisfy(contentType -> assertThat(contentType).contains("image/png"));
+    }
+
+    @Test
+    void sendLyceumVerificationEmailFallsBackToSvgWhenPngMissing() throws Exception {
+        setCachedLogoPng(new byte[0]);
+
+        emailService.sendLyceumVerificationEmail(
+                "admin@example.com",
+                "Test Lyceum",
+                "Sofia",
+                "token-789");
+
+        ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(messageCaptor.capture());
+        MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
+
+        EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
+        assertThat(parts.inlineParts())
+                .extracting(Part::getContentType)
+                .anySatisfy(contentType -> assertThat(contentType).contains("image/svg+xml"));
+    }
+
+    private void setCachedLogoPng(byte[] value) throws Exception {
+        Field cachedLogoField = EmailService.class.getDeclaredField("cachedLogoPng");
+        cachedLogoField.setAccessible(true);
+        cachedLogoField.set(emailService, value);
     }
 }

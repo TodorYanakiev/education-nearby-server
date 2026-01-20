@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
@@ -17,6 +18,7 @@ import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
+import com.dev.education_nearby_server.models.entity.LyceumLecturerInvitation;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
@@ -1533,6 +1535,233 @@ class LyceumServiceTest {
         assertThat(ex.getMessage()).isEqualTo("User is already a lecturer for this lyceum.");
         verify(lyceumRepository, never()).save(any(Lyceum.class));
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void inviteLecturerByEmailThrowsWhenEmailMissing() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email("   ")
+                .lyceumId(3L)
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> lyceumService.inviteLecturerByEmail(request));
+
+        assertThat(ex.getMessage()).isEqualTo("Email must be provided.");
+        verify(userRepository).findById(admin.getId());
+        verifyNoInteractions(lyceumRepository, invitationRepository, emailService);
+    }
+
+    @Test
+    void inviteLecturerByEmailCreatesInvitationForNewEmail() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+
+        String rawEmail = "  teacher@example.com ";
+        String normalizedEmail = "teacher@example.com";
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email(rawEmail)
+                .lyceumId(3L)
+                .build();
+
+        when(userRepository.findByEmailIgnoreCase(normalizedEmail)).thenReturn(Optional.empty());
+        when(invitationRepository.findByLyceum_IdAndEmailIgnoreCase(3L, normalizedEmail))
+                .thenReturn(Optional.empty());
+
+        lyceumService.inviteLecturerByEmail(request);
+
+        ArgumentCaptor<LyceumLecturerInvitation> invitationCaptor =
+                ArgumentCaptor.forClass(LyceumLecturerInvitation.class);
+        verify(invitationRepository).save(invitationCaptor.capture());
+        LyceumLecturerInvitation savedInvitation = invitationCaptor.getValue();
+        assertThat(savedInvitation.getEmail()).isEqualTo(normalizedEmail);
+        assertThat(savedInvitation.getLyceum()).isEqualTo(lyceum);
+
+        verify(emailService).sendLyceumLecturerInvitationEmail(
+                normalizedEmail, lyceum.getName(), lyceum.getTown());
+        verify(invitationRepository, never()).delete(any());
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void inviteLecturerByEmailSkipsInvitationWhenAlreadyInvited() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+
+        String email = "teacher@example.com";
+        LyceumLecturerInviteRequest request = LyceumLecturerInviteRequest.builder()
+                .email(email)
+                .lyceumId(3L)
+                .build();
+
+        when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.empty());
+        when(invitationRepository.findByLyceum_IdAndEmailIgnoreCase(3L, email))
+                .thenReturn(Optional.of(LyceumLecturerInvitation.builder()
+                        .email(email)
+                        .lyceum(lyceum)
+                        .build()));
+
+        lyceumService.inviteLecturerByEmail(request);
+
+        verify(invitationRepository, never()).save(any(LyceumLecturerInvitation.class));
+        verify(emailService).sendLyceumLecturerInvitationEmail(email, lyceum.getName(), lyceum.getTown());
+    }
+
+    @Test
+    void inviteLecturerByEmailAssignsExistingUserAndDeletesInvitation() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        String email = "teacher@example.com";
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(lecturer));
+
+        LyceumLecturerInvitation invitation = LyceumLecturerInvitation.builder()
+                .email(email)
+                .lyceum(lyceum)
+                .build();
+        when(invitationRepository.findByLyceum_IdAndEmailIgnoreCase(3L, email))
+                .thenReturn(Optional.of(invitation));
+
+        lyceumService.inviteLecturerByEmail(LyceumLecturerInviteRequest.builder()
+                .email(email)
+                .lyceumId(3L)
+                .build());
+
+        assertThat(lyceum.getLecturers()).containsExactly(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).containsExactly(lyceum);
+        verify(invitationRepository).delete(invitation);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+        verify(emailService).sendLyceumLecturerInvitationEmail(email, lyceum.getName(), lyceum.getTown());
+    }
+
+    @Test
+    void inviteLecturerByEmailLinksUserWhenAlreadyLecturer() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        String email = "teacher@example.com";
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(lecturer));
+        when(invitationRepository.findByLyceum_IdAndEmailIgnoreCase(3L, email))
+                .thenReturn(Optional.empty());
+
+        lyceumService.inviteLecturerByEmail(LyceumLecturerInviteRequest.builder()
+                .email(email)
+                .lyceumId(3L)
+                .build());
+
+        assertThat(lecturer.getLecturedLyceums()).containsExactly(lyceum);
+        verify(userRepository).save(lecturer);
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void inviteLecturerByEmailAvoidsSavingWhenAlreadyLinked() {
+        User admin = createUser(1L);
+        admin.setRole(Role.ADMIN);
+        User lecturer = createUser(5L);
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        lecturer.setLecturedLyceums(new ArrayList<>(List.of(lyceum)));
+        String email = "teacher@example.com";
+
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumRepository.findById(3L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(lecturer));
+        when(invitationRepository.findByLyceum_IdAndEmailIgnoreCase(3L, email))
+                .thenReturn(Optional.empty());
+
+        lyceumService.inviteLecturerByEmail(LyceumLecturerInviteRequest.builder()
+                .email(email)
+                .lyceumId(3L)
+                .build());
+
+        verify(userRepository, never()).save(any(User.class));
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+    }
+
+    @Test
+    void acceptLecturerInvitationsReturnsWhenEmailBlank() {
+        User lecturer = createUser(10L);
+        lecturer.setEmail("   ");
+
+        lyceumService.acceptLecturerInvitationsFor(lecturer);
+
+        verifyNoInteractions(invitationRepository);
+    }
+
+    @Test
+    void acceptLecturerInvitationsReturnsWhenNone() {
+        User lecturer = createUser(10L);
+        lecturer.setEmail("  invited@example.com ");
+
+        when(invitationRepository.findAllByEmailIgnoreCase("invited@example.com"))
+                .thenReturn(List.of());
+
+        lyceumService.acceptLecturerInvitationsFor(lecturer);
+
+        verify(invitationRepository).findAllByEmailIgnoreCase("invited@example.com");
+        verify(invitationRepository, never()).deleteAll(any());
+        verify(lyceumRepository, never()).save(any(Lyceum.class));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void acceptLecturerInvitationsAssignsAndDeletes() {
+        User lecturer = createUser(10L);
+        lecturer.setEmail("  invited@example.com ");
+        Lyceum lyceum = createLyceum(3L, "Lyceum", "Varna", "mail@example.com");
+        lecturer.setLecturedLyceums(new ArrayList<>(List.of(lyceum)));
+
+        LyceumLecturerInvitation invitation = LyceumLecturerInvitation.builder()
+                .email("invited@example.com")
+                .lyceum(lyceum)
+                .build();
+        LyceumLecturerInvitation emptyInvitation = LyceumLecturerInvitation.builder()
+                .email("invited@example.com")
+                .lyceum(null)
+                .build();
+
+        List<LyceumLecturerInvitation> invitations = List.of(invitation, emptyInvitation);
+        when(invitationRepository.findAllByEmailIgnoreCase("invited@example.com"))
+                .thenReturn(invitations);
+
+        lyceumService.acceptLecturerInvitationsFor(lecturer);
+
+        assertThat(lyceum.getLecturers()).containsExactly(lecturer);
+        assertThat(lecturer.getLecturedLyceums()).containsExactly(lyceum);
+        verify(lyceumRepository).save(lyceum);
+        verify(userRepository).save(lecturer);
+        verify(invitationRepository).deleteAll(invitations);
     }
 
     @Test
