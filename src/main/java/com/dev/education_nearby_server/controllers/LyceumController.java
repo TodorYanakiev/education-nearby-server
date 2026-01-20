@@ -3,6 +3,7 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
@@ -197,6 +198,18 @@ public class LyceumController {
     @PostMapping("/lecturers")
     public ResponseEntity<Void> addLecturer(@Valid @RequestBody LyceumLecturerRequest request) {
         lyceumService.addLecturerToLyceum(request);
+        return ResponseEntity.noContent().build();
+    }
+//TODO test it
+    /**
+     * Invites a lecturer by email to join a lyceum.
+     *
+     * @param request invitation details
+     * @return empty 204 on success
+     */
+    @PostMapping("/lecturers/invite")
+    public ResponseEntity<Void> inviteLecturer(@Valid @RequestBody LyceumLecturerInviteRequest request) {
+        lyceumService.inviteLecturerByEmail(request);
         return ResponseEntity.noContent().build();
     }
 

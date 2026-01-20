@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
@@ -17,9 +18,11 @@ import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
+import com.dev.education_nearby_server.models.entity.LyceumLecturerInvitation;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
+import com.dev.education_nearby_server.repositories.LyceumLecturerInvitationRepository;
 import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +48,7 @@ import java.util.function.Consumer;
 public class LyceumService {
 
     private final LyceumRepository lyceumRepository;
+    private final LyceumLecturerInvitationRepository invitationRepository;
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
@@ -343,29 +347,47 @@ public class LyceumService {
             throw new BadRequestException("User id must be provided.");
         }
 
-        Lyceum lyceum = resolveLyceumForLecturerAssignment(currentUser, request);
+        Lyceum lyceum = resolveLyceumForLecturerAssignment(currentUser, request.getLyceumId());
 
         User lecturer = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new NoSuchElementException(USER_WITH_ID + request.getUserId() + NOT_FOUND_MESSAGE));
 
-        if (lyceum.getLecturers() == null) {
-            lyceum.setLecturers(new ArrayList<>());
+        ensureLecturerAssignment(lyceum, lecturer, true);
+    }
+
+    /**
+     * Invites a lecturer to a lyceum by email. If the user already exists, they are assigned immediately.
+     *
+     * @param request invitation payload with email and lyceum
+     */
+    @Transactional
+    public void inviteLecturerByEmail(LyceumLecturerInviteRequest request) {
+        User currentUser = getManagedCurrentUser();
+        if (request == null || request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new BadRequestException("Email must be provided.");
         }
-        boolean alreadyLecturer = lyceum.getLecturers().stream()
-                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lecturer.getId()));
-        if (alreadyLecturer) {
-            throw new ConflictException("User is already a lecturer for this lyceum.");
+        String normalizedEmail = normalizeEmail(request.getEmail());
+        Lyceum lyceum = resolveLyceumForLecturerAssignment(currentUser, request.getLyceumId());
+
+        Optional<User> existingUser = userRepository.findByEmailIgnoreCase(normalizedEmail);
+        if (existingUser.isPresent()) {
+            ensureLecturerAssignment(lyceum, existingUser.get(), false);
+            invitationRepository.findByLyceum_IdAndEmailIgnoreCase(lyceum.getId(), normalizedEmail)
+                    .ifPresent(invitationRepository::delete);
+        } else {
+            boolean alreadyInvited = invitationRepository
+                    .findByLyceum_IdAndEmailIgnoreCase(lyceum.getId(), normalizedEmail)
+                    .isPresent();
+            if (!alreadyInvited) {
+                LyceumLecturerInvitation invitation = LyceumLecturerInvitation.builder()
+                        .email(normalizedEmail)
+                        .lyceum(lyceum)
+                        .build();
+                invitationRepository.save(invitation);
+            }
         }
 
-        if (lecturer.getLecturedLyceums() == null) {
-            lecturer.setLecturedLyceums(new ArrayList<>());
-        }
-
-        lyceum.getLecturers().add(lecturer);
-        lecturer.getLecturedLyceums().add(lyceum);
-
-        lyceumRepository.save(lyceum);
-        userRepository.save(lecturer);
+        emailService.sendLyceumLecturerInvitationEmail(normalizedEmail, lyceum.getName(), lyceum.getTown());
     }
 
     /**
@@ -400,22 +422,84 @@ public class LyceumService {
         userRepository.save(lecturer);
     }
 
-    private Lyceum resolveLyceumForLecturerAssignment(User currentUser, LyceumLecturerRequest request) {
+    /**
+     * Accepts pending lecturer invitations for the given user and assigns them to the lyceums.
+     *
+     * @param lecturer newly registered user
+     */
+    @Transactional
+    public void acceptLecturerInvitationsFor(User lecturer) {
+        if (lecturer == null || lecturer.getEmail() == null || lecturer.getEmail().isBlank()) {
+            return;
+        }
+        String normalizedEmail = normalizeEmail(lecturer.getEmail());
+        List<LyceumLecturerInvitation> invitations = invitationRepository
+                .findAllByEmailIgnoreCase(normalizedEmail);
+        if (invitations.isEmpty()) {
+            return;
+        }
+        for (LyceumLecturerInvitation invitation : invitations) {
+            Lyceum lyceum = invitation.getLyceum();
+            if (lyceum != null) {
+                ensureLecturerAssignment(lyceum, lecturer, false);
+            }
+        }
+        invitationRepository.deleteAll(invitations);
+    }
+
+    private Lyceum resolveLyceumForLecturerAssignment(User currentUser, Long lyceumId) {
         if (currentUser.getRole() == Role.ADMIN) {
-            if (request.getLyceumId() == null) {
+            if (lyceumId == null) {
                 throw new BadRequestException("Lyceum id must be provided when assigning as admin.");
             }
-            return requireLyceum(request.getLyceumId());
+            return requireLyceum(lyceumId);
         }
 
         Lyceum lyceum = currentUser.getAdministratedLyceum();
         if (lyceum == null) {
             throw new AccessDeniedException("You do not have permission to modify this lyceum.");
         }
-        if (request.getLyceumId() != null && !lyceum.getId().equals(request.getLyceumId())) {
+        if (lyceumId != null && !lyceum.getId().equals(lyceumId)) {
             throw new AccessDeniedException("You do not have permission to modify this lyceum.");
         }
         return lyceum;
+    }
+
+    private void ensureLecturerAssignment(Lyceum lyceum, User lecturer, boolean failIfExists) {
+        if (lyceum.getLecturers() == null) {
+            lyceum.setLecturers(new ArrayList<>());
+        }
+        boolean alreadyLecturer = lyceum.getLecturers().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lecturer.getId()));
+        if (alreadyLecturer) {
+            if (failIfExists) {
+                throw new ConflictException("User is already a lecturer for this lyceum.");
+            }
+            if (lecturer.getLecturedLyceums() == null) {
+                lecturer.setLecturedLyceums(new ArrayList<>());
+            }
+            boolean userAlreadyLinked = lecturer.getLecturedLyceums().stream()
+                    .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lyceum.getId()));
+            if (!userAlreadyLinked) {
+                lecturer.getLecturedLyceums().add(lyceum);
+                userRepository.save(lecturer);
+            }
+            return;
+        }
+
+        if (lecturer.getLecturedLyceums() == null) {
+            lecturer.setLecturedLyceums(new ArrayList<>());
+        }
+        boolean userAlreadyLinked = lecturer.getLecturedLyceums().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lyceum.getId()));
+
+        lyceum.getLecturers().add(lecturer);
+        if (!userAlreadyLinked) {
+            lecturer.getLecturedLyceums().add(lyceum);
+        }
+
+        lyceumRepository.save(lyceum);
+        userRepository.save(lecturer);
     }
 
     /**
@@ -531,6 +615,13 @@ public class LyceumService {
         return input
                 .trim()
                 .replaceAll("\\s+", " ");
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim();
     }
 
     private boolean hasReachableEmail(Lyceum lyceum) {
