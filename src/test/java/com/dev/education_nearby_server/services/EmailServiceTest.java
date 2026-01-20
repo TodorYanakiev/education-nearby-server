@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import jakarta.mail.Part;
+import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.mockito.ArgumentCaptor;
@@ -13,6 +14,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class EmailServiceTest {
@@ -25,6 +27,7 @@ class EmailServiceTest {
     @BeforeEach
     void setUp() {
         emailService = new EmailService(mailSender);
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
     }
 
     @Test
@@ -38,6 +41,7 @@ class EmailServiceTest {
         ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(messageCaptor.capture());
         MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
 
         assertThat(((InternetAddress) message.getAllRecipients()[0]).getAddress())
                 .isEqualTo("admin@example.com");
@@ -65,6 +69,7 @@ class EmailServiceTest {
         ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(messageCaptor.capture());
         MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
 
         String expectedText = """
                 Hello,

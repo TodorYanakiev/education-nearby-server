@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.services;
 
 import org.junit.jupiter.api.Test;
 import jakarta.mail.Part;
+import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.mockito.ArgumentCaptor;
@@ -12,6 +13,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
 class EmailServiceIT {
@@ -24,6 +26,7 @@ class EmailServiceIT {
 
     @Test
     void sendLyceumVerificationEmailUsesConfiguredBean() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
         emailService.sendLyceumVerificationEmail(
                 "admin@example.com",
                 "Integration Lyceum",
@@ -33,6 +36,7 @@ class EmailServiceIT {
         ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(messageCaptor.capture());
         MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
 
         assertThat(((InternetAddress) message.getAllRecipients()[0]).getAddress())
                 .isEqualTo("admin@example.com");
@@ -51,6 +55,7 @@ class EmailServiceIT {
 
     @Test
     void sendLyceumVerificationEmailBuildsFormattedBody() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
         emailService.sendLyceumVerificationEmail(
                 "admin@example.com",
                 "Integration Lyceum",
@@ -60,6 +65,7 @@ class EmailServiceIT {
         ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(messageCaptor.capture());
         MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
 
         String expectedText = """
                 Hello,
