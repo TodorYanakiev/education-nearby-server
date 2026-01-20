@@ -39,6 +39,7 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final ObjectMapper objectMapper;
+    private final LyceumService lyceumService;
 
     /**
      * Creates a new user if the email/username are unique and password constraints are met,
@@ -64,6 +65,7 @@ public class AuthenticationService {
                 .enabled(true)
                 .build();
         User savedUser = repository.save(user);
+        lyceumService.acceptLecturerInvitationsFor(savedUser);
         String jwtToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
         saveUserToken(savedUser, jwtToken);
