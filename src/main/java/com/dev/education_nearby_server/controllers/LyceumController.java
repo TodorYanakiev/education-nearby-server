@@ -200,7 +200,7 @@ public class LyceumController {
         lyceumService.addLecturerToLyceum(request);
         return ResponseEntity.noContent().build();
     }
-//TODO test it
+
     /**
      * Invites a lecturer by email to join a lyceum.
      *
