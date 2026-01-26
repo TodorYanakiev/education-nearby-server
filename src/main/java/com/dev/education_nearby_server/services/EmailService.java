@@ -47,13 +47,13 @@ public class EmailService {
                                             @NonNull String lyceumName,
                                             @NonNull String town,
                                             @NonNull String tokenValue) {
-        String subject = "EducationNearby: Verify Lyceum Administration Rights";
-        String text = "Hello,\n\n" +
-                "You requested administrator rights for the lyceum '" + lyceumName + "' in '" + town + "'.\n" +
-                "Use the verification code below to complete your request:\n\n" +
-                "Verification code: " + tokenValue + "\n\n" +
-                "If you did not initiate this request, please contact our support team immediately.\n\n" +
-                "Regards,\nEducationNearby Team";
+        String subject = "Школи: Потвърди права за администратор";
+        String text = "Здравейте,\n\n" +
+                "Вие заявихте администраторски права за читалище '" + lyceumName + "' в '" + town + "'.\n" +
+                "Ползвайте кода за потвърждение долу за да потвърдите читалището:\n\n" +
+                "Код за потвърждение: " + tokenValue + "\n\n" +
+                "Ако не сте заявявали права, моля обърнете се към нашия екип.\n\n" +
+                "Поздрави,\nекипът на Школи";
 
         sendEmailWithLogo(to, subject, text);
     }
@@ -68,7 +68,7 @@ public class EmailService {
     public void sendLyceumLecturerInvitationEmail(@NonNull String to,
                                                   @NonNull String lyceumName,
                                                   @NonNull String town) {
-        String subject = "Школи.бг: покана за преподавател";
+        String subject = "Школи: покана за преподавател";
         String text = "Здравейте,\n\n" +
                 "Вие сте поканени да се присъедините към Школи като преподавател към читалище '" + lyceumName +
                 "' в " + town + ".\n\n" +
