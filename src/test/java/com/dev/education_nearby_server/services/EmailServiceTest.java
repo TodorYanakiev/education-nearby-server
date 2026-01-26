@@ -47,7 +47,7 @@ class EmailServiceTest {
 
         assertThat(((InternetAddress) message.getAllRecipients()[0]).getAddress())
                 .isEqualTo("admin@example.com");
-        assertThat(message.getSubject()).isEqualTo("EducationNearby: Verify Lyceum Administration Rights");
+        assertThat(message.getSubject()).isEqualTo("Школи: Потвърди права за администратор");
 
         EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
         assertThat(parts.plainText())
@@ -74,17 +74,17 @@ class EmailServiceTest {
         message.saveChanges();
 
         String expectedText = """
-                Hello,
+                Здравейте,
                 
-                You requested administrator rights for the lyceum 'Test Lyceum' in 'Sofia'.
-                Use the verification code below to complete your request:
+                Вие заявихте администраторски права за читалище 'Test Lyceum' в 'Sofia'.
+                Ползвайте кода за потвърждение долу за да потвърдите читалището:
                 
-                Verification code: token-456
+                Код за потвърждение: token-456
                 
-                If you did not initiate this request, please contact our support team immediately.
+                Ако не сте заявявали права, моля обърнете се към нашия екип.
                 
-                Regards,
-                EducationNearby Team""";
+                Поздрави,
+                екипът на Школи""";
 
         EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
         assertThat(parts.plainText()).isEqualTo(expectedText);
