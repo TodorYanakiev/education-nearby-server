@@ -19,6 +19,8 @@ import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.CourseImage;
+import com.dev.education_nearby_server.models.entity.CourseSchedule;
+import com.dev.education_nearby_server.models.entity.CourseScheduleSlot;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.CourseImageRepository;
@@ -264,7 +266,9 @@ public class CourseService {
         course.setDescription(request.getDescription());
         course.setType(request.getType());
         course.setAgeGroupList(request.getAgeGroupList());
-        course.setSchedule(request.getSchedule() != null ? request.getSchedule() : new com.dev.education_nearby_server.models.entity.CourseSchedule());
+        CourseSchedule schedule = request.getSchedule() != null ? request.getSchedule() : new CourseSchedule();
+        validateSchedule(schedule);
+        course.setSchedule(schedule);
         course.setAddress(trimToNull(request.getAddress()));
         course.setPrice(request.getPrice());
         course.setFacebookLink(trimToNull(request.getFacebookLink()));
@@ -391,6 +395,7 @@ public class CourseService {
 
     private void updateSchedule(Course course, CourseUpdateRequest request) {
         if (request.getSchedule() != null) {
+            validateSchedule(request.getSchedule());
             course.setSchedule(request.getSchedule());
         }
     }
@@ -768,6 +773,56 @@ public class CourseService {
     private void validateStartTimeRange(LocalTime startTimeFrom, LocalTime startTimeTo) {
         if (startTimeFrom != null && startTimeTo != null && startTimeTo.isBefore(startTimeFrom)) {
             throw new BadRequestException("startTimeTo must be after or equal to startTimeFrom.");
+        }
+    }
+
+    private void validateSchedule(CourseSchedule schedule) {
+        if (schedule == null || schedule.getSlots() == null) {
+            return;
+        }
+        List<CourseScheduleSlot> slots = schedule.getSlots();
+        for (int index = 0; index < slots.size(); index++) {
+            validateScheduleSlot(slots.get(index), index);
+        }
+    }
+
+    private void validateScheduleSlot(CourseScheduleSlot slot, int index) {
+        if (slot == null || slot.getEndTime() == null) {
+            return;
+        }
+
+        LocalTime startTime = slot.getStartTime();
+        LocalTime endTime = slot.getEndTime();
+        int displayIndex = index + 1;
+        if (startTime == null) {
+            throw new ValidationException("Schedule slot #" + displayIndex + " must include startTime when endTime is provided.");
+        }
+        if (!endTime.isAfter(startTime)) {
+            throw new ValidationException("Schedule slot #" + displayIndex + " endTime must be after startTime.");
+        }
+
+        Integer singleClassDuration = slot.getSingleClassDurationMinutes();
+        if (singleClassDuration == null) {
+            return;
+        }
+
+        Integer classesCount = slot.getClassesCount() != null ? slot.getClassesCount() : 1;
+        if (classesCount < 1) {
+            throw new ValidationException("Schedule slot #" + displayIndex + " classesCount must be at least 1.");
+        }
+        if (singleClassDuration <= 0) {
+            throw new ValidationException("Schedule slot #" + displayIndex + " singleClassDurationMinutes must be positive.");
+        }
+        Integer gapBetweenClasses = slot.getGapBetweenClassesMinutes() != null ? slot.getGapBetweenClassesMinutes() : 0;
+        if (gapBetweenClasses < 0) {
+            throw new ValidationException("Schedule slot #" + displayIndex + " gapBetweenClassesMinutes must be zero or positive.");
+        }
+
+        long totalMinutes = (long) classesCount * singleClassDuration
+                + (long) (classesCount - 1) * gapBetweenClasses;
+        LocalTime expectedEndTime = startTime.plusMinutes(totalMinutes);
+        if (endTime.isBefore(expectedEndTime)) {
+            throw new ValidationException("Schedule slot #" + displayIndex + " endTime must be after or equal to startTime plus total duration.");
         }
     }
 
