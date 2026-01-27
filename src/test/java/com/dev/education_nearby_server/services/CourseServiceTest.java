@@ -360,6 +360,85 @@ class CourseServiceTest {
     }
 
     @Test
+    void createCourseThrowsWhenEndTimeProvidedWithoutStartTime() {
+        User admin = createUser(1L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseScheduleSlot slot = new CourseScheduleSlot();
+        slot.setRecurrence(ScheduleRecurrence.WEEKLY);
+        slot.setEndTime(LocalTime.of(9, 0));
+        CourseSchedule schedule = new CourseSchedule();
+        schedule.setSlots(List.of(slot));
+
+        CourseRequest request = CourseRequest.builder()
+                .name("Course")
+                .description("Description")
+                .type(CourseType.MUSIC)
+                .ageGroupList(List.of(AgeGroup.ADULT))
+                .schedule(schedule)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.createCourse(request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void createCourseThrowsWhenClassesCountLessThanOne() {
+        User admin = createUser(1L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseScheduleSlot slot = new CourseScheduleSlot();
+        slot.setRecurrence(ScheduleRecurrence.WEEKLY);
+        slot.setStartTime(LocalTime.of(10, 0));
+        slot.setEndTime(LocalTime.of(10, 30));
+        slot.setClassesCount(0);
+        slot.setSingleClassDurationMinutes(30);
+        CourseSchedule schedule = new CourseSchedule();
+        schedule.setSlots(List.of(slot));
+
+        CourseRequest request = CourseRequest.builder()
+                .name("Course")
+                .description("Description")
+                .type(CourseType.MUSIC)
+                .ageGroupList(List.of(AgeGroup.ADULT))
+                .schedule(schedule)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.createCourse(request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void createCourseThrowsWhenGapBetweenClassesNegative() {
+        User admin = createUser(1L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseScheduleSlot slot = new CourseScheduleSlot();
+        slot.setRecurrence(ScheduleRecurrence.WEEKLY);
+        slot.setStartTime(LocalTime.of(10, 0));
+        slot.setEndTime(LocalTime.of(10, 30));
+        slot.setClassesCount(1);
+        slot.setSingleClassDurationMinutes(30);
+        slot.setGapBetweenClassesMinutes(-5);
+        CourseSchedule schedule = new CourseSchedule();
+        schedule.setSlots(List.of(slot));
+
+        CourseRequest request = CourseRequest.builder()
+                .name("Course")
+                .description("Description")
+                .type(CourseType.MUSIC)
+                .ageGroupList(List.of(AgeGroup.ADULT))
+                .schedule(schedule)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.createCourse(request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
     void createCourseAllowsEndTimeAfterComputedDuration() {
         User admin = createUser(1L, Role.ADMIN);
         authenticate(admin);
