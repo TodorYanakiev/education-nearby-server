@@ -44,6 +44,11 @@ public class CourseScheduleSlot implements Serializable {
     private LocalTime startTime;
 
     /**
+     * Optional end time for the slot.
+     */
+    private LocalTime endTime;
+
+    /**
      * Number of consecutive classes during this slot.
      */
     @Column(name = "classes_count")
