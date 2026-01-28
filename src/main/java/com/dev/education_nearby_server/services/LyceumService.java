@@ -69,6 +69,9 @@ public class LyceumService {
         Optional<Lyceum> lyceumOpt =
                 lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase(normalizedName, normalizedTown);
         if (lyceumOpt.isEmpty()) {
+            lyceumOpt = findLyceumByNormalizedValues(normalizedName, normalizedTown);
+        }
+        if (lyceumOpt.isEmpty()) {
             return "We are sorry, we could not find such lyceum. Please contact us.";
         }
         Lyceum lyceum = lyceumOpt.get();
@@ -611,10 +614,23 @@ public class LyceumService {
     }
 
     private String normalize(String input) {
-        if (input == null) return null;
+        if (input == null) {
+            return null;
+        }
         return input
-                .trim()
-                .replaceAll("\\s+", " ");
+                .replaceAll("[\\p{Zs}\\s]+", " ")
+                .trim();
+    }
+
+    private Optional<Lyceum> findLyceumByNormalizedValues(String normalizedName, String normalizedTown) {
+        if (normalizedName == null || normalizedTown == null) {
+            return Optional.empty();
+        }
+        List<Lyceum> lyceums = Optional.ofNullable(lyceumRepository.findAll()).orElse(List.of());
+        return lyceums.stream()
+                .filter(lyceum -> normalizedName.equalsIgnoreCase(normalize(lyceum.getName()))
+                        && normalizedTown.equalsIgnoreCase(normalize(lyceum.getTown())))
+                .findFirst();
     }
 
     private String normalizeEmail(String email) {

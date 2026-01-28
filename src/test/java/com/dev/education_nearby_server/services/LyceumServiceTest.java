@@ -935,6 +935,30 @@ class LyceumServiceTest {
     }
 
     @Test
+    void requestRightsFallsBackToNormalizedMatchWhenRepositoryMisses() {
+        Lyceum lyceum = createLyceum(8L, "Lyceum  Name", "Town\u00A0Name", "school@example.com");
+        User user = createUser(10L);
+
+        LyceumRightsRequest request = LyceumRightsRequest.builder()
+                .lyceumName("Lyceum Name")
+                .town("Town Name")
+                .build();
+
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Lyceum Name", "Town Name"))
+                .thenReturn(Optional.empty());
+        when(lyceumRepository.findAll()).thenReturn(List.of(lyceum));
+        when(tokenRepository.findAllValidTokenByUser(user.getId())).thenReturn(List.of());
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        String result = lyceumService.requestRightsOverLyceum(request);
+
+        assertThat(result).isEqualTo("We have sent you an email at school@example.com with a verification code.");
+        verify(emailService).sendLyceumVerificationEmail(
+                "school@example.com", "Lyceum Name", "Town Name", any());
+    }
+
+    @Test
     void requestRightsCreatesTokenInvalidatesPreviousAndSendsEmail() {
         Lyceum lyceum = createLyceum(5L, "Lyceum", "Varna", "school@example.com");
         User user = createUser(1L);
