@@ -45,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -932,6 +933,30 @@ class LyceumServiceTest {
         assertThat(normalizedNameCaptor.getValue()).isEqualTo("Lyceum");
         assertThat(normalizedTownCaptor.getValue()).isEqualTo("Varna");
         assertThat(tokenCaptor.getValue()).isNotBlank();
+    }
+
+    @Test
+    void requestRightsFallsBackToNormalizedMatchWhenRepositoryMisses() {
+        Lyceum lyceum = createLyceum(8L, "Lyceum  Name", "Town\u00A0Name", "school@example.com");
+        User user = createUser(10L);
+
+        LyceumRightsRequest request = LyceumRightsRequest.builder()
+                .lyceumName("Lyceum Name")
+                .town("Town Name")
+                .build();
+
+        when(lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase("Lyceum Name", "Town Name"))
+                .thenReturn(Optional.empty());
+        when(lyceumRepository.findAll()).thenReturn(List.of(lyceum));
+        when(tokenRepository.findAllValidTokenByUser(user.getId())).thenReturn(List.of());
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        String result = lyceumService.requestRightsOverLyceum(request);
+
+        assertThat(result).isEqualTo("We have sent you an email at school@example.com with a verification code.");
+        verify(emailService).sendLyceumVerificationEmail(
+                eq("school@example.com"), eq("Lyceum Name"), eq("Town Name"), any());
     }
 
     @Test
