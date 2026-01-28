@@ -45,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -955,7 +956,7 @@ class LyceumServiceTest {
 
         assertThat(result).isEqualTo("We have sent you an email at school@example.com with a verification code.");
         verify(emailService).sendLyceumVerificationEmail(
-                "school@example.com", "Lyceum Name", "Town Name", any());
+                eq("school@example.com"), eq("Lyceum Name"), eq("Town Name"), any());
     }
 
     @Test
