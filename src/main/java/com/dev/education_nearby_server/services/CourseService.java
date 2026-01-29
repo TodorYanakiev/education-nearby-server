@@ -817,13 +817,6 @@ public class CourseService {
         if (gapBetweenClasses < 0) {
             throw new ValidationException("Schedule slot #" + displayIndex + " gapBetweenClassesMinutes must be zero or positive.");
         }
-
-        long totalMinutes = (long) classesCount * singleClassDuration
-                + (long) (classesCount - 1) * gapBetweenClasses;
-        LocalTime expectedEndTime = startTime.plusMinutes(totalMinutes);
-        if (endTime.isBefore(expectedEndTime)) {
-            throw new ValidationException("Schedule slot #" + displayIndex + " endTime must be after or equal to startTime plus total duration.");
-        }
     }
 
     private User getManagedCurrentUser() {

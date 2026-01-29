@@ -333,33 +333,6 @@ class CourseServiceTest {
     }
 
     @Test
-    void createCourseThrowsWhenEndTimeDoesNotMatchDuration() {
-        User admin = createUser(1L, Role.ADMIN);
-        authenticate(admin);
-        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
-
-        CourseScheduleSlot slot = new CourseScheduleSlot();
-        slot.setRecurrence(ScheduleRecurrence.WEEKLY);
-        slot.setStartTime(LocalTime.of(10, 0));
-        slot.setEndTime(LocalTime.of(10, 30));
-        slot.setClassesCount(2);
-        slot.setSingleClassDurationMinutes(30);
-        CourseSchedule schedule = new CourseSchedule();
-        schedule.setSlots(List.of(slot));
-
-        CourseRequest request = CourseRequest.builder()
-                .name("Course")
-                .description("Description")
-                .type(CourseType.MUSIC)
-                .ageGroupList(List.of(AgeGroup.ADULT))
-                .schedule(schedule)
-                .build();
-
-        assertThrows(ValidationException.class, () -> courseService.createCourse(request));
-        verify(courseRepository, never()).save(any());
-    }
-
-    @Test
     void createCourseThrowsWhenEndTimeProvidedWithoutStartTime() {
         User admin = createUser(1L, Role.ADMIN);
         authenticate(admin);
@@ -381,6 +354,39 @@ class CourseServiceTest {
 
         assertThrows(ValidationException.class, () -> courseService.createCourse(request));
         verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void createCourseAllowsEndTimeShorterThanComputedDuration() {
+        User admin = createUser(1L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseScheduleSlot slot = new CourseScheduleSlot();
+        slot.setRecurrence(ScheduleRecurrence.WEEKLY);
+        slot.setStartTime(LocalTime.of(18, 0));
+        slot.setEndTime(LocalTime.of(19, 0));
+        slot.setClassesCount(1);
+        slot.setSingleClassDurationMinutes(200);
+        CourseSchedule schedule = new CourseSchedule();
+        schedule.setSlots(List.of(slot));
+
+        CourseRequest request = CourseRequest.builder()
+                .name("Course")
+                .description("Description")
+                .type(CourseType.MUSIC)
+                .ageGroupList(List.of(AgeGroup.ADULT))
+                .schedule(schedule)
+                .build();
+
+        Course saved = new Course();
+        saved.setId(98L);
+        when(courseRepository.save(any())).thenReturn(saved);
+
+        CourseResponse response = courseService.createCourse(request);
+
+        assertThat(response.getId()).isEqualTo(98L);
+        verify(courseRepository).save(any());
     }
 
     @Test
