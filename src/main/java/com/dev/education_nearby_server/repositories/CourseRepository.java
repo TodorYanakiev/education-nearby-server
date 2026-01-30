@@ -4,6 +4,8 @@ import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ScheduleRecurrence;
 import com.dev.education_nearby_server.models.entity.Course;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -25,7 +27,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @EntityGraph(attributePaths = {"lecturers", "lyceum"})
     List<Course> findDistinctByLecturers_Id(Long lecturerId);
 
-    @Query("""
+    @Query(value = """
             SELECT DISTINCT c
             FROM Course c
             LEFT JOIN c.ageGroupList ageGroup
@@ -39,8 +41,22 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
               AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
               AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
             ORDER BY c.id
+            """,
+            countQuery = """
+            SELECT COUNT(DISTINCT c)
+            FROM Course c
+            LEFT JOIN c.ageGroupList ageGroup
+            LEFT JOIN c.schedule.slots slot
+            WHERE (:applyCourseTypeFilter = false OR c.type IN :courseTypes)
+              AND (:applyAgeGroupFilter = false OR ageGroup IN :ageGroups)
+              AND (:minPrice IS NULL OR c.price >= :minPrice)
+              AND (:maxPrice IS NULL OR c.price <= :maxPrice)
+              AND (:recurrence IS NULL OR slot.recurrence = :recurrence)
+              AND (:dayOfWeek IS NULL OR slot.dayOfWeek = :dayOfWeek)
+              AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
+              AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
             """)
-    List<Course> filterCourses(
+    Page<Course> filterCourses(
             @Param("courseTypes") List<CourseType> courseTypes,
             @Param("applyCourseTypeFilter") boolean applyCourseTypeFilter,
             @Param("ageGroups") List<AgeGroup> ageGroups,
@@ -50,6 +66,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             @Param("recurrence") ScheduleRecurrence recurrence,
             @Param("dayOfWeek") DayOfWeek dayOfWeek,
             @Param("startTimeFrom") LocalTime startTimeFrom,
-            @Param("startTimeTo") LocalTime startTimeTo
+            @Param("startTimeTo") LocalTime startTimeTo,
+            Pageable pageable
     );
 }
