@@ -16,6 +16,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -73,17 +76,21 @@ class CourseControllerTest {
                 .maxPrice(50.0f)
                 .recurrence(ScheduleRecurrence.WEEKLY)
                 .build();
-        List<CourseResponse> responses = List.of(
-                CourseResponse.builder().id(3L).name("Music course").build(),
-                CourseResponse.builder().id(4L).name("Sport course").build()
+        Page<CourseResponse> responses = new PageImpl<>(
+                List.of(
+                        CourseResponse.builder().id(3L).name("Music course").build(),
+                        CourseResponse.builder().id(4L).name("Sport course").build()
+                ),
+                PageRequest.of(0, 9),
+                2
         );
-        when(courseService.filterCourses(request)).thenReturn(responses);
+        when(courseService.filterCourses(request, 0, 9)).thenReturn(responses);
 
-        ResponseEntity<List<CourseResponse>> result = courseController.filterCourses(request);
+        ResponseEntity<Page<CourseResponse>> result = courseController.filterCourses(request, 0, 9);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(responses);
-        verify(courseService).filterCourses(request);
+        verify(courseService).filterCourses(request, 0, 9);
     }
 
     @Test

@@ -17,6 +17,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,6 +29,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -73,7 +76,8 @@ class CourseControllerIT {
                 CourseResponse.builder().id(101L).name("Morning music").type(CourseType.MUSIC).build(),
                 CourseResponse.builder().id(102L).name("Evening sport").type(CourseType.SPORT).build()
         );
-        when(courseService.filterCourses(any())).thenReturn(responses);
+        when(courseService.filterCourses(any(), anyInt(), anyInt()))
+                .thenReturn(new PageImpl<>(responses, PageRequest.of(0, 9), responses.size()));
 
         mockMvc.perform(get("/api/v1/courses/filter")
                         .param("courseTypes", CourseType.MUSIC.name())
@@ -86,11 +90,13 @@ class CourseControllerIT {
                         .param("startTimeFrom", "09:00")
                         .param("startTimeTo", "18:00"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(101L))
-                .andExpect(jsonPath("$[1].type").value("SPORT"));
+                .andExpect(jsonPath("$.content[0].id").value(101L))
+                .andExpect(jsonPath("$.content[1].type").value("SPORT"))
+                .andExpect(jsonPath("$.size").value(9))
+                .andExpect(jsonPath("$.number").value(0));
 
         ArgumentCaptor<CourseFilterRequest> captor = ArgumentCaptor.forClass(CourseFilterRequest.class);
-        verify(courseService).filterCourses(captor.capture());
+        verify(courseService).filterCourses(captor.capture(), eq(0), eq(9));
         CourseFilterRequest captured = captor.getValue();
         assertThat(captured.getCourseTypes()).containsExactly(CourseType.MUSIC, CourseType.SPORT);
         assertThat(captured.getAgeGroups()).containsExactly(AgeGroup.TEEN);
