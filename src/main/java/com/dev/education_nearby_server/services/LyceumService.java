@@ -64,12 +64,12 @@ public class LyceumService {
      * @return user-facing message describing the outcome
      */
     public String requestRightsOverLyceum(LyceumRightsRequest request) {
-        String normalizedName = normalize(request.getLyceumName());
+        String name = request.getLyceumName();
         String normalizedTown = normalize(request.getTown());
         Optional<Lyceum> lyceumOpt =
-                lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase(normalizedName, normalizedTown);
+                lyceumRepository.findFirstByNameIgnoreCaseAndTownIgnoreCase(name, normalizedTown);
         if (lyceumOpt.isEmpty()) {
-            lyceumOpt = findLyceumByNormalizedValues(normalizedName, normalizedTown);
+            lyceumOpt = findLyceumByNormalizedValues(name, normalizedTown);
         }
         if (lyceumOpt.isEmpty()) {
             return "We are sorry, we could not find such lyceum. Please contact us.";
@@ -87,7 +87,7 @@ public class LyceumService {
         invalidateExistingVerificationTokens(currentUser);
         String tokenValue = createVerificationToken(currentUser, lyceum);
         emailService.sendLyceumVerificationEmail(
-                lyceum.getEmail(), normalizedName, normalizedTown, tokenValue);
+                lyceum.getEmail(), name, normalizedTown, tokenValue);
         return "We have sent you an email at " + lyceum.getEmail() + " with a verification code.";
     }
 
