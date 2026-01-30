@@ -28,6 +28,9 @@ import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -115,11 +118,14 @@ public class CourseService {
      * Empty or null lists are treated as no filter; invalid ranges are rejected.
      *
      * @param filterRequest filter criteria; null values are ignored
+     * @param page zero-based page index
+     * @param size page size
      * @return courses that satisfy the provided filters
      */
     @Transactional(readOnly = true)
-    public List<CourseResponse> filterCourses(CourseFilterRequest filterRequest) {
+    public Page<CourseResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size) {
         CourseFilterRequest filters = filterRequest != null ? filterRequest : new CourseFilterRequest();
+        validatePageRequest(page, size);
 
         Float minPrice = filters.getMinPrice();
         Float maxPrice = filters.getMaxPrice();
@@ -131,7 +137,8 @@ public class CourseService {
         boolean applyCourseTypeFilter = courseTypes != null;
         boolean applyAgeGroupFilter = ageGroups != null;
 
-        List<Course> courses = courseRepository.filterCourses(
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Course> courses = courseRepository.filterCourses(
                 defaultList(courseTypes),
                 applyCourseTypeFilter,
                 defaultList(ageGroups),
@@ -141,11 +148,10 @@ public class CourseService {
                 filters.getRecurrence(),
                 filters.getDayOfWeek(),
                 filters.getStartTimeFrom(),
-                filters.getStartTimeTo()
+                filters.getStartTimeTo(),
+                pageable
         );
-        return courses.stream()
-                .map(this::mapToResponse)
-                .toList();
+        return courses.map(this::mapToResponse);
     }
 
     /**
@@ -773,6 +779,15 @@ public class CourseService {
     private void validateStartTimeRange(LocalTime startTimeFrom, LocalTime startTimeTo) {
         if (startTimeFrom != null && startTimeTo != null && startTimeTo.isBefore(startTimeFrom)) {
             throw new BadRequestException("startTimeTo must be after or equal to startTimeFrom.");
+        }
+    }
+
+    private void validatePageRequest(Integer page, Integer size) {
+        if (page == null || page < 0) {
+            throw new BadRequestException("Page index must be zero or positive.");
+        }
+        if (size == null || size <= 0) {
+            throw new BadRequestException("Page size must be greater than zero.");
         }
     }
 
