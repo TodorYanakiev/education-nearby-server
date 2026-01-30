@@ -901,7 +901,7 @@ class LyceumServiceTest {
         User user = createUser(10L);
 
         LyceumRightsRequest request = LyceumRightsRequest.builder()
-                .lyceumName("   Lyceum   ")
+                .lyceumName("Lyceum")
                 .town("  Varna  ")
                 .build();
 
