@@ -166,7 +166,7 @@ class CourseServiceTest {
     @Test
     void filterCoursesUsesDefaultsWhenRequestNull() {
         Course course = createCourseEntity(1L);
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(course), PageRequest.of(0, 9), 1));
 
         Page<CourseResponse> responses = courseService.filterCourses(null, 0, 9, Sort.unsorted());
@@ -184,6 +184,9 @@ class CourseServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                false,
                 PageRequest.of(0, 9, Sort.by("id"))
         );
     }
@@ -203,7 +206,7 @@ class CourseServiceTest {
                 .startTimeFrom(LocalTime.of(9, 0))
                 .startTimeTo(LocalTime.of(11, 0))
                 .build();
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(createCourseEntity(2L)), PageRequest.of(0, 9), 1));
 
         courseService.filterCourses(request, 0, 9, Sort.unsorted());
@@ -219,6 +222,9 @@ class CourseServiceTest {
                 null,
                 LocalTime.of(9, 0),
                 LocalTime.of(11, 0),
+                null,
+                null,
+                false,
                 PageRequest.of(0, 9, Sort.by("id"))
         );
     }
@@ -243,6 +249,45 @@ class CourseServiceTest {
 
         assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9, Sort.unsorted()));
         verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void filterCoursesThrowsWhenActivePeriodMissingEndMonth() {
+        CourseFilterRequest request = CourseFilterRequest.builder()
+                .activeStartMonth(Month.MAY)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.filterCourses(request, 0, 9, Sort.unsorted()));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void filterCoursesAppliesActivePeriodFilterWhenBothMonthsProvided() {
+        CourseFilterRequest request = CourseFilterRequest.builder()
+                .activeStartMonth(Month.NOVEMBER)
+                .activeEndMonth(Month.MARCH)
+                .build();
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(createCourseEntity(2L)), PageRequest.of(0, 9), 1));
+
+        courseService.filterCourses(request, 0, 9, Sort.unsorted());
+
+        verify(courseRepository).filterCourses(
+                List.of(),
+                false,
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                11,
+                3,
+                true,
+                PageRequest.of(0, 9, Sort.by("id"))
+        );
     }
 
     @Test

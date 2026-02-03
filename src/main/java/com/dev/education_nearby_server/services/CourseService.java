@@ -135,11 +135,17 @@ public class CourseService {
         Float maxPrice = filters.getMaxPrice();
         validatePriceRange(minPrice, maxPrice);
         validateStartTimeRange(filters.getStartTimeFrom(), filters.getStartTimeTo());
+        Month activeStartMonth = filters.getActiveStartMonth();
+        Month activeEndMonth = filters.getActiveEndMonth();
+        validateActivePeriod(activeStartMonth, activeEndMonth);
 
         List<CourseType> courseTypes = sanitizeList(filters.getCourseTypes());
         List<AgeGroup> ageGroups = sanitizeList(filters.getAgeGroups());
         boolean applyCourseTypeFilter = courseTypes != null;
         boolean applyAgeGroupFilter = ageGroups != null;
+        boolean applyActivePeriodFilter = activeStartMonth != null && activeEndMonth != null;
+        Integer activeStartMonthValue = activeStartMonth != null ? activeStartMonth.getValue() : null;
+        Integer activeEndMonthValue = activeEndMonth != null ? activeEndMonth.getValue() : null;
 
         Sort resolvedSort = resolveSort(sort);
         Pageable pageable = PageRequest.of(page, size, resolvedSort);
@@ -154,6 +160,9 @@ public class CourseService {
                 filters.getDayOfWeek(),
                 filters.getStartTimeFrom(),
                 filters.getStartTimeTo(),
+                activeStartMonthValue,
+                activeEndMonthValue,
+                applyActivePeriodFilter,
                 pageable
         );
         return courses.map(this::mapToResponse);
