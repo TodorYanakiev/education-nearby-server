@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.entity;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -29,6 +30,7 @@ import lombok.Setter;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +61,10 @@ public class Course implements Serializable {
     @NotNull(message = "Type should not be null!")
     @Enumerated(EnumType.STRING)
     private CourseType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "execution_type")
+    private CourseExecutionType executionType;
 
     @NotNull(message = "Age group list should not be null!")
     @ElementCollection
@@ -92,6 +98,14 @@ public class Course implements Serializable {
     private List<User> lecturers = new ArrayList<>();
 
     private String achievements;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_start_month")
+    private Month activeStartMonth;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_end_month")
+    private Month activeEndMonth;
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CourseImage> images = new ArrayList<>();

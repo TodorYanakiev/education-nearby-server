@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
@@ -42,6 +43,7 @@ import org.springframework.util.StringUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -134,11 +136,17 @@ public class CourseService {
         Float maxPrice = filters.getMaxPrice();
         validatePriceRange(minPrice, maxPrice);
         validateStartTimeRange(filters.getStartTimeFrom(), filters.getStartTimeTo());
+        Month activeStartMonth = filters.getActiveStartMonth();
+        Month activeEndMonth = filters.getActiveEndMonth();
+        validateActivePeriod(activeStartMonth, activeEndMonth);
 
         List<CourseType> courseTypes = sanitizeList(filters.getCourseTypes());
         List<AgeGroup> ageGroups = sanitizeList(filters.getAgeGroups());
         boolean applyCourseTypeFilter = courseTypes != null;
         boolean applyAgeGroupFilter = ageGroups != null;
+        boolean applyActivePeriodFilter = activeStartMonth != null && activeEndMonth != null;
+        Integer activeStartMonthValue = activeStartMonth != null ? activeStartMonth.getValue() : null;
+        Integer activeEndMonthValue = activeEndMonth != null ? activeEndMonth.getValue() : null;
 
         Sort resolvedSort = resolveSort(sort);
         Pageable pageable = PageRequest.of(page, size, resolvedSort);
@@ -153,6 +161,9 @@ public class CourseService {
                 filters.getDayOfWeek(),
                 filters.getStartTimeFrom(),
                 filters.getStartTimeTo(),
+                activeStartMonthValue,
+                activeEndMonthValue,
+                applyActivePeriodFilter,
                 pageable
         );
         return courses.map(this::mapToResponse);
@@ -275,10 +286,14 @@ public class CourseService {
         course.setName(request.getName());
         course.setDescription(request.getDescription());
         course.setType(request.getType());
+        course.setExecutionType(request.getExecutionType());
         course.setAgeGroupList(request.getAgeGroupList());
         CourseSchedule schedule = request.getSchedule() != null ? request.getSchedule() : new CourseSchedule();
         validateSchedule(schedule);
         course.setSchedule(schedule);
+        validateActivePeriod(request.getActiveStartMonth(), request.getActiveEndMonth());
+        course.setActiveStartMonth(request.getActiveStartMonth());
+        course.setActiveEndMonth(request.getActiveEndMonth());
         course.setAddress(trimToNull(request.getAddress()));
         course.setPrice(request.getPrice());
         course.setFacebookLink(trimToNull(request.getFacebookLink()));
@@ -357,8 +372,10 @@ public class CourseService {
         updateName(course, request);
         updateDescription(course, request);
         updateCourseType(course, request);
+        updateExecutionType(course, request);
         updateAgeGroups(course, request);
         updateSchedule(course, request);
+        updateActivePeriod(course, request);
         updateLocationAndLinks(course, request);
     }
 
@@ -392,6 +409,13 @@ public class CourseService {
         }
     }
 
+    private void updateExecutionType(Course course, CourseUpdateRequest request) {
+        CourseExecutionType executionType = request.getExecutionType();
+        if (executionType != null) {
+            course.setExecutionType(executionType);
+        }
+    }
+
     private void updateAgeGroups(Course course, CourseUpdateRequest request) {
         List<AgeGroup> ageGroups = request.getAgeGroupList();
         if (ageGroups == null) {
@@ -408,6 +432,17 @@ public class CourseService {
             validateSchedule(request.getSchedule());
             course.setSchedule(request.getSchedule());
         }
+    }
+
+    private void updateActivePeriod(Course course, CourseUpdateRequest request) {
+        Month startMonth = request.getActiveStartMonth();
+        Month endMonth = request.getActiveEndMonth();
+        if (startMonth == null && endMonth == null) {
+            return;
+        }
+        validateActivePeriod(startMonth, endMonth);
+        course.setActiveStartMonth(startMonth);
+        course.setActiveEndMonth(endMonth);
     }
 
     private void updateLocationAndLinks(Course course, CourseUpdateRequest request) {
@@ -448,6 +483,7 @@ public class CourseService {
         return request.getName() != null
                 || request.getDescription() != null
                 || request.getType() != null
+                || request.getExecutionType() != null
                 || request.getAgeGroupList() != null
                 || request.getSchedule() != null
                 || request.getAddress() != null
@@ -456,6 +492,8 @@ public class CourseService {
                 || request.getWebsiteLink() != null
                 || request.getLyceumId() != null
                 || request.getAchievements() != null
+                || request.getActiveStartMonth() != null
+                || request.getActiveEndMonth() != null
                 || request.getLecturerIds() != null
                 || request.getLecturerIdsToAdd() != null
                 || request.getLecturerIdsToRemove() != null;
@@ -848,6 +886,15 @@ public class CourseService {
         }
     }
 
+    private void validateActivePeriod(Month startMonth, Month endMonth) {
+        if (startMonth == null && endMonth == null) {
+            return;
+        }
+        if (startMonth == null || endMonth == null) {
+            throw new ValidationException("Active period requires both start and end months.");
+        }
+    }
+
     private User getManagedCurrentUser() {
         User currentUser = getCurrentUser()
                 .orElseThrow(() -> new UnauthorizedException("You must be authenticated to perform this action."));
@@ -889,6 +936,7 @@ public class CourseService {
                 .name(course.getName())
                 .description(course.getDescription())
                 .type(course.getType())
+                .executionType(course.getExecutionType())
                 .ageGroupList(course.getAgeGroupList())
                 .schedule(course.getSchedule())
                 .images(images)
@@ -898,6 +946,8 @@ public class CourseService {
                 .websiteLink(course.getWebsiteLink())
                 .lyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null)
                 .achievements(course.getAchievements())
+                .activeStartMonth(course.getActiveStartMonth())
+                .activeEndMonth(course.getActiveEndMonth())
                 .lecturerIds(course.getLecturers() == null ? List.of() :
                         course.getLecturers().stream()
                                 .map(User::getId)

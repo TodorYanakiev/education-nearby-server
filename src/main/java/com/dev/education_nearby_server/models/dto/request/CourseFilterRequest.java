@@ -13,6 +13,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.List;
 
 /**
@@ -50,4 +51,11 @@ public class CourseFilterRequest {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
     private LocalTime startTimeTo;
+
+    /**
+     * Optional active period filter (inclusive). Requires both months when provided.
+     */
+    private Month activeStartMonth;
+
+    private Month activeEndMonth;
 }

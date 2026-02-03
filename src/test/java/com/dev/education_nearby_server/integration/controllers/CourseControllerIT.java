@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,7 +89,9 @@ class CourseControllerIT {
                         .param("recurrence", ScheduleRecurrence.WEEKLY.name())
                         .param("dayOfWeek", DayOfWeek.MONDAY.name())
                         .param("startTimeFrom", "09:00")
-                        .param("startTimeTo", "18:00"))
+                        .param("startTimeTo", "18:00")
+                        .param("activeStartMonth", Month.MAY.name())
+                        .param("activeEndMonth", Month.SEPTEMBER.name()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(101L))
                 .andExpect(jsonPath("$.content[1].type").value("SPORT"))
@@ -106,6 +109,8 @@ class CourseControllerIT {
         assertThat(captured.getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
         assertThat(captured.getStartTimeFrom()).isEqualTo(LocalTime.of(9, 0));
         assertThat(captured.getStartTimeTo()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(captured.getActiveStartMonth()).isEqualTo(Month.MAY);
+        assertThat(captured.getActiveEndMonth()).isEqualTo(Month.SEPTEMBER);
     }
 
     @Test

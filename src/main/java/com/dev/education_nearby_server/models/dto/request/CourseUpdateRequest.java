@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.dto.request;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.models.entity.CourseSchedule;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -11,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Month;
 import java.util.List;
 
 /**
@@ -31,6 +33,8 @@ public class CourseUpdateRequest {
 
     private CourseType type;
 
+    private CourseExecutionType executionType;
+
     private List<AgeGroup> ageGroupList;
 
     private CourseSchedule schedule;
@@ -46,6 +50,10 @@ public class CourseUpdateRequest {
     private Long lyceumId;
 
     private String achievements;
+
+    private Month activeStartMonth;
+
+    private Month activeEndMonth;
 
     /**
      * When present, replaces the entire lecturer list.
