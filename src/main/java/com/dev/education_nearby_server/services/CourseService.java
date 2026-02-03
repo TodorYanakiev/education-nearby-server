@@ -31,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -65,6 +66,7 @@ public class CourseService {
     private final UserRepository userRepository;
     private final S3Properties s3Properties;
     private static final String NOT_FOUND = " not found.";
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id", "name", "price", "type");
 
     /**
      * Returns all courses without applying filters.
@@ -120,10 +122,11 @@ public class CourseService {
      * @param filterRequest filter criteria; null values are ignored
      * @param page zero-based page index
      * @param size page size
+     * @param sort sorting configuration
      * @return courses that satisfy the provided filters
      */
     @Transactional(readOnly = true)
-    public Page<CourseResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size) {
+    public Page<CourseResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size, Sort sort) {
         CourseFilterRequest filters = filterRequest != null ? filterRequest : new CourseFilterRequest();
         validatePageRequest(page, size);
 
@@ -137,7 +140,8 @@ public class CourseService {
         boolean applyCourseTypeFilter = courseTypes != null;
         boolean applyAgeGroupFilter = ageGroups != null;
 
-        Pageable pageable = PageRequest.of(page, size);
+        Sort resolvedSort = resolveSort(sort);
+        Pageable pageable = PageRequest.of(page, size, resolvedSort);
         Page<Course> courses = courseRepository.filterCourses(
                 defaultList(courseTypes),
                 applyCourseTypeFilter,
@@ -789,6 +793,16 @@ public class CourseService {
         if (size == null || size <= 0) {
             throw new BadRequestException("Page size must be greater than zero.");
         }
+    }
+
+    private Sort resolveSort(Sort sort) {
+        Sort resolved = (sort == null || sort.isUnsorted()) ? Sort.by("id") : sort;
+        for (Sort.Order order : resolved) {
+            if (!ALLOWED_SORT_FIELDS.contains(order.getProperty())) {
+                throw new BadRequestException("Sorting by '" + order.getProperty() + "' is not supported.");
+            }
+        }
+        return resolved;
     }
 
     private void validateSchedule(CourseSchedule schedule) {

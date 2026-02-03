@@ -40,7 +40,6 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
               AND (:dayOfWeek IS NULL OR slot.dayOfWeek = :dayOfWeek)
               AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
               AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
-            ORDER BY c.id
             """,
             countQuery = """
             SELECT COUNT(DISTINCT c)
