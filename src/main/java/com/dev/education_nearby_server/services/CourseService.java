@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
@@ -285,6 +286,7 @@ public class CourseService {
         course.setName(request.getName());
         course.setDescription(request.getDescription());
         course.setType(request.getType());
+        course.setExecutionType(request.getExecutionType());
         course.setAgeGroupList(request.getAgeGroupList());
         CourseSchedule schedule = request.getSchedule() != null ? request.getSchedule() : new CourseSchedule();
         validateSchedule(schedule);
@@ -370,6 +372,7 @@ public class CourseService {
         updateName(course, request);
         updateDescription(course, request);
         updateCourseType(course, request);
+        updateExecutionType(course, request);
         updateAgeGroups(course, request);
         updateSchedule(course, request);
         updateActivePeriod(course, request);
@@ -403,6 +406,13 @@ public class CourseService {
     private void updateCourseType(Course course, CourseUpdateRequest request) {
         if (request.getType() != null) {
             course.setType(request.getType());
+        }
+    }
+
+    private void updateExecutionType(Course course, CourseUpdateRequest request) {
+        CourseExecutionType executionType = request.getExecutionType();
+        if (executionType != null) {
+            course.setExecutionType(executionType);
         }
     }
 
@@ -473,6 +483,7 @@ public class CourseService {
         return request.getName() != null
                 || request.getDescription() != null
                 || request.getType() != null
+                || request.getExecutionType() != null
                 || request.getAgeGroupList() != null
                 || request.getSchedule() != null
                 || request.getAddress() != null
@@ -925,6 +936,7 @@ public class CourseService {
                 .name(course.getName())
                 .description(course.getDescription())
                 .type(course.getType())
+                .executionType(course.getExecutionType())
                 .ageGroupList(course.getAgeGroupList())
                 .schedule(course.getSchedule())
                 .images(images)

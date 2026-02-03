@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.dto.request;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.models.entity.CourseSchedule;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -31,6 +32,8 @@ public class CourseUpdateRequest {
     private String description;
 
     private CourseType type;
+
+    private CourseExecutionType executionType;
 
     private List<AgeGroup> ageGroupList;
 

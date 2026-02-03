@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.dto.request;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.models.entity.CourseSchedule;
 import jakarta.validation.constraints.NotBlank;
@@ -33,6 +34,8 @@ public class CourseRequest {
 
     @NotNull(message = "Course type must not be null.")
     private CourseType type;
+
+    private CourseExecutionType executionType;
 
     @NotNull(message = "Age group list must not be null.")
     @Size(min = 1, message = "At least one age group must be specified.")

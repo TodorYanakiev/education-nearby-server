@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.dto.response;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.models.entity.CourseSchedule;
 import lombok.AllArgsConstructor;
@@ -25,6 +26,7 @@ public class CourseResponse {
     private String name;
     private String description;
     private CourseType type;
+    private CourseExecutionType executionType;
     private List<AgeGroup> ageGroupList;
     private CourseSchedule schedule;
     private List<CourseImageResponse> images;

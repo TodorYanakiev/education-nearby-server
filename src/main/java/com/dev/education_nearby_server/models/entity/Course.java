@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.entity;
 
 import com.dev.education_nearby_server.enums.AgeGroup;
+import com.dev.education_nearby_server.enums.CourseExecutionType;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -60,6 +61,10 @@ public class Course implements Serializable {
     @NotNull(message = "Type should not be null!")
     @Enumerated(EnumType.STRING)
     private CourseType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "execution_type")
+    private CourseExecutionType executionType;
 
     @NotNull(message = "Age group list should not be null!")
     @ElementCollection
