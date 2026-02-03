@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -84,13 +85,13 @@ class CourseControllerTest {
                 PageRequest.of(0, 9),
                 2
         );
-        when(courseService.filterCourses(request, 0, 9)).thenReturn(responses);
+        when(courseService.filterCourses(request, 0, 9, Sort.unsorted())).thenReturn(responses);
 
-        ResponseEntity<Page<CourseResponse>> result = courseController.filterCourses(request, 0, 9);
+        ResponseEntity<Page<CourseResponse>> result = courseController.filterCourses(request, 0, 9, Sort.unsorted());
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(responses);
-        verify(courseService).filterCourses(request, 0, 9);
+        verify(courseService).filterCourses(request, 0, 9, Sort.unsorted());
     }
 
     @Test

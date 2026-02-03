@@ -39,6 +39,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -167,7 +168,7 @@ class CourseServiceTest {
         when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(course), PageRequest.of(0, 9), 1));
 
-        Page<CourseResponse> responses = courseService.filterCourses(null, 0, 9);
+        Page<CourseResponse> responses = courseService.filterCourses(null, 0, 9, Sort.unsorted());
 
         assertThat(responses.getContent()).hasSize(1);
         assertThat(responses.getContent().getFirst().getId()).isEqualTo(1L);
@@ -182,7 +183,7 @@ class CourseServiceTest {
                 null,
                 null,
                 null,
-                PageRequest.of(0, 9)
+                PageRequest.of(0, 9, Sort.by("id"))
         );
     }
 
@@ -204,7 +205,7 @@ class CourseServiceTest {
         when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(createCourseEntity(2L)), PageRequest.of(0, 9), 1));
 
-        courseService.filterCourses(request, 0, 9);
+        courseService.filterCourses(request, 0, 9, Sort.unsorted());
 
         verify(courseRepository).filterCourses(
                 List.of(),
@@ -217,7 +218,7 @@ class CourseServiceTest {
                 null,
                 LocalTime.of(9, 0),
                 LocalTime.of(11, 0),
-                PageRequest.of(0, 9)
+                PageRequest.of(0, 9, Sort.by("id"))
         );
     }
 
@@ -228,7 +229,7 @@ class CourseServiceTest {
                 .maxPrice(50f)
                 .build();
 
-        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9));
+        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9, Sort.unsorted()));
         verifyNoInteractions(courseRepository);
     }
 
@@ -239,7 +240,16 @@ class CourseServiceTest {
                 .startTimeTo(LocalTime.of(10, 0))
                 .build();
 
-        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9));
+        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9, Sort.unsorted()));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void filterCoursesThrowsWhenSortingByUnsupportedField() {
+        CourseFilterRequest request = CourseFilterRequest.builder().build();
+
+        assertThrows(BadRequestException.class,
+                () -> courseService.filterCourses(request, 0, 9, Sort.by("unknownField")));
         verifyNoInteractions(courseRepository);
     }
 

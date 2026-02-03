@@ -28,8 +28,8 @@ import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -76,7 +76,7 @@ class CourseControllerIT {
                 CourseResponse.builder().id(101L).name("Morning music").type(CourseType.MUSIC).build(),
                 CourseResponse.builder().id(102L).name("Evening sport").type(CourseType.SPORT).build()
         );
-        when(courseService.filterCourses(any(), anyInt(), anyInt()))
+        when(courseService.filterCourses(any(), anyInt(), anyInt(), any()))
                 .thenReturn(new PageImpl<>(responses, PageRequest.of(0, 9), responses.size()));
 
         mockMvc.perform(get("/api/v1/courses/filter")
@@ -96,7 +96,7 @@ class CourseControllerIT {
                 .andExpect(jsonPath("$.number").value(0));
 
         ArgumentCaptor<CourseFilterRequest> captor = ArgumentCaptor.forClass(CourseFilterRequest.class);
-        verify(courseService).filterCourses(captor.capture(), eq(0), eq(9));
+        verify(courseService).filterCourses(captor.capture(), eq(0), eq(9), any());
         CourseFilterRequest captured = captor.getValue();
         assertThat(captured.getCourseTypes()).containsExactly(CourseType.MUSIC, CourseType.SPORT);
         assertThat(captured.getAgeGroups()).containsExactly(AgeGroup.TEEN);
