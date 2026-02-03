@@ -9,6 +9,8 @@ import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -47,11 +50,18 @@ public class CourseController {
      * Returns courses that match the provided optional filters; empty filters return all courses.
      *
      * @param request optional filter fields (category, price, etc.)
+     * @param page zero-based page index
+     * @param size page size
      * @return courses that satisfy the filters
      */
     @GetMapping("/filter")
-    public ResponseEntity<List<CourseResponse>> filterCourses(@Valid @ModelAttribute CourseFilterRequest request) {
-        return ResponseEntity.ok(courseService.filterCourses(request));
+    public ResponseEntity<Page<CourseResponse>> filterCourses(
+            @Valid @ModelAttribute CourseFilterRequest request,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "9") Integer size,
+            Sort sort
+    ) {
+        return ResponseEntity.ok(courseService.filterCourses(request, page, size, sort));
     }
 
     /**

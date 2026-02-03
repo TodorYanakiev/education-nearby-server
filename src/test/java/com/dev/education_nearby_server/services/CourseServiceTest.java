@@ -35,6 +35,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -160,13 +165,13 @@ class CourseServiceTest {
     @Test
     void filterCoursesUsesDefaultsWhenRequestNull() {
         Course course = createCourseEntity(1L);
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(course));
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(course), PageRequest.of(0, 9), 1));
 
-        List<CourseResponse> responses = courseService.filterCourses(null);
+        Page<CourseResponse> responses = courseService.filterCourses(null, 0, 9, Sort.unsorted());
 
-        assertThat(responses).hasSize(1);
-        assertThat(responses.getFirst().getId()).isEqualTo(1L);
+        assertThat(responses.getContent()).hasSize(1);
+        assertThat(responses.getContent().getFirst().getId()).isEqualTo(1L);
         verify(courseRepository).filterCourses(
                 List.of(),
                 false,
@@ -177,7 +182,8 @@ class CourseServiceTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                PageRequest.of(0, 9, Sort.by("id"))
         );
     }
 
@@ -196,10 +202,10 @@ class CourseServiceTest {
                 .startTimeFrom(LocalTime.of(9, 0))
                 .startTimeTo(LocalTime.of(11, 0))
                 .build();
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of(createCourseEntity(2L)));
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(createCourseEntity(2L)), PageRequest.of(0, 9), 1));
 
-        courseService.filterCourses(request);
+        courseService.filterCourses(request, 0, 9, Sort.unsorted());
 
         verify(courseRepository).filterCourses(
                 List.of(),
@@ -211,7 +217,8 @@ class CourseServiceTest {
                 null,
                 null,
                 LocalTime.of(9, 0),
-                LocalTime.of(11, 0)
+                LocalTime.of(11, 0),
+                PageRequest.of(0, 9, Sort.by("id"))
         );
     }
 
@@ -222,7 +229,7 @@ class CourseServiceTest {
                 .maxPrice(50f)
                 .build();
 
-        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request));
+        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9, Sort.unsorted()));
         verifyNoInteractions(courseRepository);
     }
 
@@ -233,7 +240,16 @@ class CourseServiceTest {
                 .startTimeTo(LocalTime.of(10, 0))
                 .build();
 
-        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request));
+        assertThrows(BadRequestException.class, () -> courseService.filterCourses(request, 0, 9, Sort.unsorted()));
+        verifyNoInteractions(courseRepository);
+    }
+
+    @Test
+    void filterCoursesThrowsWhenSortingByUnsupportedField() {
+        CourseFilterRequest request = CourseFilterRequest.builder().build();
+
+        assertThrows(BadRequestException.class,
+                () -> courseService.filterCourses(request, 0, 9, Sort.by("unknownField")));
         verifyNoInteractions(courseRepository);
     }
 
