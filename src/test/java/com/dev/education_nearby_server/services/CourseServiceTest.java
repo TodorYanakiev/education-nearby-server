@@ -44,6 +44,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -454,6 +455,24 @@ class CourseServiceTest {
                 .type(CourseType.MUSIC)
                 .ageGroupList(List.of(AgeGroup.ADULT))
                 .schedule(schedule)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.createCourse(request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void createCourseThrowsWhenActivePeriodMissingEndMonth() {
+        User admin = createUser(1L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseRequest request = CourseRequest.builder()
+                .name("Course")
+                .description("Description")
+                .type(CourseType.MUSIC)
+                .ageGroupList(List.of(AgeGroup.ADULT))
+                .activeStartMonth(Month.MAY)
                 .build();
 
         assertThrows(ValidationException.class, () -> courseService.createCourse(request));
@@ -932,6 +951,22 @@ class CourseServiceTest {
                 .build();
 
         assertThrows(ValidationException.class, () -> courseService.updateCourse(45L, request));
+        verify(courseRepository, never()).save(any());
+    }
+
+    @Test
+    void updateCourseThrowsWhenActivePeriodMissingEndMonth() {
+        Course course = createCourseEntity(46L);
+        when(courseRepository.findDetailedById(46L)).thenReturn(Optional.of(course));
+        User admin = createUser(73L, Role.ADMIN);
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        CourseUpdateRequest request = CourseUpdateRequest.builder()
+                .activeStartMonth(Month.NOVEMBER)
+                .build();
+
+        assertThrows(ValidationException.class, () -> courseService.updateCourse(46L, request));
         verify(courseRepository, never()).save(any());
     }
 

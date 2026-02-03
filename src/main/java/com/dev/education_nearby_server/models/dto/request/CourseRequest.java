@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Month;
 import java.util.List;
 
 /**
@@ -50,6 +51,10 @@ public class CourseRequest {
     private Long lyceumId;
 
     private String achievements;
+
+    private Month activeStartMonth;
+
+    private Month activeEndMonth;
 
     private List<Long> lecturerIds;
 }

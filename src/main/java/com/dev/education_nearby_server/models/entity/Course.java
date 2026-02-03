@@ -29,6 +29,7 @@ import lombok.Setter;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -92,6 +93,14 @@ public class Course implements Serializable {
     private List<User> lecturers = new ArrayList<>();
 
     private String achievements;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_start_month")
+    private Month activeStartMonth;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "active_end_month")
+    private Month activeEndMonth;
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CourseImage> images = new ArrayList<>();

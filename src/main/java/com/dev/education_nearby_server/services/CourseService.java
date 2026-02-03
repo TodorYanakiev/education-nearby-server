@@ -42,6 +42,7 @@ import org.springframework.util.StringUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -279,6 +280,9 @@ public class CourseService {
         CourseSchedule schedule = request.getSchedule() != null ? request.getSchedule() : new CourseSchedule();
         validateSchedule(schedule);
         course.setSchedule(schedule);
+        validateActivePeriod(request.getActiveStartMonth(), request.getActiveEndMonth());
+        course.setActiveStartMonth(request.getActiveStartMonth());
+        course.setActiveEndMonth(request.getActiveEndMonth());
         course.setAddress(trimToNull(request.getAddress()));
         course.setPrice(request.getPrice());
         course.setFacebookLink(trimToNull(request.getFacebookLink()));
@@ -359,6 +363,7 @@ public class CourseService {
         updateCourseType(course, request);
         updateAgeGroups(course, request);
         updateSchedule(course, request);
+        updateActivePeriod(course, request);
         updateLocationAndLinks(course, request);
     }
 
@@ -410,6 +415,17 @@ public class CourseService {
         }
     }
 
+    private void updateActivePeriod(Course course, CourseUpdateRequest request) {
+        Month startMonth = request.getActiveStartMonth();
+        Month endMonth = request.getActiveEndMonth();
+        if (startMonth == null && endMonth == null) {
+            return;
+        }
+        validateActivePeriod(startMonth, endMonth);
+        course.setActiveStartMonth(startMonth);
+        course.setActiveEndMonth(endMonth);
+    }
+
     private void updateLocationAndLinks(Course course, CourseUpdateRequest request) {
         if (request.getAddress() != null) {
             course.setAddress(trimToNull(request.getAddress()));
@@ -456,6 +472,8 @@ public class CourseService {
                 || request.getWebsiteLink() != null
                 || request.getLyceumId() != null
                 || request.getAchievements() != null
+                || request.getActiveStartMonth() != null
+                || request.getActiveEndMonth() != null
                 || request.getLecturerIds() != null
                 || request.getLecturerIdsToAdd() != null
                 || request.getLecturerIdsToRemove() != null;
@@ -848,6 +866,15 @@ public class CourseService {
         }
     }
 
+    private void validateActivePeriod(Month startMonth, Month endMonth) {
+        if (startMonth == null && endMonth == null) {
+            return;
+        }
+        if (startMonth == null || endMonth == null) {
+            throw new ValidationException("Active period requires both start and end months.");
+        }
+    }
+
     private User getManagedCurrentUser() {
         User currentUser = getCurrentUser()
                 .orElseThrow(() -> new UnauthorizedException("You must be authenticated to perform this action."));
@@ -898,6 +925,8 @@ public class CourseService {
                 .websiteLink(course.getWebsiteLink())
                 .lyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null)
                 .achievements(course.getAchievements())
+                .activeStartMonth(course.getActiveStartMonth())
+                .activeEndMonth(course.getActiveEndMonth())
                 .lecturerIds(course.getLecturers() == null ? List.of() :
                         course.getLecturers().stream()
                                 .map(User::getId)

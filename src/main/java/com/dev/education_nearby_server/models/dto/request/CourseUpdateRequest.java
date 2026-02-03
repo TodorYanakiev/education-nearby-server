@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Month;
 import java.util.List;
 
 /**
@@ -46,6 +47,10 @@ public class CourseUpdateRequest {
     private Long lyceumId;
 
     private String achievements;
+
+    private Month activeStartMonth;
+
+    private Month activeEndMonth;
 
     /**
      * When present, replaces the entire lecturer list.
