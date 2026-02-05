@@ -88,6 +88,7 @@ class CourseControllerIT {
                         .param("maxPrice", "45.5")
                         .param("recurrence", ScheduleRecurrence.WEEKLY.name())
                         .param("dayOfWeek", DayOfWeek.MONDAY.name())
+                        .param("dayOfWeek", DayOfWeek.WEDNESDAY.name())
                         .param("startTimeFrom", "09:00")
                         .param("startTimeTo", "18:00")
                         .param("activeStartMonth", Month.MAY.name())
@@ -106,7 +107,7 @@ class CourseControllerIT {
         assertThat(captured.getMinPrice()).isEqualTo(15f);
         assertThat(captured.getMaxPrice()).isEqualTo(45.5f);
         assertThat(captured.getRecurrence()).isEqualTo(ScheduleRecurrence.WEEKLY);
-        assertThat(captured.getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+        assertThat(captured.getDayOfWeek()).containsExactly(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY);
         assertThat(captured.getStartTimeFrom()).isEqualTo(LocalTime.of(9, 0));
         assertThat(captured.getStartTimeTo()).isEqualTo(LocalTime.of(18, 0));
         assertThat(captured.getActiveStartMonth()).isEqualTo(Month.MAY);
