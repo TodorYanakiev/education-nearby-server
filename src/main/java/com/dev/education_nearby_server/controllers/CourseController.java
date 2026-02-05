@@ -9,6 +9,7 @@ import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/courses")
 @RequiredArgsConstructor
+@Slf4j
 public class CourseController {
 
     private final CourseService courseService;
@@ -105,6 +107,7 @@ public class CourseController {
      */
     @PostMapping
     public ResponseEntity<CourseResponse> createCourse(@Valid @RequestBody CourseRequest request) {
+        log.debug("Create course request received. lyceumId={}", request.getLyceumId());
         CourseResponse response = courseService.createCourse(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -121,6 +124,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @RequestBody CourseUpdateRequest request
     ) {
+        log.debug("Update course request received. courseId={}", courseId);
         CourseResponse response = courseService.updateCourse(courseId, request);
         return ResponseEntity.ok(response);
     }
@@ -137,6 +141,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long userId
     ) {
+        log.debug("Add lecturer request received. courseId={} lecturerId={}", courseId, userId);
         courseService.addLecturerToCourse(courseId, userId);
         return ResponseEntity.noContent().build();
     }
@@ -153,6 +158,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @Valid @RequestBody CourseImageRequest request
     ) {
+        log.debug("Add course image request received. courseId={} role={}", courseId, request.getRole());
         CourseImageResponse response = courseService.addCourseImage(courseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -165,6 +171,7 @@ public class CourseController {
      */
     @DeleteMapping("/{courseId}")
     public ResponseEntity<Void> deleteCourse(@PathVariable Long courseId) {
+        log.debug("Delete course request received. courseId={}", courseId);
         courseService.deleteCourse(courseId);
         return ResponseEntity.noContent().build();
     }
@@ -181,6 +188,7 @@ public class CourseController {
             @PathVariable Long courseId,
             @PathVariable Long imageId
     ) {
+        log.debug("Delete course image request received. courseId={} imageId={}", courseId, imageId);
         courseService.deleteCourseImage(courseId, imageId);
         return ResponseEntity.noContent().build();
     }

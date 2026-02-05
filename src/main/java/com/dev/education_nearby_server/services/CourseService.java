@@ -29,6 +29,7 @@ import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -60,6 +61,7 @@ import java.util.Set;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CourseService {
 
     private final CourseRepository courseRepository;
@@ -149,6 +151,15 @@ public class CourseService {
         Integer activeEndMonthValue = activeEndMonth != null ? activeEndMonth.getValue() : null;
 
         Sort resolvedSort = resolveSort(sort);
+        log.debug(
+                "Filtering courses page={} size={} sort={} applyCourseTypeFilter={} applyAgeGroupFilter={} applyActivePeriodFilter={}",
+                page,
+                size,
+                resolvedSort,
+                applyCourseTypeFilter,
+                applyAgeGroupFilter,
+                applyActivePeriodFilter
+        );
         Pageable pageable = PageRequest.of(page, size, resolvedSort);
         Page<Course> courses = courseRepository.filterCourses(
                 defaultList(courseTypes),
@@ -222,6 +233,7 @@ public class CourseService {
 
         course.getImages().add(image);
         CourseImage saved = courseImageRepository.save(image);
+        log.info("Registered course image. courseId={} imageId={} role={}", courseId, saved.getId(), saved.getRole());
 
         return mapToResponse(saved);
     }
@@ -245,6 +257,7 @@ public class CourseService {
 
         course.getImages().removeIf(existing -> existing.getId() != null && existing.getId().equals(imageId));
         courseImageRepository.delete(image);
+        log.info("Deleted course image. courseId={} imageId={}", courseId, imageId);
     }
 
     /**
@@ -259,6 +272,7 @@ public class CourseService {
 
         // Remove only the course entity itself; lyceums and lecturers stay untouched.
         courseRepository.delete(course);
+        log.info("Deleted courseId={}", courseId);
     }
 
     /**
@@ -272,6 +286,8 @@ public class CourseService {
         if (request == null) {
             throw new BadRequestException("Course payload must not be null.");
         }
+        int lecturerCount = request.getLecturerIds() == null ? 0 : request.getLecturerIds().size();
+        log.info("Creating course. lyceumId={} lecturerCount={}", request.getLyceumId(), lecturerCount);
         User currentUser = getManagedCurrentUser();
 
         Lyceum lyceum = null;
@@ -305,6 +321,7 @@ public class CourseService {
         course.setLecturers(lecturers);
 
         Course saved = courseRepository.save(course);
+        log.info("Created courseId={} lyceumId={}", saved.getId(), lyceum != null ? lyceum.getId() : null);
         return mapToResponse(saved);
     }
 
@@ -319,12 +336,14 @@ public class CourseService {
         Course course = requireCourse(courseId, true);
         User currentUser = getManagedCurrentUser();
         ensureUserCanModifyCourse(currentUser, course);
+        log.info("Updating courseId={}", courseId);
 
         updateCourseFields(course, validatedRequest);
         updateCourseLyceum(course, currentUser, validatedRequest);
         applyLecturerUpdates(course, currentUser, validatedRequest);
 
         Course saved = courseRepository.save(course);
+        log.info("Updated courseId={}", saved.getId());
         return mapToResponse(saved);
     }
 
@@ -353,6 +372,9 @@ public class CourseService {
                 .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lecturer.getId()));
         if (!alreadyLecturer) {
             course.getLecturers().add(lecturer);
+            log.info("Added lecturerId={} to courseId={}", userId, courseId);
+        } else {
+            log.debug("Lecturer already assigned to courseId={} lecturerId={}", courseId, userId);
         }
 
         courseRepository.save(course);

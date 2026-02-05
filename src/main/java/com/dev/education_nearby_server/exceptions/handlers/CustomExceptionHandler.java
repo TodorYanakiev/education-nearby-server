@@ -9,6 +9,7 @@ import com.dev.education_nearby_server.models.dto.response.ExceptionResponse;
 
 import com.dev.education_nearby_server.utils.ApiExceptionParser;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.lang.Nullable;
 import org.springframework.transaction.TransactionException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -33,6 +35,7 @@ import java.time.LocalDateTime;
  * into a consistent {@link com.dev.education_nearby_server.models.dto.response.ExceptionResponse}.
  */
 @ControllerAdvice
+@Slf4j
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final String VALIDATION_FAILED = "Validation failed";
@@ -59,6 +62,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ExceptionResponse> handleRuntimeExceptions(RuntimeException exception) {
+        log.error("Unhandled runtime exception", exception);
         return handleApiExceptions(new InternalServerErrorException());
     }
 
@@ -122,6 +126,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
      * Aggregates validation errors from request body binding into a single message.
      */
     @Override
+    @Nullable
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex,
             HttpHeaders headers,
@@ -141,6 +146,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * Aggregates validation errors from form/query binding into a single message (HttpStatusCode overload).
      */
+    @Nullable
     protected ResponseEntity<Object> handleBindException(
             BindException ex,
             HttpHeaders headers,
@@ -158,6 +164,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     // Compatibility overload for environments expecting HttpStatus
+    @Nullable
     protected ResponseEntity<Object> handleBindException(
             BindException ex,
             HttpHeaders headers,
