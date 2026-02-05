@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="60">
+    <Properties>
+        <Property name="APP_NAME">${spring:application.name:-education-nearby-server}</Property>
+        <Property name="LOG_DIR">${env:LOG_DIR:-logs}</Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%t] %logger requestId=%X{requestId:-} - %msg%n%throwable</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <RollingFile name="RollingFile"
+                     fileName="${LOG_DIR}/${APP_NAME}.log"
+                     filePattern="${LOG_DIR}/${APP_NAME}-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${LOG_DIR}" maxDepth="1">
+                    <IfFileName glob="${APP_NAME}-*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+        <RollingFile name="ErrorFile"
+                     fileName="${LOG_DIR}/${APP_NAME}-error.log"
+                     filePattern="${LOG_DIR}/${APP_NAME}-error-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Filters>
+                <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            </Filters>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="50 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${LOG_DIR}" maxDepth="1">
+                    <IfFileName glob="${APP_NAME}-error-*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <SpringProfile name="local,dev">
+            <Logger name="com.dev.education_nearby_server" level="DEBUG" additivity="false">
+                <AppenderRef ref="Console"/>
+            </Logger>
+            <Root level="INFO">
+                <AppenderRef ref="Console"/>
+            </Root>
+        </SpringProfile>
+        <SpringProfile name="prod,production">
+            <Root level="INFO">
+                <AppenderRef ref="Console"/>
+                <AppenderRef ref="RollingFile"/>
+                <AppenderRef ref="ErrorFile"/>
+            </Root>
+        </SpringProfile>
+        <SpringProfile name="!local &amp; !dev &amp; !prod &amp; !production">
+            <Root level="INFO">
+                <AppenderRef ref="Console"/>
+            </Root>
+        </SpringProfile>
+    </Loggers>
+</Configuration>
