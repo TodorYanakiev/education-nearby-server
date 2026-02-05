@@ -166,7 +166,7 @@ class CourseServiceTest {
     @Test
     void filterCoursesUsesDefaultsWhenRequestNull() {
         Course course = createCourseEntity(1L);
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(course), PageRequest.of(0, 9), 1));
 
         Page<CourseResponse> responses = courseService.filterCourses(null, 0, 9, Sort.unsorted());
@@ -183,6 +183,7 @@ class CourseServiceTest {
                 null,
                 List.of(),
                 false,
+                null,
                 null,
                 null,
                 null,
@@ -207,7 +208,7 @@ class CourseServiceTest {
                 .startTimeFrom(LocalTime.of(9, 0))
                 .startTimeTo(LocalTime.of(11, 0))
                 .build();
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(createCourseEntity(2L)), PageRequest.of(0, 9), 1));
 
         courseService.filterCourses(request, 0, 9, Sort.unsorted());
@@ -222,6 +223,7 @@ class CourseServiceTest {
                 null,
                 List.of(),
                 false,
+                null,
                 LocalTime.of(9, 0),
                 LocalTime.of(11, 0),
                 null,
@@ -269,7 +271,7 @@ class CourseServiceTest {
                 .activeStartMonth(Month.NOVEMBER)
                 .activeEndMonth(Month.MARCH)
                 .build();
-        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
+        when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(createCourseEntity(2L)), PageRequest.of(0, 9), 1));
 
         courseService.filterCourses(request, 0, 9, Sort.unsorted());
@@ -284,6 +286,7 @@ class CourseServiceTest {
                 null,
                 List.of(),
                 false,
+                null,
                 null,
                 null,
                 11,

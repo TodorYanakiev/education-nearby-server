@@ -17,7 +17,7 @@ import java.time.Month;
 import java.util.List;
 
 /**
- * Query parameters for filtering courses by type, age group, price, recurrence, and schedule.
+ * Query parameters for filtering courses by type, age group, price, town, recurrence, and schedule.
  */
 @Getter
 @Setter
@@ -48,6 +48,11 @@ public class CourseFilterRequest {
      * Optional list of days of week to include. When empty or missing, no day filter is applied.
      */
     private List<DayOfWeek> dayOfWeek;
+
+    /**
+     * Optional town filter (case-insensitive). When blank or missing, no town filter is applied.
+     */
+    private String town;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
     private LocalTime startTimeFrom;

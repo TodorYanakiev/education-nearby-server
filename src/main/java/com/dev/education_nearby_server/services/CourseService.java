@@ -121,7 +121,7 @@ public class CourseService {
     }
 
     /**
-     * Filters courses by optional type, age group, price, recurrence, days of week, and time ranges.
+     * Filters courses by optional type, age group, price, town, recurrence, days of week, and time ranges.
      * Empty or null lists are treated as no filter; invalid ranges are rejected.
      *
      * @param filterRequest filter criteria; null values are ignored
@@ -146,6 +146,7 @@ public class CourseService {
         List<CourseType> courseTypes = sanitizeList(filters.getCourseTypes());
         List<AgeGroup> ageGroups = sanitizeList(filters.getAgeGroups());
         List<DayOfWeek> dayOfWeeks = sanitizeList(filters.getDayOfWeek());
+        String town = trimToNull(filters.getTown());
         boolean applyCourseTypeFilter = courseTypes != null;
         boolean applyAgeGroupFilter = ageGroups != null;
         boolean applyDayOfWeekFilter = dayOfWeeks != null;
@@ -175,6 +176,7 @@ public class CourseService {
                 filters.getRecurrence(),
                 defaultList(dayOfWeeks),
                 applyDayOfWeekFilter,
+                town,
                 filters.getStartTimeFrom(),
                 filters.getStartTimeTo(),
                 activeStartMonthValue,
