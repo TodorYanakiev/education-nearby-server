@@ -31,6 +31,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             SELECT DISTINCT c
             FROM Course c
             LEFT JOIN c.ageGroupList ageGroup
+            LEFT JOIN c.lyceum lyceum
             LEFT JOIN c.schedule.slots slot
             WHERE (:applyCourseTypeFilter = false OR c.type IN :courseTypes)
               AND (:applyAgeGroupFilter = false OR ageGroup IN :ageGroups)
@@ -38,6 +39,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
               AND (:maxPrice IS NULL OR c.price <= :maxPrice)
               AND (:recurrence IS NULL OR slot.recurrence = :recurrence)
               AND (:applyDayOfWeekFilter = false OR slot.dayOfWeek IN :dayOfWeeks)
+              AND (:town IS NULL OR LOWER(lyceum.town) = LOWER(:town))
               AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
               AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
               AND (
@@ -278,6 +280,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             SELECT COUNT(DISTINCT c)
             FROM Course c
             LEFT JOIN c.ageGroupList ageGroup
+            LEFT JOIN c.lyceum lyceum
             LEFT JOIN c.schedule.slots slot
             WHERE (:applyCourseTypeFilter = false OR c.type IN :courseTypes)
               AND (:applyAgeGroupFilter = false OR ageGroup IN :ageGroups)
@@ -285,6 +288,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
               AND (:maxPrice IS NULL OR c.price <= :maxPrice)
               AND (:recurrence IS NULL OR slot.recurrence = :recurrence)
               AND (:applyDayOfWeekFilter = false OR slot.dayOfWeek IN :dayOfWeeks)
+              AND (:town IS NULL OR LOWER(lyceum.town) = LOWER(:town))
               AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
               AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
               AND (
@@ -531,6 +535,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             @Param("recurrence") ScheduleRecurrence recurrence,
             @Param("dayOfWeeks") List<DayOfWeek> dayOfWeeks,
             @Param("applyDayOfWeekFilter") boolean applyDayOfWeekFilter,
+            @Param("town") String town,
             @Param("startTimeFrom") LocalTime startTimeFrom,
             @Param("startTimeTo") LocalTime startTimeTo,
             @Param("activeStartMonthValue") Integer activeStartMonthValue,
