@@ -37,7 +37,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
               AND (:minPrice IS NULL OR c.price >= :minPrice)
               AND (:maxPrice IS NULL OR c.price <= :maxPrice)
               AND (:recurrence IS NULL OR slot.recurrence = :recurrence)
-              AND (:dayOfWeek IS NULL OR slot.dayOfWeek = :dayOfWeek)
+              AND (:applyDayOfWeekFilter = false OR slot.dayOfWeek IN :dayOfWeeks)
               AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
               AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
               AND (
@@ -284,7 +284,7 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
               AND (:minPrice IS NULL OR c.price >= :minPrice)
               AND (:maxPrice IS NULL OR c.price <= :maxPrice)
               AND (:recurrence IS NULL OR slot.recurrence = :recurrence)
-              AND (:dayOfWeek IS NULL OR slot.dayOfWeek = :dayOfWeek)
+              AND (:applyDayOfWeekFilter = false OR slot.dayOfWeek IN :dayOfWeeks)
               AND (:startTimeFrom IS NULL OR slot.startTime >= :startTimeFrom)
               AND (:startTimeTo IS NULL OR slot.startTime <= :startTimeTo)
               AND (
@@ -529,7 +529,8 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
             @Param("minPrice") Float minPrice,
             @Param("maxPrice") Float maxPrice,
             @Param("recurrence") ScheduleRecurrence recurrence,
-            @Param("dayOfWeek") DayOfWeek dayOfWeek,
+            @Param("dayOfWeeks") List<DayOfWeek> dayOfWeeks,
+            @Param("applyDayOfWeekFilter") boolean applyDayOfWeekFilter,
             @Param("startTimeFrom") LocalTime startTimeFrom,
             @Param("startTimeTo") LocalTime startTimeTo,
             @Param("activeStartMonthValue") Integer activeStartMonthValue,

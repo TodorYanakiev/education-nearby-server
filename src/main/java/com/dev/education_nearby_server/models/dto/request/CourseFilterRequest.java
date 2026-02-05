@@ -44,7 +44,10 @@ public class CourseFilterRequest {
 
     private ScheduleRecurrence recurrence;
 
-    private DayOfWeek dayOfWeek;
+    /**
+     * Optional list of days of week to include. When empty or missing, no day filter is applied.
+     */
+    private List<DayOfWeek> dayOfWeek;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
     private LocalTime startTimeFrom;

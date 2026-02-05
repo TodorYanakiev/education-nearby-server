@@ -43,6 +43,7 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.ArrayList;
@@ -120,7 +121,7 @@ public class CourseService {
     }
 
     /**
-     * Filters courses by optional type, age group, price, recurrence, day, and time ranges.
+     * Filters courses by optional type, age group, price, recurrence, days of week, and time ranges.
      * Empty or null lists are treated as no filter; invalid ranges are rejected.
      *
      * @param filterRequest filter criteria; null values are ignored
@@ -144,20 +145,23 @@ public class CourseService {
 
         List<CourseType> courseTypes = sanitizeList(filters.getCourseTypes());
         List<AgeGroup> ageGroups = sanitizeList(filters.getAgeGroups());
+        List<DayOfWeek> dayOfWeeks = sanitizeList(filters.getDayOfWeek());
         boolean applyCourseTypeFilter = courseTypes != null;
         boolean applyAgeGroupFilter = ageGroups != null;
+        boolean applyDayOfWeekFilter = dayOfWeeks != null;
         boolean applyActivePeriodFilter = activeStartMonth != null && activeEndMonth != null;
         Integer activeStartMonthValue = activeStartMonth != null ? activeStartMonth.getValue() : null;
         Integer activeEndMonthValue = activeEndMonth != null ? activeEndMonth.getValue() : null;
 
         Sort resolvedSort = resolveSort(sort);
         log.debug(
-                "Filtering courses page={} size={} sort={} applyCourseTypeFilter={} applyAgeGroupFilter={} applyActivePeriodFilter={}",
+                "Filtering courses page={} size={} sort={} applyCourseTypeFilter={} applyAgeGroupFilter={} applyDayOfWeekFilter={} applyActivePeriodFilter={}",
                 page,
                 size,
                 resolvedSort,
                 applyCourseTypeFilter,
                 applyAgeGroupFilter,
+                applyDayOfWeekFilter,
                 applyActivePeriodFilter
         );
         Pageable pageable = PageRequest.of(page, size, resolvedSort);
@@ -169,7 +173,8 @@ public class CourseService {
                 minPrice,
                 maxPrice,
                 filters.getRecurrence(),
-                filters.getDayOfWeek(),
+                defaultList(dayOfWeeks),
+                applyDayOfWeekFilter,
                 filters.getStartTimeFrom(),
                 filters.getStartTimeTo(),
                 activeStartMonthValue,
