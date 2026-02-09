@@ -25,6 +25,7 @@ import com.dev.education_nearby_server.models.entity.CourseImage;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.CourseImageRepository;
+import com.dev.education_nearby_server.repositories.CourseReviewRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -68,6 +69,8 @@ class CourseServiceTest {
     private CourseRepository courseRepository;
     @Mock
     private CourseImageRepository courseImageRepository;
+    @Mock
+    private CourseReviewRepository courseReviewRepository;
     @Mock
     private LyceumRepository lyceumRepository;
     @Mock

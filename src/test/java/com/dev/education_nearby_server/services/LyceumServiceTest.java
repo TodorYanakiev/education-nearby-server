@@ -21,9 +21,11 @@ import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.LyceumLecturerInvitation;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.LyceumReviewRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.LyceumLecturerInvitationRepository;
 import com.dev.education_nearby_server.repositories.TokenRepository;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +62,10 @@ class LyceumServiceTest {
     private LyceumLecturerInvitationRepository invitationRepository;
     @Mock
     private TokenRepository tokenRepository;
+    @Mock
+    private LyceumReviewRepository lyceumReviewRepository;
+    @Mock
+    private UserReviewRepository userReviewRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
