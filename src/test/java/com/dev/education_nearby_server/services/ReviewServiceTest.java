@@ -91,6 +91,18 @@ class ReviewServiceTest {
     }
 
     @Test
+    void getCourseReviewsThrowsWhenCourseIdNull() {
+        assertThrows(BadRequestException.class, () -> reviewService.getCourseReviews(null));
+    }
+
+    @Test
+    void getCourseReviewsThrowsWhenCourseMissing() {
+        when(courseRepository.findById(3L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reviewService.getCourseReviews(3L));
+    }
+
+    @Test
     void getCourseReviewReturnsMappedResponse() {
         Course course = buildCourse(9L);
         User reviewer = buildUser(4L, Role.USER);
@@ -105,6 +117,11 @@ class ReviewServiceTest {
         assertThat(response.getUserId()).isEqualTo(4L);
         assertThat(response.getRating()).isEqualTo(2);
         assertThat(response.getComment()).isEqualTo("Ok");
+    }
+
+    @Test
+    void getCourseReviewThrowsWhenIdsMissing() {
+        assertThrows(BadRequestException.class, () -> reviewService.getCourseReview(null, 4L));
     }
 
     @Test
@@ -139,6 +156,21 @@ class ReviewServiceTest {
     }
 
     @Test
+    void createCourseReviewThrowsWhenRequestNull() {
+        assertThrows(BadRequestException.class, () -> reviewService.createCourseReview(1L, null));
+    }
+
+    @Test
+    void createCourseReviewThrowsWhenCourseIdNull() {
+        User reviewer = buildUser(7L, Role.USER);
+        authenticate(reviewer);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(reviewer));
+        ReviewRequest request = ReviewRequest.builder().rating(4).comment("Ok").build();
+
+        assertThrows(BadRequestException.class, () -> reviewService.createCourseReview(null, request));
+    }
+
+    @Test
     void createCourseReviewThrowsWhenDuplicate() {
         User reviewer = buildUser(7L, Role.USER);
         Course course = buildCourse(8L);
@@ -158,6 +190,11 @@ class ReviewServiceTest {
         ReviewRequest request = ReviewRequest.builder().rating(3).comment("Ok").build();
 
         assertThrows(UnauthorizedException.class, () -> reviewService.createCourseReview(1L, request));
+    }
+
+    @Test
+    void updateCourseReviewThrowsWhenRequestNull() {
+        assertThrows(BadRequestException.class, () -> reviewService.updateCourseReview(1L, 2L, null));
     }
 
     @Test
@@ -189,6 +226,22 @@ class ReviewServiceTest {
         ReviewUpdateRequest request = ReviewUpdateRequest.builder().build();
 
         assertThrows(BadRequestException.class, () -> reviewService.updateCourseReview(1L, 2L, request));
+    }
+
+    @Test
+    void updateCourseReviewRejectsWhenReviewMissingUser() {
+        User reviewer = buildUser(1L, Role.USER);
+        Course course = buildCourse(2L);
+        Review review = buildReview(3L, 3, "ok", null);
+        CourseReview link = buildCourseReview(course, reviewer, review);
+        authenticate(reviewer);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reviewer));
+        when(courseReviewRepository.findByCourse_IdAndReviewer_IdAndReview_DeletedAtIsNull(2L, 1L))
+                .thenReturn(Optional.of(link));
+        ReviewUpdateRequest request = ReviewUpdateRequest.builder().rating(4).build();
+
+        assertThrows(AccessDeniedException.class, () -> reviewService.updateCourseReview(2L, 1L, request));
+        verify(reviewRepository, never()).save(any(Review.class));
     }
 
     @Test
@@ -227,6 +280,22 @@ class ReviewServiceTest {
         verify(reviewRepository).save(reviewCaptor.capture());
         assertThat(reviewCaptor.getValue().getDeletedAt()).isNotNull();
         verify(courseReviewRepository).delete(link);
+    }
+
+    @Test
+    void deleteCourseReviewRejectsWhenReviewMissingUser() {
+        User reviewer = buildUser(1L, Role.USER);
+        Course course = buildCourse(2L);
+        Review review = buildReview(3L, 3, "ok", null);
+        CourseReview link = buildCourseReview(course, reviewer, review);
+        authenticate(reviewer);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(reviewer));
+        when(courseReviewRepository.findByCourse_IdAndReviewer_IdAndReview_DeletedAtIsNull(2L, 1L))
+                .thenReturn(Optional.of(link));
+
+        assertThrows(AccessDeniedException.class, () -> reviewService.deleteCourseReview(2L, 1L));
+        verify(reviewRepository, never()).save(any(Review.class));
+        verify(courseReviewRepository, never()).delete(any(CourseReview.class));
     }
 
     @Test
@@ -281,6 +350,31 @@ class ReviewServiceTest {
     }
 
     @Test
+    void getLyceumReviewsThrowsWhenLyceumIdNull() {
+        assertThrows(BadRequestException.class, () -> reviewService.getLyceumReviews(null));
+    }
+
+    @Test
+    void getLyceumReviewsThrowsWhenLyceumMissing() {
+        when(lyceumRepository.findById(12L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reviewService.getLyceumReviews(12L));
+    }
+
+    @Test
+    void getLyceumReviewThrowsWhenMissing() {
+        when(lyceumReviewRepository.findByLyceum_IdAndReviewer_IdAndReview_DeletedAtIsNull(7L, 4L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reviewService.getLyceumReview(7L, 4L));
+    }
+
+    @Test
+    void getLyceumReviewThrowsWhenIdsMissing() {
+        assertThrows(BadRequestException.class, () -> reviewService.getLyceumReview(null, 4L));
+    }
+
+    @Test
     void createLyceumReviewSavesLink() {
         User reviewer = buildUser(4L, Role.USER);
         Lyceum lyceum = buildLyceum(7L);
@@ -301,6 +395,38 @@ class ReviewServiceTest {
         ArgumentCaptor<LyceumReview> linkCaptor = ArgumentCaptor.forClass(LyceumReview.class);
         verify(lyceumReviewRepository).save(linkCaptor.capture());
         assertThat(linkCaptor.getValue().getLyceum()).isEqualTo(lyceum);
+    }
+
+    @Test
+    void createLyceumReviewThrowsWhenDuplicate() {
+        User reviewer = buildUser(4L, Role.USER);
+        Lyceum lyceum = buildLyceum(7L);
+        authenticate(reviewer);
+        when(userRepository.findById(4L)).thenReturn(Optional.of(reviewer));
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        when(lyceumReviewRepository.existsByLyceum_IdAndReviewer_Id(7L, 4L)).thenReturn(true);
+        ReviewRequest request = ReviewRequest.builder().rating(4).comment("Ok").build();
+
+        assertThrows(ConflictException.class, () -> reviewService.createLyceumReview(7L, request));
+        verify(reviewRepository, never()).save(any(Review.class));
+        verify(lyceumReviewRepository, never()).save(any(LyceumReview.class));
+    }
+
+    @Test
+    void createLyceumReviewThrowsWhenUnauthenticated() {
+        ReviewRequest request = ReviewRequest.builder().rating(4).comment("Ok").build();
+
+        assertThrows(UnauthorizedException.class, () -> reviewService.createLyceumReview(1L, request));
+    }
+
+    @Test
+    void createLyceumReviewThrowsWhenLyceumIdNull() {
+        User reviewer = buildUser(4L, Role.USER);
+        authenticate(reviewer);
+        when(userRepository.findById(4L)).thenReturn(Optional.of(reviewer));
+        ReviewRequest request = ReviewRequest.builder().rating(4).comment("Ok").build();
+
+        assertThrows(BadRequestException.class, () -> reviewService.createLyceumReview(null, request));
     }
 
     @Test
@@ -357,6 +483,18 @@ class ReviewServiceTest {
     }
 
     @Test
+    void getUserReviewsThrowsWhenUserIdNull() {
+        assertThrows(BadRequestException.class, () -> reviewService.getUserReviews(null));
+    }
+
+    @Test
+    void getUserReviewsThrowsWhenUserMissing() {
+        when(userRepository.findById(12L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reviewService.getUserReviews(12L));
+    }
+
+    @Test
     void getUserReviewReturnsMappedResponse() {
         User reviewedUser = buildUser(8L, Role.USER);
         User reviewer = buildUser(3L, Role.USER);
@@ -370,6 +508,19 @@ class ReviewServiceTest {
         assertThat(response.getId()).isEqualTo(18L);
         assertThat(response.getUserId()).isEqualTo(3L);
         assertThat(response.getRating()).isEqualTo(1);
+    }
+
+    @Test
+    void getUserReviewThrowsWhenMissing() {
+        when(userReviewRepository.findByReviewedUser_IdAndReviewer_IdAndReview_DeletedAtIsNull(8L, 3L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> reviewService.getUserReview(8L, 3L));
+    }
+
+    @Test
+    void getUserReviewThrowsWhenIdsMissing() {
+        assertThrows(BadRequestException.class, () -> reviewService.getUserReview(8L, null));
     }
 
     @Test
@@ -393,6 +544,61 @@ class ReviewServiceTest {
         ArgumentCaptor<UserReview> linkCaptor = ArgumentCaptor.forClass(UserReview.class);
         verify(userReviewRepository).save(linkCaptor.capture());
         assertThat(linkCaptor.getValue().getReviewedUser()).isEqualTo(reviewedUser);
+    }
+
+    @Test
+    void createUserReviewTrimsBlankCommentToNull() {
+        User reviewer = buildUser(10L, Role.USER);
+        User reviewedUser = buildUser(20L, Role.USER);
+        authenticate(reviewer);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(reviewer));
+        when(userRepository.findById(20L)).thenReturn(Optional.of(reviewedUser));
+        when(userReviewRepository.existsByReviewedUser_IdAndReviewer_Id(20L, 10L)).thenReturn(false);
+        when(reviewRepository.save(any(Review.class))).thenAnswer(invocation -> {
+            Review saved = invocation.getArgument(0);
+            saved.setId(52L);
+            return saved;
+        });
+        ReviewRequest request = ReviewRequest.builder().rating(5).comment("   ").build();
+
+        ReviewResponse response = reviewService.createUserReview(20L, request);
+
+        ArgumentCaptor<Review> reviewCaptor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(reviewCaptor.capture());
+        assertThat(reviewCaptor.getValue().getComment()).isNull();
+        assertThat(response.getComment()).isNull();
+    }
+
+    @Test
+    void createUserReviewThrowsWhenDuplicate() {
+        User reviewer = buildUser(10L, Role.USER);
+        User reviewedUser = buildUser(20L, Role.USER);
+        authenticate(reviewer);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(reviewer));
+        when(userRepository.findById(20L)).thenReturn(Optional.of(reviewedUser));
+        when(userReviewRepository.existsByReviewedUser_IdAndReviewer_Id(20L, 10L)).thenReturn(true);
+        ReviewRequest request = ReviewRequest.builder().rating(5).comment("Great").build();
+
+        assertThrows(ConflictException.class, () -> reviewService.createUserReview(20L, request));
+        verify(reviewRepository, never()).save(any(Review.class));
+        verify(userReviewRepository, never()).save(any(UserReview.class));
+    }
+
+    @Test
+    void createUserReviewThrowsWhenUnauthenticated() {
+        ReviewRequest request = ReviewRequest.builder().rating(5).comment("Great").build();
+
+        assertThrows(UnauthorizedException.class, () -> reviewService.createUserReview(20L, request));
+    }
+
+    @Test
+    void createUserReviewThrowsWhenReviewedUserIdNull() {
+        User reviewer = buildUser(10L, Role.USER);
+        authenticate(reviewer);
+        when(userRepository.findById(10L)).thenReturn(Optional.of(reviewer));
+        ReviewRequest request = ReviewRequest.builder().rating(5).comment("Great").build();
+
+        assertThrows(BadRequestException.class, () -> reviewService.createUserReview(null, request));
     }
 
     @Test
