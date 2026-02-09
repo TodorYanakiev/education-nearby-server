@@ -102,6 +102,7 @@ class LyceumServiceTest {
         verifiedLyceum.setVerificationStatus(VerificationStatus.VERIFIED);
         when(lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED))
                 .thenReturn(List.of(verifiedLyceum));
+        when(lyceumReviewRepository.findAverageRatingByLyceumId(15L)).thenReturn(4.6);
 
         List<LyceumResponse> result = lyceumService.getVerifiedLyceums();
 
@@ -113,6 +114,7 @@ class LyceumServiceTest {
         assertThat(response.getEmail()).isEqualTo("verified@example.com");
         assertThat(response.getLongitude()).isEqualTo(23.5);
         assertThat(response.getLatitude()).isEqualTo(42.7);
+        assertThat(response.getAverageRating()).isEqualTo(4.6);
         verify(lyceumRepository).findAllByVerificationStatus(VerificationStatus.VERIFIED);
     }
 

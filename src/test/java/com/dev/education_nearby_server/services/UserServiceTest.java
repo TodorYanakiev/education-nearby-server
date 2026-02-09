@@ -144,6 +144,7 @@ class UserServiceTest {
                 .build();
         Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         when(userRepository.findById(5L)).thenReturn(Optional.of(user));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(5L)).thenReturn(4.1);
 
         var response = userService.getAuthenticatedUser(principal);
 
@@ -157,6 +158,7 @@ class UserServiceTest {
         assertThat(response.getLecturedCourseIds()).isEmpty();
         assertThat(response.getLecturedLyceumIds()).isEmpty();
         assertThat(response.isEnabled()).isTrue();
+        assertThat(response.getAverageRating()).isEqualTo(4.1);
     }
 
     @Test
