@@ -39,4 +39,5 @@ public class CourseResponse {
     private Month activeStartMonth;
     private Month activeEndMonth;
     private List<Long> lecturerIds;
+    private Double averageRating;
 }

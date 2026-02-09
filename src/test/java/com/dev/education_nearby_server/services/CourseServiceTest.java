@@ -25,6 +25,7 @@ import com.dev.education_nearby_server.models.entity.CourseImage;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.CourseImageRepository;
+import com.dev.education_nearby_server.repositories.CourseReviewRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -68,6 +69,8 @@ class CourseServiceTest {
     private CourseRepository courseRepository;
     @Mock
     private CourseImageRepository courseImageRepository;
+    @Mock
+    private CourseReviewRepository courseReviewRepository;
     @Mock
     private LyceumRepository lyceumRepository;
     @Mock
@@ -313,6 +316,7 @@ class CourseServiceTest {
         course.getImages().add(main);
         course.getImages().add(gallery);
         when(courseRepository.findDetailedById(9L)).thenReturn(Optional.of(course));
+        when(courseReviewRepository.findAverageRatingByCourseId(9L)).thenReturn(4.4);
 
         CourseResponse response = courseService.getCourseById(9L);
 
@@ -321,6 +325,7 @@ class CourseServiceTest {
         assertThat(response.getImages()).hasSize(2);
         assertThat(response.getImages().getFirst().getId()).isEqualTo(1L);
         assertThat(response.getImages().get(1).getRole()).isEqualTo(ImageRole.MAIN);
+        assertThat(response.getAverageRating()).isEqualTo(4.4);
         verify(courseRepository).findDetailedById(9L);
     }
 

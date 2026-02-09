@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.models.entity;
 
 import com.dev.education_nearby_server.enums.VerificationStatus;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -13,6 +14,7 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -80,6 +82,14 @@ public class Lyceum implements Serializable {
 
     @OneToMany(mappedBy = "lyceum")
     private List<Course> courses = new ArrayList<>();
+
+    @OneToMany(mappedBy = "lyceum", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LyceumReview> reviewLinks = new ArrayList<>();
+
+    @Transient
+    public List<Review> getReviews() {
+        return reviewLinks.stream().map(LyceumReview::getReview).toList();
+    }
 
     @ManyToMany
     @JoinTable(

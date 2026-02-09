@@ -6,6 +6,7 @@ import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,6 +25,7 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository repository;
+    private final UserReviewRepository userReviewRepository;
 
     /**
      * Returns a view of every user in the system. Intended for administrative dashboards.
@@ -107,6 +109,7 @@ public class UserService {
                 .lecturedCourseIds(extractLecturedCourseIds(user))
                 .lecturedLyceumIds(extractLecturedLyceumIds(user))
                 .enabled(user.isEnabled())
+                .averageRating(userReviewRepository.findAverageRatingByReviewedUserId(user.getId()))
                 .build();
     }
 

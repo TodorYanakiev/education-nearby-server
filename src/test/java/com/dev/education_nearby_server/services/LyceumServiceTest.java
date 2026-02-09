@@ -21,9 +21,11 @@ import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.LyceumLecturerInvitation;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.LyceumReviewRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.LyceumLecturerInvitationRepository;
 import com.dev.education_nearby_server.repositories.TokenRepository;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +63,10 @@ class LyceumServiceTest {
     @Mock
     private TokenRepository tokenRepository;
     @Mock
+    private LyceumReviewRepository lyceumReviewRepository;
+    @Mock
+    private UserReviewRepository userReviewRepository;
+    @Mock
     private UserRepository userRepository;
     @Mock
     private EmailService emailService;
@@ -96,6 +102,7 @@ class LyceumServiceTest {
         verifiedLyceum.setVerificationStatus(VerificationStatus.VERIFIED);
         when(lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED))
                 .thenReturn(List.of(verifiedLyceum));
+        when(lyceumReviewRepository.findAverageRatingByLyceumId(15L)).thenReturn(4.6);
 
         List<LyceumResponse> result = lyceumService.getVerifiedLyceums();
 
@@ -107,6 +114,7 @@ class LyceumServiceTest {
         assertThat(response.getEmail()).isEqualTo("verified@example.com");
         assertThat(response.getLongitude()).isEqualTo(23.5);
         assertThat(response.getLatitude()).isEqualTo(42.7);
+        assertThat(response.getAverageRating()).isEqualTo(4.6);
         verify(lyceumRepository).findAllByVerificationStatus(VerificationStatus.VERIFIED);
     }
 

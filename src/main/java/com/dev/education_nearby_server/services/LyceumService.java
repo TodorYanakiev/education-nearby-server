@@ -23,7 +23,9 @@ import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.LyceumLecturerInvitationRepository;
+import com.dev.education_nearby_server.repositories.LyceumReviewRepository;
 import com.dev.education_nearby_server.repositories.TokenRepository;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -49,8 +51,10 @@ public class LyceumService {
 
     private final LyceumRepository lyceumRepository;
     private final LyceumLecturerInvitationRepository invitationRepository;
+    private final LyceumReviewRepository lyceumReviewRepository;
     private final TokenRepository tokenRepository;
     private final UserRepository userRepository;
+    private final UserReviewRepository userReviewRepository;
     private final EmailService emailService;
     private final CourseService courseService;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
@@ -828,6 +832,7 @@ public class LyceumService {
                 .longitude(lyceum.getLongitude())
                 .latitude(lyceum.getLatitude())
                 .verificationStatus(lyceum.getVerificationStatus())
+                .averageRating(lyceumReviewRepository.findAverageRatingByLyceumId(lyceum.getId()))
                 .build();
     }
 
@@ -843,6 +848,7 @@ public class LyceumService {
                 .lecturedCourseIds(extractLecturedCourseIds(user))
                 .lecturedLyceumIds(extractLecturedLyceumIds(user))
                 .enabled(user.isEnabled())
+                .averageRating(userReviewRepository.findAverageRatingByReviewedUserId(user.getId()))
                 .build();
     }
 

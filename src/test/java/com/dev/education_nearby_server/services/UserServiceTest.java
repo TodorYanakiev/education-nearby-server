@@ -7,6 +7,7 @@ import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,8 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private UserReviewRepository userReviewRepository;
     @Mock
     private UserRepository userRepository;
 
@@ -141,6 +144,7 @@ class UserServiceTest {
                 .build();
         Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
         when(userRepository.findById(5L)).thenReturn(Optional.of(user));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(5L)).thenReturn(4.1);
 
         var response = userService.getAuthenticatedUser(principal);
 
@@ -154,6 +158,7 @@ class UserServiceTest {
         assertThat(response.getLecturedCourseIds()).isEmpty();
         assertThat(response.getLecturedLyceumIds()).isEmpty();
         assertThat(response.isEnabled()).isTrue();
+        assertThat(response.getAverageRating()).isEqualTo(4.1);
     }
 
     @Test
