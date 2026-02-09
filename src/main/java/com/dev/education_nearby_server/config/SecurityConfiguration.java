@@ -111,9 +111,7 @@ public class SecurityConfiguration {
                 "https://*.shkoli.bg",
                 "http://*.shkoli.bg",
                 "http://shkoli.bg",
-                "https://shkoli.bg",
-                "http://13.62.183.43:*",
-                "http://13.62.183.43"));
+                "https://shkoli.bg"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
