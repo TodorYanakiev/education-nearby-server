@@ -23,6 +23,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -109,6 +110,14 @@ public class Course implements Serializable {
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CourseImage> images = new ArrayList<>();
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CourseReview> reviewLinks = new ArrayList<>();
+
+    @Transient
+    public List<Review> getReviews() {
+        return reviewLinks.stream().map(CourseReview::getReview).toList();
+    }
 
     @JsonIgnore
     public Optional<CourseImage> getLogoImage() {
