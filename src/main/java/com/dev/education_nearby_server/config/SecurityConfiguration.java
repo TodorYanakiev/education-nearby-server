@@ -106,7 +106,14 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Adjust origins as needed; patterns allow flexible matching across environments
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://*.shkoli.bg",
+                "http://*.shkoli.bg",
+                "http://shkoli.bg",
+                "https://shkoli.bg",
+                "http://13.62.183.43:*",
+                "http://13.62.183.43"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
