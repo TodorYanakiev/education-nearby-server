@@ -5,10 +5,14 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificati
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
+import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
+import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
+import com.dev.education_nearby_server.services.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,6 +39,7 @@ import java.util.List;
 public class LyceumController {
 
     private final LyceumService lyceumService;
+    private final ReviewService reviewService;
 
     /**
      * Returns all lyceums regardless of verification status.
@@ -249,6 +254,81 @@ public class LyceumController {
     @GetMapping("/{lyceumId}/admins")
     public ResponseEntity<List<UserResponse>> getLyceumAdministrators(@PathVariable Long lyceumId) {
         return ResponseEntity.ok(lyceumService.getLyceumAdministrators(lyceumId));
+    }
+
+    /**
+     * Lists reviews for a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return reviews associated with the lyceum
+     */
+    @GetMapping("/{lyceumId}/reviews")
+    public ResponseEntity<List<ReviewResponse>> getLyceumReviews(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(reviewService.getLyceumReviews(lyceumId));
+    }
+
+    /**
+     * Fetches a specific review for a lyceum by reviewer id.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId reviewer identifier
+     * @return review details
+     */
+    @GetMapping("/{lyceumId}/reviews/{userId}")
+    public ResponseEntity<ReviewResponse> getLyceumReview(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(reviewService.getLyceumReview(lyceumId, userId));
+    }
+
+    /**
+     * Creates a review for a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @param request review payload
+     * @return created review
+     */
+    @PostMapping("/{lyceumId}/reviews")
+    public ResponseEntity<ReviewResponse> createLyceumReview(
+            @PathVariable Long lyceumId,
+            @Valid @RequestBody ReviewRequest request
+    ) {
+        ReviewResponse response = reviewService.createLyceumReview(lyceumId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Updates a review for a lyceum by reviewer id.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId reviewer identifier
+     * @param request review update payload
+     * @return updated review
+     */
+    @PutMapping("/{lyceumId}/reviews/{userId}")
+    public ResponseEntity<ReviewResponse> updateLyceumReview(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId,
+            @Valid @RequestBody ReviewUpdateRequest request
+    ) {
+        return ResponseEntity.ok(reviewService.updateLyceumReview(lyceumId, userId, request));
+    }
+
+    /**
+     * Deletes a review for a lyceum by reviewer id.
+     *
+     * @param lyceumId lyceum identifier
+     * @param userId reviewer identifier
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{lyceumId}/reviews/{userId}")
+    public ResponseEntity<Void> deleteLyceumReview(
+            @PathVariable Long lyceumId,
+            @PathVariable Long userId
+    ) {
+        reviewService.deleteLyceumReview(lyceumId, userId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

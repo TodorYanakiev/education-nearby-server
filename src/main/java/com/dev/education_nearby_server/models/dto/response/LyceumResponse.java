@@ -35,4 +35,5 @@ public class LyceumResponse {
     private Double longitude;
     private Double latitude;
     private VerificationStatus verificationStatus;
+    private Double averageRating;
 }

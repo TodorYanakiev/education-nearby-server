@@ -28,4 +28,5 @@ public class UserResponse {
     private List<Long> lecturedCourseIds;
     private List<Long> lecturedLyceumIds;
     private boolean enabled;
+    private Double averageRating;
 }

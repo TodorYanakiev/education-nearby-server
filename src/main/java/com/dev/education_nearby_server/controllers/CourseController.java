@@ -4,9 +4,13 @@ import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
+import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
+import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
 import com.dev.education_nearby_server.services.CourseService;
+import com.dev.education_nearby_server.services.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +41,7 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService courseService;
+    private final ReviewService reviewService;
 
     /**
      * Lists all courses without filtering.
@@ -161,6 +166,81 @@ public class CourseController {
         log.debug("Add course image request received. courseId={} role={}", courseId, request.getRole());
         CourseImageResponse response = courseService.addCourseImage(courseId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Lists reviews for a course.
+     *
+     * @param courseId course identifier
+     * @return reviews associated with the course
+     */
+    @GetMapping("/{courseId}/reviews")
+    public ResponseEntity<List<ReviewResponse>> getCourseReviews(@PathVariable Long courseId) {
+        return ResponseEntity.ok(reviewService.getCourseReviews(courseId));
+    }
+
+    /**
+     * Fetches a specific review for a course by reviewer id.
+     *
+     * @param courseId course identifier
+     * @param userId reviewer identifier
+     * @return review details
+     */
+    @GetMapping("/{courseId}/reviews/{userId}")
+    public ResponseEntity<ReviewResponse> getCourseReview(
+            @PathVariable Long courseId,
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(reviewService.getCourseReview(courseId, userId));
+    }
+
+    /**
+     * Creates a review for a course.
+     *
+     * @param courseId course identifier
+     * @param request review payload
+     * @return created review
+     */
+    @PostMapping("/{courseId}/reviews")
+    public ResponseEntity<ReviewResponse> createCourseReview(
+            @PathVariable Long courseId,
+            @Valid @RequestBody ReviewRequest request
+    ) {
+        ReviewResponse response = reviewService.createCourseReview(courseId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Updates a review for a course by reviewer id.
+     *
+     * @param courseId course identifier
+     * @param userId reviewer identifier
+     * @param request review update payload
+     * @return updated review
+     */
+    @PutMapping("/{courseId}/reviews/{userId}")
+    public ResponseEntity<ReviewResponse> updateCourseReview(
+            @PathVariable Long courseId,
+            @PathVariable Long userId,
+            @Valid @RequestBody ReviewUpdateRequest request
+    ) {
+        return ResponseEntity.ok(reviewService.updateCourseReview(courseId, userId, request));
+    }
+
+    /**
+     * Deletes a review for a course by reviewer id.
+     *
+     * @param courseId course identifier
+     * @param userId reviewer identifier
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{courseId}/reviews/{userId}")
+    public ResponseEntity<Void> deleteCourseReview(
+            @PathVariable Long courseId,
+            @PathVariable Long userId
+    ) {
+        reviewService.deleteCourseReview(courseId, userId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

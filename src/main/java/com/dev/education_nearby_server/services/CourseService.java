@@ -25,6 +25,7 @@ import com.dev.education_nearby_server.models.entity.CourseScheduleSlot;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.CourseImageRepository;
+import com.dev.education_nearby_server.repositories.CourseReviewRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -67,6 +68,7 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final CourseImageRepository courseImageRepository;
+    private final CourseReviewRepository courseReviewRepository;
     private final LyceumRepository lyceumRepository;
     private final UserRepository userRepository;
     private final S3Properties s3Properties;
@@ -982,6 +984,7 @@ public class CourseService {
                                 .map(User::getId)
                                 .filter(Objects::nonNull)
                                 .toList())
+                .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
                 .build();
     }
 
