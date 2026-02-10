@@ -31,6 +31,11 @@
         <sonar.organization>todoryanakiev</sonar.organization>
         <sonar.coverage.jacoco.xmlReportPaths>${project.reporting.outputDirectory}/jacoco/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
+        <sentry.version>8.32.0</sentry.version>
+        <sentry.authToken></sentry.authToken>
+        <sentry.org>shkolibg</sentry.org>
+        <sentry.project>shkoli-api</sentry.project>
+        <sentry.skip>true</sentry.skip>
     </properties>
     <dependencies>
         <dependency>
@@ -186,6 +191,21 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+            <version>${sentry.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-log4j2</artifactId>
+            <version>${sentry.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.sentry</groupId>
+            <artifactId>sentry-async-profiler</artifactId>
+            <version>${sentry.version}</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -269,7 +289,42 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>io.sentry</groupId>
+                <artifactId>sentry-maven-plugin</artifactId>
+                <version>0.10.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <debugSentryCli>true</debugSentryCli>
+                    <skip>${sentry.skip}</skip>
+                    <authToken>${sentry.authToken}</authToken>
+                    <org>${sentry.org}</org>
+                    <project>${sentry.project}</project>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>uploadSourceBundle</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>sentry-upload</id>
+            <activation>
+                <property>
+                    <name>env.SENTRY_AUTH_TOKEN</name>
+                </property>
+            </activation>
+            <properties>
+                <sentry.authToken>${env.SENTRY_AUTH_TOKEN}</sentry.authToken>
+                <sentry.skip>false</sentry.skip>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>

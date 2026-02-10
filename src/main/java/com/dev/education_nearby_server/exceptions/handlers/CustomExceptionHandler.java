@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.response.ExceptionResponse;
 
 import com.dev.education_nearby_server.utils.ApiExceptionParser;
+import io.sentry.Sentry;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -62,6 +63,7 @@ public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ExceptionResponse> handleRuntimeExceptions(RuntimeException exception) {
+        Sentry.captureException(exception);
         log.error("Unhandled runtime exception", exception);
         return handleApiExceptions(new InternalServerErrorException());
     }
