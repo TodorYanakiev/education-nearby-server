@@ -6,8 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * S3 configuration used for course images: expected bucket, optional public base URL,
- * and allowed key prefix for validation.
+ * S3 configuration used for image metadata validation and URL construction.
  */
 @Getter
 @Setter
@@ -30,4 +29,9 @@ public class S3Properties {
      * Optional required prefix for all course images (e.g. courses/{courseId}/images/).
      */
     private String allowedPrefix = "courses/";
+
+    /**
+     * Optional required prefix for all lyceum images (e.g. lyceums/{lyceumId}/images/).
+     */
+    private String lyceumAllowedPrefix = "lyceums/";
 }

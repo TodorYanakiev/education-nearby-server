@@ -1,5 +1,7 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.config.S3Properties;
+import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.enums.VerificationStatus;
@@ -8,19 +10,24 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.exceptions.common.ValidationException;
+import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
+import com.dev.education_nearby_server.models.entity.LyceumImage;
 import com.dev.education_nearby_server.models.entity.LyceumLecturerInvitation;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.LyceumImageRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.LyceumLecturerInvitationRepository;
 import com.dev.education_nearby_server.repositories.LyceumReviewRepository;
@@ -35,8 +42,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,6 +61,7 @@ import java.util.function.Consumer;
 public class LyceumService {
 
     private final LyceumRepository lyceumRepository;
+    private final LyceumImageRepository lyceumImageRepository;
     private final LyceumLecturerInvitationRepository invitationRepository;
     private final LyceumReviewRepository lyceumReviewRepository;
     private final TokenRepository tokenRepository;
@@ -57,6 +69,7 @@ public class LyceumService {
     private final UserReviewRepository userReviewRepository;
     private final EmailService emailService;
     private final CourseService courseService;
+    private final S3Properties s3Properties;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
     private static final String USER_WITH_ID = "User with id ";
@@ -118,6 +131,7 @@ public class LyceumService {
      *
      * @return verified lyceums
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> getVerifiedLyceums() {
         return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED)
                 .stream()
@@ -130,6 +144,7 @@ public class LyceumService {
      *
      * @return every lyceum
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> getAllLyceums() {
         return lyceumRepository.findAll()
                 .stream()
@@ -146,6 +161,7 @@ public class LyceumService {
      * @param limit optional max results to return
      * @return lyceums that match the provided filters
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> filterLyceums(String town, Double latitude, Double longitude, Integer limit) {
         String normalizedTown = normalize(town);
         if (normalizedTown != null && normalizedTown.isBlank()) {
@@ -177,6 +193,7 @@ public class LyceumService {
      * @param request lyceum payload to persist
      * @return created lyceum response
      */
+    @Transactional
     public LyceumResponse createLyceum(LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -224,6 +241,7 @@ public class LyceumService {
      * @param request updated lyceum data
      * @return updated lyceum response
      */
+    @Transactional
     public LyceumResponse updateLyceum(Long id, LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -535,9 +553,9 @@ public class LyceumService {
      * @param id lyceum identifier
      * @return lyceum details
      */
+    @Transactional(readOnly = true)
     public LyceumResponse getLyceumById(Long id) {
-        Lyceum lyceum = lyceumRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));
+        Lyceum lyceum = requireLyceum(id);
         if (lyceum.getVerificationStatus() != VerificationStatus.VERIFIED) {
             User currentUser = getCurrentUser()
                     .orElseThrow(() -> new UnauthorizedException("You must be authenticated to access this lyceum."));
@@ -560,11 +578,82 @@ public class LyceumService {
     }
 
     /**
+     * Lists images for a given lyceum id.
+     *
+     * @param lyceumId lyceum identifier
+     * @return images sorted by order and id
+     */
+    @Transactional(readOnly = true)
+    public List<LyceumImageResponse> getLyceumImages(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        List<LyceumImage> images = lyceumImageRepository.findAllByLyceumIdOrderByOrderIndexAscIdAsc(lyceum.getId());
+        return images.stream().map(this::mapToResponse).toList();
+    }
+
+    /**
+     * Adds a lyceum image after validating S3 key/url consistency, uniqueness, and role constraints,
+     * then returns the persisted image metadata.
+     */
+    @Transactional
+    public LyceumImageResponse addLyceumImage(Long lyceumId, LyceumImageRequest request) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        ensureSupportedLyceumRole(request.getRole());
+        String resolvedKey = resolveS3Key(request);
+        String resolvedUrl = resolveUrl(request, resolvedKey);
+
+        validateS3Location(resolvedUrl, resolvedKey);
+        ensureUniqueKey(resolvedKey);
+        ensureSingleRoleIfNeeded(lyceum, request.getRole());
+
+        LyceumImage image = new LyceumImage();
+        image.setLyceum(lyceum);
+        image.setS3Key(resolvedKey);
+        image.setUrl(resolvedUrl);
+        image.setRole(request.getRole());
+        image.setAltText(trimToNull(request.getAltText()));
+        image.setWidth(request.getWidth());
+        image.setHeight(request.getHeight());
+        image.setMimeType(trimToNull(request.getMimeType()));
+        image.setOrderIndex(request.getOrderIndex() != null ? request.getOrderIndex() : 0);
+
+        lyceum.getImages().add(image);
+        LyceumImage saved = lyceumImageRepository.save(image);
+
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Removes a lyceum image after verifying ownership and association.
+     *
+     * @param lyceumId lyceum identifier
+     * @param imageId image identifier to delete
+     */
+    @Transactional
+    public void deleteLyceumImage(Long lyceumId, Long imageId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        LyceumImage image = lyceumImageRepository.findById(imageId)
+                .orElseThrow(() -> new NoSuchElementException("Lyceum image with id " + imageId + NOT_FOUND_MESSAGE));
+        if (image.getLyceum() == null || !image.getLyceum().getId().equals(lyceum.getId())) {
+            throw new BadRequestException("The provided image does not belong to this lyceum.");
+        }
+
+        lyceum.getImages().removeIf(existing -> existing.getId() != null && existing.getId().equals(imageId));
+        lyceumImageRepository.delete(image);
+    }
+
+    /**
      * Returns lyceums that match the provided ids.
      *
      * @param ids list of lyceum identifiers
      * @return matching lyceum responses
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> getLyceumsByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             throw new BadRequestException("Lyceum ids must be provided.");
@@ -733,8 +822,12 @@ public class LyceumService {
         if (lyceumId == null) {
             throw new BadRequestException("Lyceum id must be provided.");
         }
-        return lyceumRepository.findById(lyceumId)
+        Lyceum lyceum = lyceumRepository.findById(lyceumId)
                 .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + lyceumId + NOT_FOUND_MESSAGE));
+        if (lyceum.getImages() == null) {
+            lyceum.setImages(new ArrayList<>());
+        }
+        return lyceum;
     }
 
     private Lyceum requireLyceumWithLecturers(Long lyceumId) {
@@ -809,6 +902,171 @@ public class LyceumService {
         }
     }
 
+    private void ensureSingleRoleIfNeeded(Lyceum lyceum, ImageRole role) {
+        if (role == ImageRole.GALLERY) {
+            return;
+        }
+        boolean alreadyExists = lyceum.getImages().stream()
+                .anyMatch(image -> image.getRole() == role);
+        if (alreadyExists) {
+            throw new ConflictException("Lyceum already has an image with role " + role + ". Remove it before adding another.");
+        }
+    }
+
+    private void ensureSupportedLyceumRole(ImageRole role) {
+        if (role == ImageRole.LOGO) {
+            throw new ValidationException("Lyceums support only MAIN and GALLERY images.");
+        }
+    }
+
+    private void ensureUniqueKey(String resolvedKey) {
+        Optional<LyceumImage> existing = lyceumImageRepository.findByS3Key(resolvedKey);
+        if (existing.isPresent()) {
+            throw new ConflictException("An image with the same S3 key is already registered.");
+        }
+    }
+
+    private String resolveS3Key(LyceumImageRequest request) {
+        String explicitKey = trimToNull(request.getS3Key());
+        String url = trimToNull(request.getUrl());
+
+        if (StringUtils.hasText(explicitKey)) {
+            return explicitKey;
+        }
+        if (StringUtils.hasText(url)) {
+            return extractKeyFromUrl(url);
+        }
+        throw new ValidationException("Either url or s3Key must be provided.");
+    }
+
+    private String resolveUrl(LyceumImageRequest request, String resolvedKey) {
+        String url = trimToNull(request.getUrl());
+        if (StringUtils.hasText(url)) {
+            parseUri(url);
+            return url;
+        }
+        if (!StringUtils.hasText(resolvedKey)) {
+            throw new ValidationException("Could not resolve an image URL without a valid S3 key.");
+        }
+        return buildUrlFromKey(resolvedKey);
+    }
+
+    private void validateS3Location(String url, String key) {
+        if (!StringUtils.hasText(key)) {
+            throw new ValidationException("S3 key cannot be empty.");
+        }
+
+        String prefix = trimToNull(s3Properties.getLyceumAllowedPrefix());
+        if (StringUtils.hasText(prefix) && !key.startsWith(prefix)) {
+            throw new ValidationException("S3 key must start with the configured prefix: " + prefix);
+        }
+
+        URI uri = parseUri(url);
+        String bucketName = trimToNull(s3Properties.getBucketName());
+        String normalizedPath = normalizePath(uri.getPath());
+
+        if (!StringUtils.hasText(bucketName)) {
+            if (StringUtils.hasText(normalizedPath) && !normalizedPath.equals(key)) {
+                throw new ValidationException("Resolved S3 key does not match the key extracted from the URL.");
+            }
+            return;
+        }
+
+        String host = uri.getHost();
+        String allowedHost = extractHost(trimToNull(s3Properties.getPublicBaseUrl()));
+        boolean bucketInHost = host != null && host.contains(bucketName);
+        boolean bucketInPath = pathStartsWithBucket(uri.getPath(), bucketName);
+        boolean matchesAllowedHost = host != null && allowedHost != null && host.equalsIgnoreCase(allowedHost);
+
+        if (!bucketInHost && !bucketInPath && !matchesAllowedHost) {
+            throw new ValidationException("Image URL must point to bucket " + bucketName + ".");
+        }
+
+        String derivedKey = deriveKeyFromPath(uri.getPath(), bucketName);
+        if (StringUtils.hasText(derivedKey) && !derivedKey.equals(key)) {
+            throw new ValidationException("Resolved S3 key does not match the key extracted from the URL.");
+        }
+    }
+
+    private String buildUrlFromKey(String key) {
+        String baseUrl = trimToNull(s3Properties.getPublicBaseUrl());
+        if (!StringUtils.hasText(baseUrl)) {
+            String bucketName = trimToNull(s3Properties.getBucketName());
+            if (!StringUtils.hasText(bucketName)) {
+                throw new ValidationException("Provide a full image URL or configure app.s3.public-base-url.");
+            }
+            baseUrl = "https://" + bucketName + ".s3.amazonaws.com/";
+        }
+        if (!baseUrl.endsWith("/")) {
+            baseUrl = baseUrl + "/";
+        }
+        return baseUrl + key;
+    }
+
+    private String extractKeyFromUrl(String url) {
+        URI uri = parseUri(url);
+        String path = uri.getPath();
+        if (path == null || path.isBlank()) {
+            throw new ValidationException("Image URL must contain an object path.");
+        }
+        String normalizedPath = path.startsWith("/") ? path.substring(1) : path;
+        String bucketName = trimToNull(s3Properties.getBucketName());
+        if (StringUtils.hasText(bucketName) && normalizedPath.startsWith(bucketName + "/")) {
+            normalizedPath = normalizedPath.substring(bucketName.length() + 1);
+        }
+        if (!StringUtils.hasText(normalizedPath)) {
+            throw new ValidationException("Could not extract an S3 key from the provided URL.");
+        }
+        return normalizedPath;
+    }
+
+    private URI parseUri(String url) {
+        try {
+            return new URI(url);
+        } catch (URISyntaxException e) {
+            throw new ValidationException("Provided URL is not valid.");
+        }
+    }
+
+    private String normalizePath(String path) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        return path.startsWith("/") ? path.substring(1) : path;
+    }
+
+    private boolean pathStartsWithBucket(String path, String bucketName) {
+        return StringUtils.hasText(path) && StringUtils.hasText(bucketName) && path.startsWith("/" + bucketName + "/");
+    }
+
+    private String deriveKeyFromPath(String path, String bucketName) {
+        String normalized = normalizePath(path);
+        if (!StringUtils.hasText(normalized)) {
+            return normalized;
+        }
+        if (StringUtils.hasText(bucketName) && normalized.startsWith(bucketName + "/")) {
+            normalized = normalized.substring(bucketName.length() + 1);
+        }
+        return normalized;
+    }
+
+    private String extractHost(String url) {
+        if (!StringUtils.hasText(url)) {
+            return null;
+        }
+        try {
+            URI uri = new URI(url);
+            return uri.getHost();
+        } catch (URISyntaxException ignored) {
+            return null;
+        }
+    }
+
+    private String trimToNull(String value) {
+        String trimmed = value == null ? null : value.trim();
+        return StringUtils.hasText(trimmed) ? trimmed : null;
+    }
+
     private LyceumResponse mapToResponse(Lyceum lyceum) {
         if (lyceum == null) {
             return null;
@@ -831,9 +1089,38 @@ public class LyceumService {
                 .registrationNumber(lyceum.getRegistrationNumber())
                 .longitude(lyceum.getLongitude())
                 .latitude(lyceum.getLatitude())
+                .images(mapLyceumImages(lyceum))
                 .verificationStatus(lyceum.getVerificationStatus())
                 .averageRating(lyceumReviewRepository.findAverageRatingByLyceumId(lyceum.getId()))
                 .build();
+    }
+
+    private LyceumImageResponse mapToResponse(LyceumImage image) {
+        return LyceumImageResponse.builder()
+                .id(image.getId())
+                .lyceumId(image.getLyceum() != null ? image.getLyceum().getId() : null)
+                .s3Key(image.getS3Key())
+                .url(image.getUrl())
+                .role(image.getRole())
+                .altText(image.getAltText())
+                .width(image.getWidth())
+                .height(image.getHeight())
+                .mimeType(image.getMimeType())
+                .orderIndex(image.getOrderIndex())
+                .build();
+    }
+
+    private List<LyceumImageResponse> mapLyceumImages(Lyceum lyceum) {
+        if (lyceum.getImages() == null || lyceum.getImages().isEmpty()) {
+            return List.of();
+        }
+        Comparator<LyceumImage> ordering = Comparator
+                .comparing(LyceumImage::getOrderIndex, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(LyceumImage::getId, Comparator.nullsLast(Comparator.naturalOrder()));
+        return lyceum.getImages().stream()
+                .sorted(ordering)
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private UserResponse mapToUserResponse(User user) {
