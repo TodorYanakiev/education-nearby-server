@@ -1,30 +1,20 @@
 package com.dev.education_nearby_server.models.dto.response;
 
-import com.dev.education_nearby_server.enums.ImageRole;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * View model for course images exposed via APIs.
  */
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CourseImageResponse {
+public class CourseImageResponse extends ImageMetadataResponse {
 
-    private Long id;
     private Long courseId;
-    private String s3Key;
-    private String url;
-    private ImageRole role;
-    private String altText;
-    private Integer width;
-    private Integer height;
-    private String mimeType;
-    private Integer orderIndex;
 }
