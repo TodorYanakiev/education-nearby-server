@@ -2045,6 +2045,140 @@ class LyceumServiceTest {
     }
 
     @Test
+    void addLyceumImageThrowsWhenKeyAndUrlMissing() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(30L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .role(ImageRole.MAIN)
+                .build();
+
+        assertThrows(ValidationException.class, () -> lyceumService.addLyceumImage(7L, request));
+        verifyNoInteractions(lyceumImageRepository);
+    }
+
+    @Test
+    void addLyceumImageThrowsWhenUrlMalformed() {
+        Lyceum lyceum = createLyceum(8L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(8L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(31L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .url("ht@tp://bad-url")
+                .role(ImageRole.MAIN)
+                .build();
+
+        assertThrows(ValidationException.class, () -> lyceumService.addLyceumImage(8L, request));
+        verifyNoInteractions(lyceumImageRepository);
+    }
+
+    @Test
+    void addLyceumImageThrowsWhenKeyOutsideAllowedPrefix() {
+        Lyceum lyceum = createLyceum(9L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(9L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(32L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(s3Properties.getLyceumAllowedPrefix()).thenReturn("lyceums/");
+        when(s3Properties.getPublicBaseUrl()).thenReturn("https://cdn.example.com");
+
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .s3Key("invalid/main.png")
+                .role(ImageRole.MAIN)
+                .build();
+
+        assertThrows(ValidationException.class, () -> lyceumService.addLyceumImage(9L, request));
+        verify(lyceumImageRepository, never()).save(any());
+    }
+
+    @Test
+    void addLyceumImageThrowsWhenS3KeyAlreadyUsed() {
+        Lyceum lyceum = createLyceum(10L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(10L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(33L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(s3Properties.getLyceumAllowedPrefix()).thenReturn("lyceums/");
+        when(s3Properties.getPublicBaseUrl()).thenReturn("https://cdn.example.com");
+        when(lyceumImageRepository.findByS3Key("lyceums/10/main.png")).thenReturn(Optional.of(new LyceumImage()));
+
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .s3Key("lyceums/10/main.png")
+                .role(ImageRole.MAIN)
+                .build();
+
+        assertThrows(ConflictException.class, () -> lyceumService.addLyceumImage(10L, request));
+        verify(lyceumImageRepository, never()).save(any());
+    }
+
+    @Test
+    void addLyceumImageBuildsUrlUsingBucketWhenNoPublicBaseConfigured() {
+        Lyceum lyceum = createLyceum(70L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(70L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(34L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(s3Properties.getLyceumAllowedPrefix()).thenReturn("lyceums/");
+        when(s3Properties.getBucketName()).thenReturn("education-bucket");
+        when(lyceumImageRepository.findByS3Key("lyceums/70/main.png")).thenReturn(Optional.empty());
+        when(lyceumImageRepository.save(any())).thenAnswer(invocation -> {
+            LyceumImage image = invocation.getArgument(0);
+            image.setId(99L);
+            return image;
+        });
+
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .s3Key("lyceums/70/main.png")
+                .role(ImageRole.MAIN)
+                .build();
+
+        LyceumImageResponse response = lyceumService.addLyceumImage(70L, request);
+
+        assertThat(response.getUrl())
+                .isEqualTo("https://education-bucket.s3.amazonaws.com/lyceums/70/main.png");
+    }
+
+    @Test
+    void addLyceumImageExtractsKeyFromUrlWithBucketPrefix() {
+        Lyceum lyceum = createLyceum(71L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(71L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(35L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(s3Properties.getLyceumAllowedPrefix()).thenReturn("lyceums/");
+        when(s3Properties.getBucketName()).thenReturn("education-bucket");
+        when(s3Properties.getPublicBaseUrl()).thenReturn("https://education-bucket.s3.amazonaws.com");
+        when(lyceumImageRepository.findByS3Key("lyceums/71/gallery/item.png")).thenReturn(Optional.empty());
+        when(lyceumImageRepository.save(any())).thenAnswer(invocation -> {
+            LyceumImage image = invocation.getArgument(0);
+            image.setId(100L);
+            return image;
+        });
+
+        String url = "https://education-bucket.s3.amazonaws.com/education-bucket/lyceums/71/gallery/item.png";
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .url(url)
+                .role(ImageRole.GALLERY)
+                .build();
+
+        LyceumImageResponse response = lyceumService.addLyceumImage(71L, request);
+
+        assertThat(response.getS3Key()).isEqualTo("lyceums/71/gallery/item.png");
+        assertThat(response.getUrl()).isEqualTo(url);
+    }
+
+    @Test
     void deleteLyceumImageRemovesEntity() {
         Lyceum lyceum = createLyceum(13L, "Lyceum", "Varna", "mail@example.com");
         LyceumImage image = buildLyceumImage(3L, lyceum, "lyceums/13/main.png", "https://cdn/main.png", ImageRole.MAIN, 0);
@@ -2059,6 +2193,22 @@ class LyceumServiceTest {
         lyceumService.deleteLyceumImage(13L, 3L);
 
         verify(lyceumImageRepository).delete(image);
+    }
+
+    @Test
+    void deleteLyceumImageThrowsWhenImageBelongsToDifferentLyceum() {
+        Lyceum lyceum = createLyceum(14L, "Lyceum", "Varna", "mail@example.com");
+        Lyceum other = createLyceum(15L, "Other", "Sofia", "other@example.com");
+        LyceumImage image = buildLyceumImage(4L, other, "lyceums/15/main.png", "https://cdn/main.png", ImageRole.MAIN, 0);
+        when(lyceumRepository.findById(14L)).thenReturn(Optional.of(lyceum));
+        User admin = createUser(36L);
+        admin.setRole(Role.ADMIN);
+        mockAuthenticatedUser(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(lyceumImageRepository.findById(4L)).thenReturn(Optional.of(image));
+
+        assertThrows(BadRequestException.class, () -> lyceumService.deleteLyceumImage(14L, 4L));
+        verify(lyceumImageRepository, never()).delete(any());
     }
 
     private void mockAuthenticatedUser(User user) {
