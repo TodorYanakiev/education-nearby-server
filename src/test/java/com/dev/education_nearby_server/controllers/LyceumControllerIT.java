@@ -1,16 +1,19 @@
 package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.enums.Role;
+import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
@@ -142,6 +145,33 @@ class LyceumControllerIT {
     }
 
     @Test
+    void getLyceumImagesReturnsPayload() throws Exception {
+        Long lyceumId = 12L;
+        List<LyceumImageResponse> responses = List.of(
+                LyceumImageResponse.builder()
+                        .id(1L)
+                        .lyceumId(lyceumId)
+                        .url("https://example.com/main.jpg")
+                        .role(ImageRole.MAIN)
+                        .build(),
+                LyceumImageResponse.builder()
+                        .id(2L)
+                        .lyceumId(lyceumId)
+                        .url("https://example.com/gallery.jpg")
+                        .role(ImageRole.GALLERY)
+                        .build()
+        );
+        when(lyceumService.getLyceumImages(lyceumId)).thenReturn(responses);
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/images", lyceumId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[1].role").value("GALLERY"));
+
+        verify(lyceumService).getLyceumImages(lyceumId);
+    }
+
+    @Test
     void getLyceumsByIdsReturnsServicePayload() throws Exception {
         LyceumResponse response = LyceumResponse.builder()
                 .id(2L)
@@ -227,6 +257,68 @@ class LyceumControllerIT {
                 .build();
 
         mockMvc.perform(post("/api/v1/lyceums")
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void addLyceumImageRequiresAuthentication() throws Exception {
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .url("https://example.com/main.jpg")
+                .role(ImageRole.MAIN)
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/images", 5L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void addLyceumImageReturnsCreatedPayload() throws Exception {
+        Long lyceumId = 6L;
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .s3Key("lyceums/6/main.png")
+                .role(ImageRole.MAIN)
+                .altText("Main image")
+                .orderIndex(0)
+                .build();
+        LyceumImageResponse response = LyceumImageResponse.builder()
+                .id(44L)
+                .lyceumId(lyceumId)
+                .url("https://cdn.example.com/lyceums/6/main.png")
+                .role(ImageRole.MAIN)
+                .orderIndex(0)
+                .build();
+        when(lyceumService.addLyceumImage(eq(lyceumId), any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/images", lyceumId)
+                        .with(user("admin").roles("ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(44L))
+                .andExpect(jsonPath("$.role").value("MAIN"));
+
+        ArgumentCaptor<LyceumImageRequest> captor = ArgumentCaptor.forClass(LyceumImageRequest.class);
+        verify(lyceumService).addLyceumImage(eq(lyceumId), captor.capture());
+        assertThat(captor.getValue().getS3Key()).isEqualTo("lyceums/6/main.png");
+        assertThat(captor.getValue().getRole()).isEqualTo(ImageRole.MAIN);
+    }
+
+    @Test
+    void addLyceumImageValidatesPayload() throws Exception {
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .url("https://example.com/invalid.jpg")
+                .build();
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/images", 10L)
                         .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -551,6 +643,26 @@ class LyceumControllerIT {
                 .andExpect(status().isNoContent());
 
         verify(lyceumService).deleteLyceum(7L);
+    }
+
+    @Test
+    void deleteLyceumImageRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/images/{imageId}", 7L, 8L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void deleteLyceumImageReturnsNoContent() throws Exception {
+        Long lyceumId = 9L;
+        Long imageId = 3L;
+
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/images/{imageId}", lyceumId, imageId)
+                        .with(user("admin").roles("ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).deleteLyceumImage(lyceumId, imageId);
     }
 
     @Test
