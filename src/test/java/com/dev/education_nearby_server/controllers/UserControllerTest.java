@@ -1,6 +1,8 @@
 package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
+import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.UserService;
 import org.junit.jupiter.api.Test;
@@ -56,6 +58,22 @@ class UserControllerTest {
     }
 
     @Test
+    void getUserProfileImageReturnsServicePayload() {
+        UserImageResponse image = UserImageResponse.builder()
+                .id(44L)
+                .userId(10L)
+                .url("https://cdn.example.com/users/10/profile.png")
+                .build();
+        when(userService.getUserProfileImage(10L)).thenReturn(image);
+
+        ResponseEntity<UserImageResponse> response = userController.getUserProfileImage(10L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(image);
+        verify(userService).getUserProfileImage(10L);
+    }
+
+    @Test
     void getAuthenticatedUserReturnsServicePayload() {
         UserResponse user = UserResponse.builder().id(5L).email("me@example.com").build();
         Principal principal = mock(Principal.class);
@@ -81,5 +99,56 @@ class UserControllerTest {
 
         verify(userService).changePassword(request, principal);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void addUserProfileImageReturnsCreatedResponse() {
+        UserImageRequest request = UserImageRequest.builder()
+                .s3Key("users/10/profile.png")
+                .build();
+        UserImageResponse image = UserImageResponse.builder()
+                .id(11L)
+                .userId(10L)
+                .s3Key("users/10/profile.png")
+                .url("https://cdn.example.com/users/10/profile.png")
+                .build();
+        Principal principal = mock(Principal.class);
+        when(userService.addUserProfileImage(10L, request, principal)).thenReturn(image);
+
+        ResponseEntity<UserImageResponse> response = userController.addUserProfileImage(10L, request, principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(image);
+        verify(userService).addUserProfileImage(10L, request, principal);
+    }
+
+    @Test
+    void updateUserProfileImageReturnsUpdatedResponse() {
+        UserImageRequest request = UserImageRequest.builder()
+                .url("https://cdn.example.com/users/10/profile-new.png")
+                .build();
+        UserImageResponse image = UserImageResponse.builder()
+                .id(11L)
+                .userId(10L)
+                .url("https://cdn.example.com/users/10/profile-new.png")
+                .build();
+        Principal principal = mock(Principal.class);
+        when(userService.updateUserProfileImage(10L, request, principal)).thenReturn(image);
+
+        ResponseEntity<UserImageResponse> response = userController.updateUserProfileImage(10L, request, principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(image);
+        verify(userService).updateUserProfileImage(10L, request, principal);
+    }
+
+    @Test
+    void deleteUserProfileImageReturnsNoContent() {
+        Principal principal = mock(Principal.class);
+
+        ResponseEntity<Void> response = userController.deleteUserProfileImage(10L, principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(userService).deleteUserProfileImage(10L, principal);
     }
 }

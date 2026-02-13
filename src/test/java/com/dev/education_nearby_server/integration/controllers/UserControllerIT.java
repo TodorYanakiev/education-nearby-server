@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
+import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.TokenRepository;
@@ -23,9 +24,12 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -168,6 +172,133 @@ class UserControllerIT {
         assertThat(passwordEncoder.matches("NewPassword456", reloaded.getPassword())).isTrue();
     }
 
+    @Test
+    void userCanAddReadUpdateAndDeleteOwnProfileImage() throws Exception {
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .firstname("Philip")
+                .lastname("Jeffries")
+                .email("philip@example.com")
+                .username("philip@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        AuthenticationResponse auth = registerViaHttp(registerRequest);
+        Long userId = userRepository.findByEmail(registerRequest.getEmail()).orElseThrow().getId();
+
+        UserImageRequest createRequest = UserImageRequest.builder()
+                .s3Key("users/" + userId + "/profile.png")
+                .url("https://cdn.example.com/users/" + userId + "/profile.png")
+                .altText("Profile")
+                .mimeType("image/png")
+                .build();
+
+        mockMvc.perform(post("/api/v1/users/{userId}/profile-image", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + auth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(userId))
+                .andExpect(jsonPath("$.s3Key").value("users/" + userId + "/profile.png"))
+                .andExpect(jsonPath("$.role").value("MAIN"));
+
+        mockMvc.perform(get("/api/v1/users/{userId}/profile-image", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(userId));
+
+        UserImageRequest updateRequest = UserImageRequest.builder()
+                .url("https://cdn.example.com/users/" + userId + "/profile-updated.png")
+                .altText("Updated profile")
+                .build();
+
+        mockMvc.perform(put("/api/v1/users/{userId}/profile-image", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + auth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.s3Key").value("users/" + userId + "/profile-updated.png"));
+
+        mockMvc.perform(delete("/api/v1/users/{userId}/profile-image", userId)
+                        .header("Authorization", "Bearer " + auth.getAccessToken()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/users/{userId}/profile-image", userId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void userCannotManageAnotherUsersProfileImage() throws Exception {
+        RegisterRequest firstUser = RegisterRequest.builder()
+                .firstname("Harry")
+                .lastname("Truman")
+                .email("harry@example.com")
+                .username("harry@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        RegisterRequest secondUser = RegisterRequest.builder()
+                .firstname("Albert")
+                .lastname("Rosenfield")
+                .email("albert@example.com")
+                .username("albert@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        AuthenticationResponse firstAuth = registerViaHttp(firstUser);
+        registerViaHttp(secondUser);
+        Long secondUserId = userRepository.findByEmail(secondUser.getEmail()).orElseThrow().getId();
+
+        UserImageRequest request = UserImageRequest.builder()
+                .s3Key("users/" + secondUserId + "/profile.png")
+                .url("https://cdn.example.com/users/" + secondUserId + "/profile.png")
+                .build();
+
+        mockMvc.perform(post("/api/v1/users/{userId}/profile-image", secondUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + firstAuth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanManageAnotherUsersProfileImage() throws Exception {
+        RegisterRequest adminRegister = RegisterRequest.builder()
+                .firstname("Gordon")
+                .lastname("Cole")
+                .email("gordon@example.com")
+                .username("gordon@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        RegisterRequest targetRegister = RegisterRequest.builder()
+                .firstname("Diane")
+                .lastname("Evans")
+                .email("diane@example.com")
+                .username("diane@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+
+        AuthenticationResponse adminAuth = registerViaHttp(adminRegister);
+        registerViaHttp(targetRegister);
+
+        User admin = userRepository.findByEmail(adminRegister.getEmail()).orElseThrow();
+        admin.setRole(Role.ADMIN);
+        userRepository.save(admin);
+
+        Long targetUserId = userRepository.findByEmail(targetRegister.getEmail()).orElseThrow().getId();
+        UserImageRequest request = UserImageRequest.builder()
+                .s3Key("users/" + targetUserId + "/profile.png")
+                .url("https://cdn.example.com/users/" + targetUserId + "/profile.png")
+                .build();
+
+        mockMvc.perform(post("/api/v1/users/{userId}/profile-image", targetUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(targetUserId));
+    }
+
     private AuthenticationResponse registerViaHttp(RegisterRequest request) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -176,4 +307,5 @@ class UserControllerIT {
                 .andReturn();
         return objectMapper.readValue(result.getResponse().getContentAsString(), AuthenticationResponse.class);
     }
+
 }
