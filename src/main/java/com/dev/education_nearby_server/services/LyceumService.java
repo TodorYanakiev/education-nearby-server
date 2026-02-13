@@ -36,6 +36,7 @@ import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.utils.S3ImageLocationResolver;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -157,11 +158,18 @@ public class LyceumService {
      * @param town optional town filter (case-insensitive)
      * @param latitude optional latitude used with longitude
      * @param longitude optional longitude used with latitude
-     * @param limit optional max results to return
+     * @param page zero-based page index
+     * @param size page size
      * @return lyceums that match the provided filters
      */
     @Transactional(readOnly = true)
-    public List<LyceumResponse> filterLyceums(String town, Double latitude, Double longitude, Integer limit) {
+    public Page<LyceumResponse> filterLyceums(
+            String town,
+            Double latitude,
+            Double longitude,
+            Integer page,
+            Integer size
+    ) {
         String normalizedTown = normalize(town);
         if (normalizedTown != null && normalizedTown.isBlank()) {
             normalizedTown = null;
@@ -169,21 +177,17 @@ public class LyceumService {
         if ((latitude == null) != (longitude == null)) {
             throw new BadRequestException("Both latitude and longitude must be provided to filter by location.");
         }
-        if (limit != null && limit <= 0) {
-            throw new BadRequestException("Limit must be greater than zero.");
-        }
+        validatePageRequest(page, size);
 
-        Pageable pageable = limit != null ? PageRequest.of(0, limit) : Pageable.unpaged();
-        List<Lyceum> lyceums = lyceumRepository.filterLyceums(
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Lyceum> lyceums = lyceumRepository.filterLyceums(
                 normalizedTown,
                 latitude,
                 longitude,
                 VerificationStatus.VERIFIED.name(),
                 pageable
         );
-        return lyceums.stream()
-                .map(this::mapToResponse)
-                .toList();
+        return lyceums.map(this::mapToResponse);
     }
 
     /**
@@ -718,6 +722,15 @@ public class LyceumService {
         return input
                 .replaceAll("[\\p{Zs}\\s]+", " ")
                 .trim();
+    }
+
+    private void validatePageRequest(Integer page, Integer size) {
+        if (page == null || page < 0) {
+            throw new BadRequestException("Page index must be zero or greater.");
+        }
+        if (size == null || size <= 0) {
+            throw new BadRequestException("Page size must be greater than zero.");
+        }
     }
 
     private Optional<Lyceum> findLyceumByNormalizedValues(String normalizedName, String normalizedTown) {

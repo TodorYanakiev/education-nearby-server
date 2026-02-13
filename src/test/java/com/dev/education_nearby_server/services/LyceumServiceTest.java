@@ -41,6 +41,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -319,7 +322,7 @@ class LyceumServiceTest {
         Lyceum lyceum = createLyceum(30L, "Central", "Varna", "central@example.com");
         lyceum.setVerificationStatus(VerificationStatus.VERIFIED);
         when(lyceumRepository.filterLyceums(any(), any(), any(), any(), any(Pageable.class)))
-                .thenReturn(List.of(lyceum));
+                .thenReturn(new PageImpl<>(List.of(lyceum), PageRequest.of(0, 2), 1));
 
         ArgumentCaptor<String> townCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Double> latCaptor = ArgumentCaptor.forClass(Double.class);
@@ -327,10 +330,10 @@ class LyceumServiceTest {
         ArgumentCaptor<String> statusCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        List<LyceumResponse> result = lyceumService.filterLyceums("Varna", 42.5, 23.3, 2);
+        Page<LyceumResponse> result = lyceumService.filterLyceums("Varna", 42.5, 23.3, 0, 2);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().getName()).isEqualTo("Central");
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().getFirst().getName()).isEqualTo("Central");
 
         verify(lyceumRepository).filterLyceums(
                 townCaptor.capture(),
@@ -343,13 +346,14 @@ class LyceumServiceTest {
         assertThat(latCaptor.getValue()).isEqualTo(42.5);
         assertThat(lonCaptor.getValue()).isEqualTo(23.3);
         assertThat(statusCaptor.getValue()).isEqualTo(VerificationStatus.VERIFIED.name());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(2);
     }
 
     @Test
-    void filterLyceumsTreatsBlankTownAsNullAndUnpaged() {
+    void filterLyceumsTreatsBlankTownAsNull() {
         when(lyceumRepository.filterLyceums(any(), any(), any(), any(), any(Pageable.class)))
-                .thenReturn(List.of());
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 4), 0));
 
         ArgumentCaptor<String> townCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Double> latCaptor = ArgumentCaptor.forClass(Double.class);
@@ -357,7 +361,7 @@ class LyceumServiceTest {
         ArgumentCaptor<String> statusCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        lyceumService.filterLyceums("   ", null, null, null);
+        lyceumService.filterLyceums("   ", null, null, 1, 4);
 
         verify(lyceumRepository).filterLyceums(
                 townCaptor.capture(),
@@ -370,18 +374,26 @@ class LyceumServiceTest {
         assertThat(latCaptor.getValue()).isNull();
         assertThat(lonCaptor.getValue()).isNull();
         assertThat(statusCaptor.getValue()).isEqualTo(VerificationStatus.VERIFIED.name());
-        assertThat(pageableCaptor.getValue().isPaged()).isFalse();
+        assertThat(pageableCaptor.getValue().isPaged()).isTrue();
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(4);
     }
 
     @Test
     void filterLyceumsThrowsWhenCoordinatesIncomplete() {
-        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", 42.5, null, 3));
+        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", 42.5, null, 0, 3));
         verify(lyceumRepository, never()).filterLyceums(any(), any(), any(), any(), any(Pageable.class));
     }
 
     @Test
-    void filterLyceumsThrowsWhenLimitNonPositive() {
-        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", null, null, 0));
+    void filterLyceumsThrowsWhenPageSizeNonPositive() {
+        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", null, null, 0, 0));
+        verify(lyceumRepository, never()).filterLyceums(any(), any(), any(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void filterLyceumsThrowsWhenPageNegative() {
+        assertThrows(BadRequestException.class, () -> lyceumService.filterLyceums("Varna", null, null, -1, 10));
         verify(lyceumRepository, never()).filterLyceums(any(), any(), any(), any(), any(Pageable.class));
     }
 

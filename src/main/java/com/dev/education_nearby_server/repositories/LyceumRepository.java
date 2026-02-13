@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.repositories;
 
 import com.dev.education_nearby_server.enums.VerificationStatus;
 import com.dev.education_nearby_server.models.entity.Lyceum;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -41,7 +42,7 @@ public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
               AND (:latitude IS NULL OR :longitude IS NULL OR (l.latitude IS NOT NULL AND l.longitude IS NOT NULL))
             """,
             nativeQuery = true)
-    List<Lyceum> filterLyceums(
+    Page<Lyceum> filterLyceums(
             @Param("town") String town,
             @Param("latitude") Double latitude,
             @Param("longitude") Double longitude,

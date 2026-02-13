@@ -17,6 +17,7 @@ import com.dev.education_nearby_server.services.LyceumService;
 import com.dev.education_nearby_server.services.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -113,17 +114,19 @@ public class LyceumController {
      * @param town optional town name
      * @param latitude optional latitude for geo filter
      * @param longitude optional longitude for geo filter
-     * @param limit optional max number of results
+     * @param page zero-based page index
+     * @param size page size
      * @return lyceums matching the supplied filters
      */
     @GetMapping("/filter")
-    public ResponseEntity<List<LyceumResponse>> filterLyceums(
+    public ResponseEntity<Page<LyceumResponse>> filterLyceums(
             @RequestParam(required = false) String town,
             @RequestParam(required = false) Double latitude,
             @RequestParam(required = false) Double longitude,
-            @RequestParam(required = false) Integer limit
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "9") Integer size
     ) {
-        return ResponseEntity.ok(lyceumService.filterLyceums(town, latitude, longitude, limit));
+        return ResponseEntity.ok(lyceumService.filterLyceums(town, latitude, longitude, page, size));
     }
 
     /**

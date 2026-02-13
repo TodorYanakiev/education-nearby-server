@@ -25,6 +25,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -209,28 +211,31 @@ class LyceumControllerIT {
                 .name("Nearby Lyceum")
                 .town("Varna")
                 .build();
-        when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 3)).thenReturn(List.of(response));
+        when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 0, 9))
+                .thenReturn(new PageImpl<>(List.of(response), PageRequest.of(0, 9), 1));
 
         mockMvc.perform(get("/api/v1/lyceums/filter")
                         .param("town", "Varna")
                         .param("latitude", "42.5")
-                        .param("longitude", "23.3")
-                        .param("limit", "3"))
+                        .param("longitude", "23.3"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(10L))
-                .andExpect(jsonPath("$[0].name").value("Nearby Lyceum"));
+                .andExpect(jsonPath("$.content[0].id").value(10L))
+                .andExpect(jsonPath("$.content[0].name").value("Nearby Lyceum"))
+                .andExpect(jsonPath("$.size").value(9))
+                .andExpect(jsonPath("$.number").value(0));
 
-        verify(lyceumService).filterLyceums("Varna", 42.5, 23.3, 3);
+        verify(lyceumService).filterLyceums("Varna", 42.5, 23.3, 0, 9);
     }
 
     @Test
     void filterLyceumsWorksWithoutParams() throws Exception {
-        when(lyceumService.filterLyceums(null, null, null, null)).thenReturn(List.of());
+        when(lyceumService.filterLyceums(null, null, null, 0, 9))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 9), 0));
 
         mockMvc.perform(get("/api/v1/lyceums/filter"))
                 .andExpect(status().isOk());
 
-        verify(lyceumService).filterLyceums(null, null, null, null);
+        verify(lyceumService).filterLyceums(null, null, null, 0, 9);
     }
 
     @Test
