@@ -18,6 +18,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -137,15 +140,19 @@ class LyceumControllerTest {
 
     @Test
     void filterLyceumsReturnsServiceResponse() {
-        List<LyceumResponse> lyceums = List.of(lyceumResponse);
-        when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 3)).thenReturn(lyceums);
+        Page<LyceumResponse> lyceums = new PageImpl<>(
+                List.of(lyceumResponse),
+                PageRequest.of(0, 9),
+                1
+        );
+        when(lyceumService.filterLyceums("Varna", 42.5, 23.3, 0, 9)).thenReturn(lyceums);
 
-        ResponseEntity<List<LyceumResponse>> response =
-                lyceumController.filterLyceums("Varna", 42.5, 23.3, 3);
+        ResponseEntity<Page<LyceumResponse>> response =
+                lyceumController.filterLyceums("Varna", 42.5, 23.3, 0, 9);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(lyceums);
-        verify(lyceumService).filterLyceums("Varna", 42.5, 23.3, 3);
+        verify(lyceumService).filterLyceums("Varna", 42.5, 23.3, 0, 9);
     }
 
     @Test
