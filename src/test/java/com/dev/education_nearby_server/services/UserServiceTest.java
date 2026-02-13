@@ -10,10 +10,13 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.models.entity.UserImage;
+import com.dev.education_nearby_server.repositories.ReviewRepository;
+import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserImageRepository;
 import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -32,6 +35,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,6 +51,10 @@ class UserServiceTest {
     private UserReviewRepository userReviewRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ReviewRepository reviewRepository;
+    @Mock
+    private TokenRepository tokenRepository;
     @Mock
     private UserImageRepository userImageRepository;
     @Mock
@@ -236,6 +244,158 @@ class UserServiceTest {
         when(userRepository.findById(7L)).thenReturn(Optional.empty());
 
         assertThrows(UnauthorizedException.class, () -> userService.getAuthenticatedUser(principal));
+    }
+
+    @Test
+    void updateUserUpdatesSelfProfile() {
+        User user = User.builder()
+                .id(11L)
+                .firstname("Old")
+                .lastname("Name")
+                .email("old@example.com")
+                .username("old-user")
+                .description("Old description")
+                .role(Role.USER)
+                .build();
+        Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        UserUpdateRequest request = UserUpdateRequest.builder()
+                .firstname(" New ")
+                .lastname(" Person ")
+                .email("new@example.com")
+                .username("new-user")
+                .description(" Updated ")
+                .build();
+
+        when(userRepository.findById(11L)).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailIgnoreCase("new@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("new-user")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = userService.updateUser(11L, request, principal);
+
+        assertThat(response.getId()).isEqualTo(11L);
+        assertThat(response.getFirstname()).isEqualTo("New");
+        assertThat(response.getLastname()).isEqualTo("Person");
+        assertThat(response.getEmail()).isEqualTo("new@example.com");
+        assertThat(response.getUsername()).isEqualTo("new-user");
+        assertThat(response.getDescription()).isEqualTo("Updated");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void updateUserAllowsAdminToUpdateAnotherUser() {
+        User target = User.builder()
+                .id(12L)
+                .firstname("Target")
+                .lastname("User")
+                .email("target@example.com")
+                .username("target-user")
+                .role(Role.USER)
+                .build();
+        User admin = User.builder().id(1L).role(Role.ADMIN).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities());
+        UserUpdateRequest request = UserUpdateRequest.builder()
+                .firstname("Updated")
+                .lastname("Target")
+                .email("updated@example.com")
+                .username("updated-user")
+                .description("Admin updated")
+                .build();
+
+        when(userRepository.findById(12L)).thenReturn(Optional.of(target));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(userRepository.findByEmailIgnoreCase("updated@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("updated-user")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = userService.updateUser(12L, request, principal);
+
+        assertThat(response.getId()).isEqualTo(12L);
+        assertThat(response.getEmail()).isEqualTo("updated@example.com");
+        assertThat(response.getUsername()).isEqualTo("updated-user");
+        assertThat(response.getDescription()).isEqualTo("Admin updated");
+    }
+
+    @Test
+    void updateUserThrowsWhenNonAdminUpdatesAnotherUser() {
+        User target = User.builder().id(13L).role(Role.USER).build();
+        User actor = User.builder().id(99L).role(Role.USER).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(actor, null, actor.getAuthorities());
+        UserUpdateRequest request = UserUpdateRequest.builder()
+                .firstname("Any")
+                .lastname("Name")
+                .email("any@example.com")
+                .username("any-user")
+                .build();
+
+        when(userRepository.findById(13L)).thenReturn(Optional.of(target));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(actor));
+
+        assertThrows(AccessDeniedException.class, () -> userService.updateUser(13L, request, principal));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void updateUserThrowsWhenEmailAlreadyTaken() {
+        User target = User.builder().id(14L).role(Role.USER).build();
+        User duplicate = User.builder().id(77L).role(Role.USER).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(target, null, target.getAuthorities());
+        UserUpdateRequest request = UserUpdateRequest.builder()
+                .firstname("Any")
+                .lastname("Name")
+                .email("taken@example.com")
+                .username("new-user")
+                .build();
+
+        when(userRepository.findById(14L)).thenReturn(Optional.of(target));
+        when(userRepository.findByEmailIgnoreCase("taken@example.com")).thenReturn(Optional.of(duplicate));
+
+        assertThrows(ConflictException.class, () -> userService.updateUser(14L, request, principal));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void deleteUserDeletesSelfAndRelatedRecords() {
+        User user = User.builder().id(30L).role(Role.USER).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        when(userRepository.findById(30L)).thenReturn(Optional.of(user));
+
+        userService.deleteUser(30L, principal);
+
+        verify(tokenRepository).deleteAllByUser_Id(30L);
+        verify(reviewRepository).deleteAllByUser_Id(30L);
+        verify(userRepository).delete(user);
+    }
+
+    @Test
+    void deleteUserAllowsAdminToDeleteAnotherUser() {
+        User target = User.builder().id(31L).role(Role.USER).build();
+        User admin = User.builder().id(2L).role(Role.ADMIN).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities());
+
+        when(userRepository.findById(31L)).thenReturn(Optional.of(target));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(admin));
+
+        userService.deleteUser(31L, principal);
+
+        verify(tokenRepository).deleteAllByUser_Id(31L);
+        verify(reviewRepository).deleteAllByUser_Id(31L);
+        verify(userRepository).delete(target);
+    }
+
+    @Test
+    void deleteUserThrowsWhenNonAdminDeletesAnotherUser() {
+        User target = User.builder().id(32L).role(Role.USER).build();
+        User actor = User.builder().id(3L).role(Role.USER).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(actor, null, actor.getAuthorities());
+
+        when(userRepository.findById(32L)).thenReturn(Optional.of(target));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(actor));
+
+        assertThrows(AccessDeniedException.class, () -> userService.deleteUser(32L, principal));
+        verify(tokenRepository, never()).deleteAllByUser_Id(anyLong());
+        verify(reviewRepository, never()).deleteAllByUser_Id(anyLong());
+        verify(userRepository, never()).delete(any(User.class));
     }
 
     @Test

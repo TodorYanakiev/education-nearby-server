@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.UserService;
@@ -55,6 +56,43 @@ class UserControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(user);
         verify(userService).getUserById(10L);
+    }
+
+    @Test
+    void updateUserReturnsServicePayload() {
+        UserUpdateRequest request = UserUpdateRequest.builder()
+                .firstname("New")
+                .lastname("Name")
+                .email("new@example.com")
+                .username("new-user")
+                .description("Updated")
+                .build();
+        UserResponse responseBody = UserResponse.builder()
+                .id(10L)
+                .firstname("New")
+                .lastname("Name")
+                .email("new@example.com")
+                .username("new-user")
+                .description("Updated")
+                .build();
+        Principal principal = mock(Principal.class);
+        when(userService.updateUser(10L, request, principal)).thenReturn(responseBody);
+
+        ResponseEntity<UserResponse> response = userController.updateUser(10L, request, principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(responseBody);
+        verify(userService).updateUser(10L, request, principal);
+    }
+
+    @Test
+    void deleteUserReturnsNoContent() {
+        Principal principal = mock(Principal.class);
+
+        ResponseEntity<Void> response = userController.deleteUser(10L, principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(userService).deleteUser(10L, principal);
     }
 
     @Test

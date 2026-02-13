@@ -5,6 +5,7 @@ import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.TokenRepository;
@@ -170,6 +171,136 @@ class UserControllerIT {
 
         User reloaded = userRepository.findByEmail(registerRequest.getEmail()).orElseThrow();
         assertThat(passwordEncoder.matches("NewPassword456", reloaded.getPassword())).isTrue();
+    }
+
+    @Test
+    void userCanUpdateAndDeleteOwnProfile() throws Exception {
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .firstname("Annie")
+                .lastname("Blackburn")
+                .email("annie@example.com")
+                .username("annie@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        AuthenticationResponse auth = registerViaHttp(registerRequest);
+        Long userId = userRepository.findByEmail(registerRequest.getEmail()).orElseThrow().getId();
+
+        UserUpdateRequest updateRequest = UserUpdateRequest.builder()
+                .firstname("Annie Updated")
+                .lastname("Blackburn Updated")
+                .email("annie.updated@example.com")
+                .username("annie@example.com")
+                .description("Updated bio")
+                .build();
+
+        mockMvc.perform(put("/api/v1/users/{userId}", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + auth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId))
+                .andExpect(jsonPath("$.email").value("annie.updated@example.com"))
+                .andExpect(jsonPath("$.username").value("annie@example.com"))
+                .andExpect(jsonPath("$.description").value("Updated bio"));
+
+        mockMvc.perform(delete("/api/v1/users/{userId}", userId)
+                        .header("Authorization", "Bearer " + auth.getAccessToken()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/users/{userId}", userId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void userCannotUpdateOrDeleteAnotherUser() throws Exception {
+        RegisterRequest firstUser = RegisterRequest.builder()
+                .firstname("Lucy")
+                .lastname("Moran")
+                .email("lucy@example.com")
+                .username("lucy@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        RegisterRequest secondUser = RegisterRequest.builder()
+                .firstname("Hawk")
+                .lastname("Hill")
+                .email("hawk@example.com")
+                .username("hawk@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        AuthenticationResponse firstAuth = registerViaHttp(firstUser);
+        registerViaHttp(secondUser);
+        Long secondUserId = userRepository.findByEmail(secondUser.getEmail()).orElseThrow().getId();
+
+        UserUpdateRequest updateRequest = UserUpdateRequest.builder()
+                .firstname("Other")
+                .lastname("User")
+                .email("other@example.com")
+                .username("other-user")
+                .build();
+
+        mockMvc.perform(put("/api/v1/users/{userId}", secondUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + firstAuth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/api/v1/users/{userId}", secondUserId)
+                        .header("Authorization", "Bearer " + firstAuth.getAccessToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanUpdateAndDeleteAnotherUser() throws Exception {
+        RegisterRequest adminRegister = RegisterRequest.builder()
+                .firstname("Albert")
+                .lastname("Rosenfield")
+                .email("albert.admin@example.com")
+                .username("albert.admin@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        RegisterRequest targetRegister = RegisterRequest.builder()
+                .firstname("Shelly")
+                .lastname("Johnson")
+                .email("shelly@example.com")
+                .username("shelly@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+
+        AuthenticationResponse adminAuth = registerViaHttp(adminRegister);
+        registerViaHttp(targetRegister);
+
+        User admin = userRepository.findByEmail(adminRegister.getEmail()).orElseThrow();
+        admin.setRole(Role.ADMIN);
+        userRepository.save(admin);
+
+        Long targetUserId = userRepository.findByEmail(targetRegister.getEmail()).orElseThrow().getId();
+        UserUpdateRequest updateRequest = UserUpdateRequest.builder()
+                .firstname("Shelly Updated")
+                .lastname("Johnson Updated")
+                .email("shelly.updated@example.com")
+                .username("shelly-updated")
+                .description("Updated by admin")
+                .build();
+
+        mockMvc.perform(put("/api/v1/users/{userId}", targetUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("shelly.updated@example.com"))
+                .andExpect(jsonPath("$.username").value("shelly-updated"));
+
+        mockMvc.perform(delete("/api/v1/users/{userId}", targetUserId)
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/users/{userId}", targetUserId))
+                .andExpect(status().isNotFound());
     }
 
     @Test
