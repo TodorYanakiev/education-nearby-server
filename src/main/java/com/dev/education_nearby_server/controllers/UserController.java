@@ -3,7 +3,9 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
+import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
+import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.ReviewService;
 import com.dev.education_nearby_server.services.UserService;
@@ -54,6 +56,17 @@ public class UserController {
     @GetMapping("/{userId}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long userId) {
         return ResponseEntity.ok(service.getUserById(userId));
+    }
+
+    /**
+     * Fetches a user's profile image metadata.
+     *
+     * @param userId user identifier
+     * @return profile image metadata
+     */
+    @GetMapping("/{userId}/profile-image")
+    public ResponseEntity<UserImageResponse> getUserProfileImage(@PathVariable Long userId) {
+        return ResponseEntity.ok(service.getUserProfileImage(userId));
     }
 
     /**
@@ -139,6 +152,57 @@ public class UserController {
             @PathVariable Long reviewerId
     ) {
         reviewService.deleteUserReview(userId, reviewerId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Creates a profile image for a user. Allowed for the user and global admins.
+     *
+     * @param userId user identifier
+     * @param request image payload
+     * @param connectedUser authenticated principal performing the action
+     * @return created profile image metadata
+     */
+    @PostMapping("/{userId}/profile-image")
+    public ResponseEntity<UserImageResponse> addUserProfileImage(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserImageRequest request,
+            Principal connectedUser
+    ) {
+        UserImageResponse response = service.addUserProfileImage(userId, request, connectedUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Updates a profile image for a user. Allowed for the user and global admins.
+     *
+     * @param userId user identifier
+     * @param request image payload
+     * @param connectedUser authenticated principal performing the action
+     * @return updated profile image metadata
+     */
+    @PutMapping("/{userId}/profile-image")
+    public ResponseEntity<UserImageResponse> updateUserProfileImage(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserImageRequest request,
+            Principal connectedUser
+    ) {
+        return ResponseEntity.ok(service.updateUserProfileImage(userId, request, connectedUser));
+    }
+
+    /**
+     * Deletes a profile image for a user. Allowed for the user and global admins.
+     *
+     * @param userId user identifier
+     * @param connectedUser authenticated principal performing the action
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{userId}/profile-image")
+    public ResponseEntity<Void> deleteUserProfileImage(
+            @PathVariable Long userId,
+            Principal connectedUser
+    ) {
+        service.deleteUserProfileImage(userId, connectedUser);
         return ResponseEntity.noContent().build();
     }
 

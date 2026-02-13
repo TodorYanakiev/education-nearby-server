@@ -23,7 +23,9 @@ public class UserResponse {
     private String lastname;
     private String email;
     private String username;
+    private String description;
     private Role role;
+    private UserImageResponse profileImage;
     private Long administratedLyceumId;
     private List<Long> lecturedCourseIds;
     private List<Long> lecturedLyceumIds;

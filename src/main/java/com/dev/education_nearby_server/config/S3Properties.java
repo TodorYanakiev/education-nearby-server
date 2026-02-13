@@ -34,4 +34,9 @@ public class S3Properties {
      * Optional required prefix for all lyceum images (e.g. lyceums/{lyceumId}/images/).
      */
     private String lyceumAllowedPrefix = "lyceums/";
+
+    /**
+     * Optional required prefix for all user profile images (e.g. users/{userId}/profile/).
+     */
+    private String userAllowedPrefix = "users/";
 }
