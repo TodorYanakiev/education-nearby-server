@@ -1,6 +1,8 @@
 package com.dev.education_nearby_server.models.entity;
 
+import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.VerificationStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
@@ -23,6 +25,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Cultural center entity tracked for verification, administration, and course assignments.
@@ -86,9 +89,22 @@ public class Lyceum implements Serializable {
     @OneToMany(mappedBy = "lyceum", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LyceumReview> reviewLinks = new ArrayList<>();
 
+    @OneToMany(mappedBy = "lyceum", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LyceumImage> images = new ArrayList<>();
+
     @Transient
     public List<Review> getReviews() {
         return reviewLinks.stream().map(LyceumReview::getReview).toList();
+    }
+
+    @JsonIgnore
+    public Optional<LyceumImage> getMainImage() {
+        return images.stream().filter(i -> i.getRole() == ImageRole.MAIN).findFirst();
+    }
+
+    @JsonIgnore
+    public List<LyceumImage> getGalleryImages() {
+        return images.stream().filter(i -> i.getRole() == ImageRole.GALLERY).toList();
     }
 
     @ManyToMany

@@ -4,11 +4,14 @@ import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRe
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
+import com.dev.education_nearby_server.enums.ImageRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,6 +92,21 @@ class LyceumControllerTest {
     }
 
     @Test
+    void getLyceumImagesReturnsServiceResponse() {
+        List<LyceumImageResponse> images = List.of(
+                LyceumImageResponse.builder().id(1L).lyceumId(1L).url("https://cdn/main.jpg").role(ImageRole.MAIN).build(),
+                LyceumImageResponse.builder().id(2L).lyceumId(1L).url("https://cdn/gallery.jpg").role(ImageRole.GALLERY).build()
+        );
+        when(lyceumService.getLyceumImages(1L)).thenReturn(images);
+
+        ResponseEntity<List<LyceumImageResponse>> response = lyceumController.getLyceumImages(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(images);
+        verify(lyceumService).getLyceumImages(1L);
+    }
+
+    @Test
     void getLyceumCoursesReturnsServiceResponse() {
         CourseResponse course = CourseResponse.builder()
                 .id(9L)
@@ -154,6 +172,27 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(lyceumResponse);
         verify(lyceumService).createLyceum(request);
+    }
+
+    @Test
+    void addLyceumImageReturnsCreatedResponse() {
+        LyceumImageRequest request = LyceumImageRequest.builder()
+                .url("https://cdn/main.jpg")
+                .role(ImageRole.MAIN)
+                .build();
+        LyceumImageResponse imageResponse = LyceumImageResponse.builder()
+                .id(11L)
+                .lyceumId(1L)
+                .url("https://cdn/main.jpg")
+                .role(ImageRole.MAIN)
+                .build();
+        when(lyceumService.addLyceumImage(1L, request)).thenReturn(imageResponse);
+
+        ResponseEntity<LyceumImageResponse> response = lyceumController.addLyceumImage(1L, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isEqualTo(imageResponse);
+        verify(lyceumService).addLyceumImage(1L, request);
     }
 
     @Test
@@ -235,6 +274,15 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getBody()).isNull();
         verify(lyceumService).removeLecturerFromLyceum(2L, 5L);
+    }
+
+    @Test
+    void deleteLyceumImageReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.deleteLyceumImage(2L, 7L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).deleteLyceumImage(2L, 7L);
     }
 
     @Test

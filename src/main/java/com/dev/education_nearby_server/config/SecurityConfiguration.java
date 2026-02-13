@@ -72,6 +72,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/filter").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/courses").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/lecturers").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/images").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/reviews/**").permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_LYCEUMS).permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_COURSES).permitAll()

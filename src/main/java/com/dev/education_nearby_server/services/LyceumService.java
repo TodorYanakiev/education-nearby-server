@@ -1,5 +1,7 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.config.S3Properties;
+import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.enums.VerificationStatus;
@@ -8,25 +10,31 @@ import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
+import com.dev.education_nearby_server.exceptions.common.ValidationException;
+import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
+import com.dev.education_nearby_server.models.entity.LyceumImage;
 import com.dev.education_nearby_server.models.entity.LyceumLecturerInvitation;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.LyceumImageRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.LyceumLecturerInvitationRepository;
 import com.dev.education_nearby_server.repositories.LyceumReviewRepository;
 import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
+import com.dev.education_nearby_server.utils.S3ImageLocationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,8 +43,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,6 +60,7 @@ import java.util.function.Consumer;
 public class LyceumService {
 
     private final LyceumRepository lyceumRepository;
+    private final LyceumImageRepository lyceumImageRepository;
     private final LyceumLecturerInvitationRepository invitationRepository;
     private final LyceumReviewRepository lyceumReviewRepository;
     private final TokenRepository tokenRepository;
@@ -57,6 +68,7 @@ public class LyceumService {
     private final UserReviewRepository userReviewRepository;
     private final EmailService emailService;
     private final CourseService courseService;
+    private final S3Properties s3Properties;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
     private static final String USER_WITH_ID = "User with id ";
@@ -118,6 +130,7 @@ public class LyceumService {
      *
      * @return verified lyceums
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> getVerifiedLyceums() {
         return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED)
                 .stream()
@@ -130,6 +143,7 @@ public class LyceumService {
      *
      * @return every lyceum
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> getAllLyceums() {
         return lyceumRepository.findAll()
                 .stream()
@@ -146,6 +160,7 @@ public class LyceumService {
      * @param limit optional max results to return
      * @return lyceums that match the provided filters
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> filterLyceums(String town, Double latitude, Double longitude, Integer limit) {
         String normalizedTown = normalize(town);
         if (normalizedTown != null && normalizedTown.isBlank()) {
@@ -177,6 +192,7 @@ public class LyceumService {
      * @param request lyceum payload to persist
      * @return created lyceum response
      */
+    @Transactional
     public LyceumResponse createLyceum(LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -224,6 +240,7 @@ public class LyceumService {
      * @param request updated lyceum data
      * @return updated lyceum response
      */
+    @Transactional
     public LyceumResponse updateLyceum(Long id, LyceumRequest request) {
         if (request == null) {
             throw new BadRequestException("Lyceum payload must not be null.");
@@ -535,9 +552,9 @@ public class LyceumService {
      * @param id lyceum identifier
      * @return lyceum details
      */
+    @Transactional(readOnly = true)
     public LyceumResponse getLyceumById(Long id) {
-        Lyceum lyceum = lyceumRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + id + NOT_FOUND_MESSAGE));
+        Lyceum lyceum = requireLyceum(id);
         if (lyceum.getVerificationStatus() != VerificationStatus.VERIFIED) {
             User currentUser = getCurrentUser()
                     .orElseThrow(() -> new UnauthorizedException("You must be authenticated to access this lyceum."));
@@ -560,11 +577,88 @@ public class LyceumService {
     }
 
     /**
+     * Lists images for a given lyceum id.
+     *
+     * @param lyceumId lyceum identifier
+     * @return images sorted by order and id
+     */
+    @Transactional(readOnly = true)
+    public List<LyceumImageResponse> getLyceumImages(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        List<LyceumImage> images = lyceumImageRepository.findAllByLyceumIdOrderByOrderIndexAscIdAsc(lyceum.getId());
+        return images.stream().map(this::mapToResponse).toList();
+    }
+
+    /**
+     * Adds a lyceum image after validating S3 key/url consistency, uniqueness, and role constraints,
+     * then returns the persisted image metadata.
+     */
+    @Transactional
+    public LyceumImageResponse addLyceumImage(Long lyceumId, LyceumImageRequest request) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        ensureSupportedLyceumRole(request.getRole());
+        S3ImageLocationResolver.ResolvedImageLocation resolvedLocation =
+                S3ImageLocationResolver.resolveAndValidate(
+                        request.getS3Key(),
+                        request.getUrl(),
+                        s3Properties.getLyceumAllowedPrefix(),
+                        s3Properties
+                );
+        String resolvedKey = resolvedLocation.getS3Key();
+        String resolvedUrl = resolvedLocation.getUrl();
+
+        ensureUniqueKey(resolvedKey);
+        ensureSingleRoleIfNeeded(lyceum, request.getRole());
+
+        LyceumImage image = new LyceumImage();
+        image.setLyceum(lyceum);
+        image.setS3Key(resolvedKey);
+        image.setUrl(resolvedUrl);
+        image.setRole(request.getRole());
+        image.setAltText(trimToNull(request.getAltText()));
+        image.setWidth(request.getWidth());
+        image.setHeight(request.getHeight());
+        image.setMimeType(trimToNull(request.getMimeType()));
+        image.setOrderIndex(request.getOrderIndex() != null ? request.getOrderIndex() : 0);
+
+        lyceum.getImages().add(image);
+        LyceumImage saved = lyceumImageRepository.save(image);
+
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Removes a lyceum image after verifying ownership and association.
+     *
+     * @param lyceumId lyceum identifier
+     * @param imageId image identifier to delete
+     */
+    @Transactional
+    public void deleteLyceumImage(Long lyceumId, Long imageId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        LyceumImage image = lyceumImageRepository.findById(imageId)
+                .orElseThrow(() -> new NoSuchElementException("Lyceum image with id " + imageId + NOT_FOUND_MESSAGE));
+        if (image.getLyceum() == null || !image.getLyceum().getId().equals(lyceum.getId())) {
+            throw new BadRequestException("The provided image does not belong to this lyceum.");
+        }
+
+        lyceum.getImages().removeIf(existing -> existing.getId() != null && existing.getId().equals(imageId));
+        lyceumImageRepository.delete(image);
+    }
+
+    /**
      * Returns lyceums that match the provided ids.
      *
      * @param ids list of lyceum identifiers
      * @return matching lyceum responses
      */
+    @Transactional(readOnly = true)
     public List<LyceumResponse> getLyceumsByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             throw new BadRequestException("Lyceum ids must be provided.");
@@ -733,8 +827,12 @@ public class LyceumService {
         if (lyceumId == null) {
             throw new BadRequestException("Lyceum id must be provided.");
         }
-        return lyceumRepository.findById(lyceumId)
+        Lyceum lyceum = lyceumRepository.findById(lyceumId)
                 .orElseThrow(() -> new NoSuchElementException(LYCEUM_ID_MESSAGE + lyceumId + NOT_FOUND_MESSAGE));
+        if (lyceum.getImages() == null) {
+            lyceum.setImages(new ArrayList<>());
+        }
+        return lyceum;
     }
 
     private Lyceum requireLyceumWithLecturers(Long lyceumId) {
@@ -809,6 +907,35 @@ public class LyceumService {
         }
     }
 
+    private void ensureSingleRoleIfNeeded(Lyceum lyceum, ImageRole role) {
+        if (role == ImageRole.GALLERY) {
+            return;
+        }
+        boolean alreadyExists = lyceum.getImages().stream()
+                .anyMatch(image -> image.getRole() == role);
+        if (alreadyExists) {
+            throw new ConflictException("Lyceum already has an image with role " + role + ". Remove it before adding another.");
+        }
+    }
+
+    private void ensureSupportedLyceumRole(ImageRole role) {
+        if (role == ImageRole.LOGO) {
+            throw new ValidationException("Lyceums support only MAIN and GALLERY images.");
+        }
+    }
+
+    private void ensureUniqueKey(String resolvedKey) {
+        Optional<LyceumImage> existing = lyceumImageRepository.findByS3Key(resolvedKey);
+        if (existing.isPresent()) {
+            throw new ConflictException("An image with the same S3 key is already registered.");
+        }
+    }
+
+    private String trimToNull(String value) {
+        String trimmed = value == null ? null : value.trim();
+        return StringUtils.hasText(trimmed) ? trimmed : null;
+    }
+
     private LyceumResponse mapToResponse(Lyceum lyceum) {
         if (lyceum == null) {
             return null;
@@ -831,9 +958,38 @@ public class LyceumService {
                 .registrationNumber(lyceum.getRegistrationNumber())
                 .longitude(lyceum.getLongitude())
                 .latitude(lyceum.getLatitude())
+                .images(mapLyceumImages(lyceum))
                 .verificationStatus(lyceum.getVerificationStatus())
                 .averageRating(lyceumReviewRepository.findAverageRatingByLyceumId(lyceum.getId()))
                 .build();
+    }
+
+    private LyceumImageResponse mapToResponse(LyceumImage image) {
+        return LyceumImageResponse.builder()
+                .id(image.getId())
+                .lyceumId(image.getLyceum() != null ? image.getLyceum().getId() : null)
+                .s3Key(image.getS3Key())
+                .url(image.getUrl())
+                .role(image.getRole())
+                .altText(image.getAltText())
+                .width(image.getWidth())
+                .height(image.getHeight())
+                .mimeType(image.getMimeType())
+                .orderIndex(image.getOrderIndex())
+                .build();
+    }
+
+    private List<LyceumImageResponse> mapLyceumImages(Lyceum lyceum) {
+        if (lyceum.getImages() == null || lyceum.getImages().isEmpty()) {
+            return List.of();
+        }
+        Comparator<LyceumImage> ordering = Comparator
+                .comparing(LyceumImage::getOrderIndex, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(LyceumImage::getId, Comparator.nullsLast(Comparator.naturalOrder()));
+        return lyceum.getImages().stream()
+                .sorted(ordering)
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private UserResponse mapToUserResponse(User user) {

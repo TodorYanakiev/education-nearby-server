@@ -3,11 +3,13 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRightsVerificationRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
+import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerInviteRequest;
 import com.dev.education_nearby_server.models.dto.request.LyceumLecturerRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
@@ -73,6 +75,17 @@ public class LyceumController {
     }
 
     /**
+     * Lists images attached to a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return images associated with the lyceum
+     */
+    @GetMapping("/{lyceumId}/images")
+    public ResponseEntity<List<LyceumImageResponse>> getLyceumImages(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(lyceumService.getLyceumImages(lyceumId));
+    }
+
+    /**
      * Lists courses for a specific lyceum.
      *
      * @param lyceumId lyceum identifier
@@ -133,6 +146,22 @@ public class LyceumController {
     @PostMapping
     public ResponseEntity<LyceumResponse> createLyceum(@Valid @RequestBody LyceumRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(lyceumService.createLyceum(request));
+    }
+
+    /**
+     * Registers a new lyceum image; validates S3 key/url and role before saving.
+     *
+     * @param lyceumId lyceum identifier
+     * @param request validated image payload
+     * @return persisted lyceum image
+     */
+    @PostMapping("/{lyceumId}/images")
+    public ResponseEntity<LyceumImageResponse> addLyceumImage(
+            @PathVariable Long lyceumId,
+            @Valid @RequestBody LyceumImageRequest request
+    ) {
+        LyceumImageResponse response = lyceumService.addLyceumImage(lyceumId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -231,6 +260,22 @@ public class LyceumController {
             @PathVariable Long userId
     ) {
         lyceumService.removeLecturerFromLyceum(lyceumId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Deletes a lyceum image by id.
+     *
+     * @param lyceumId lyceum identifier
+     * @param imageId image identifier
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{lyceumId}/images/{imageId}")
+    public ResponseEntity<Void> deleteLyceumImage(
+            @PathVariable Long lyceumId,
+            @PathVariable Long imageId
+    ) {
+        lyceumService.deleteLyceumImage(lyceumId, imageId);
         return ResponseEntity.noContent().build();
     }
 

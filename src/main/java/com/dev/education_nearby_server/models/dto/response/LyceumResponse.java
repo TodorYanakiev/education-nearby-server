@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 /**
  * Lyceum representation returned to clients.
  */
@@ -34,6 +36,7 @@ public class LyceumResponse {
     private Integer registrationNumber;
     private Double longitude;
     private Double latitude;
+    private List<LyceumImageResponse> images;
     private VerificationStatus verificationStatus;
     private Double averageRating;
 }

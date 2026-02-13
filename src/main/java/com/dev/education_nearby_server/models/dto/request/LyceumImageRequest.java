@@ -6,11 +6,11 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Payload for registering or updating a course image reference (S3 key or URL) with metadata.
+ * Payload for registering or updating a lyceum image reference (S3 key or URL) with metadata.
  */
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor
-public class CourseImageRequest extends ImageMetadataRequest {
+public class LyceumImageRequest extends ImageMetadataRequest {
 }

@@ -10,17 +10,16 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Image metadata stored for a course, either as an S3 key or public URL.
+ * Image metadata stored for a lyceum, either as an S3 key or public URL.
  */
 @Entity
-@Table(name = "course_images")
+@Table(name = "lyceum_images")
 @Getter
 @Setter
 @NoArgsConstructor
-public class CourseImage extends ImageMetadata {
+public class LyceumImage extends ImageMetadata {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "course_id")
-    private Course course;
+    @JoinColumn(name = "lyceum_id")
+    private Lyceum lyceum;
 }
-

@@ -7,14 +7,14 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * View model for course images exposed via APIs.
+ * View model for lyceum images exposed via APIs.
  */
 @Getter
 @Setter
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CourseImageResponse extends ImageMetadataResponse {
+public class LyceumImageResponse extends ImageMetadataResponse {
 
-    private Long courseId;
+    private Long lyceumId;
 }
