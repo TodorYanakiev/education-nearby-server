@@ -1,23 +1,23 @@
-package com.dev.education_nearby_server.models.dto.auth;
+package com.dev.education_nearby_server.models.dto.request;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import com.dev.education_nearby_server.validation.FieldMatch;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
- * Registration payload used to create a new account with validation rules.
+ * Payload for updating mutable user profile fields.
  */
-@Data
+@Getter
+@Setter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
-@FieldMatch(first = "password", second = "repeatedPassword", message = "Passwords do not match!")
-public class RegisterRequest {
+@AllArgsConstructor
+public class UserUpdateRequest {
 
     @NotBlank(message = "The firstname should not be blank!")
     private String firstname;
@@ -28,13 +28,6 @@ public class RegisterRequest {
     @Email(message = "Invalid email!")
     @NotBlank(message = "The email should not be blank!")
     private String email;
-
-    @NotBlank(message = "The password should not be blank!")
-    @Size(min = 8, message = "Password must be at least 8 characters long!")
-    private String password;
-
-    @NotBlank(message = "The repeated password should not be blank!")
-    private String repeatedPassword;
 
     @NotBlank(message = "The username should not be blank!")
     @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters!")

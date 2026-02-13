@@ -1,17 +1,32 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.config.S3Properties;
+import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.enums.Role;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
+import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
+import com.dev.education_nearby_server.models.entity.UserImage;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.ReviewRepository;
+import com.dev.education_nearby_server.repositories.TokenRepository;
+import com.dev.education_nearby_server.repositories.UserImageRepository;
 import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
+import com.dev.education_nearby_server.utils.S3ImageLocationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.security.Principal;
 import java.util.List;
@@ -26,6 +41,10 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository repository;
     private final UserReviewRepository userReviewRepository;
+    private final ReviewRepository reviewRepository;
+    private final TokenRepository tokenRepository;
+    private final UserImageRepository userImageRepository;
+    private final S3Properties s3Properties;
 
     /**
      * Returns a view of every user in the system. Intended for administrative dashboards.
@@ -63,6 +82,60 @@ public class UserService {
     }
 
     /**
+     * Updates mutable profile fields for a selected user.
+     * Allowed for the user themself and global admins.
+     *
+     * @param userId target user identifier
+     * @param request update payload
+     * @param connectedUser authenticated principal performing the operation
+     * @return updated user representation
+     */
+    public UserResponse updateUser(Long userId, UserUpdateRequest request, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only update your own profile.");
+
+        String normalizedEmail = trimToNull(request.getEmail());
+        String normalizedUsername = trimToNull(request.getUsername());
+        if (!StringUtils.hasText(normalizedEmail)) {
+            throw new ValidationException("The email should not be blank!");
+        }
+        if (!StringUtils.hasText(normalizedUsername)) {
+            throw new ValidationException("The username should not be blank!");
+        }
+
+        ensureEmailNotTaken(normalizedEmail, targetUser.getId());
+        ensureUsernameNotTaken(normalizedUsername, targetUser.getId());
+
+        targetUser.setFirstname(trimToNull(request.getFirstname()));
+        targetUser.setLastname(trimToNull(request.getLastname()));
+        targetUser.setEmail(normalizedEmail);
+        targetUser.setUsername(normalizedUsername);
+        targetUser.setDescription(trimToNull(request.getDescription()));
+
+        User saved = repository.save(targetUser);
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Deletes a user account and related auth/review records.
+     * Allowed for the user themself and global admins.
+     *
+     * @param userId target user identifier
+     * @param connectedUser authenticated principal performing the operation
+     */
+    @Transactional
+    public void deleteUser(Long userId, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only delete your own profile.");
+
+        tokenRepository.deleteAllByUser_Id(targetUser.getId());
+        reviewRepository.deleteAllByUser_Id(targetUser.getId());
+        repository.delete(targetUser);
+    }
+
+    /**
      * Changes the authenticated user's password after validating the current password
      * and new/confirmation match.
      *
@@ -85,6 +158,117 @@ public class UserService {
         repository.save(user);
     }
 
+    /**
+     * Returns the profile image metadata for the selected user.
+     *
+     * @param userId user identifier
+     * @return profile image metadata
+     */
+    public UserImageResponse getUserProfileImage(Long userId) {
+        UserImage image = userImageRepository.findByUserId(userId)
+                .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
+        return mapToImageResponse(image);
+    }
+
+    /**
+     * Creates a profile image for a user. Allowed for the user themself and global admins.
+     *
+     * @param userId user identifier
+     * @param request image payload
+     * @param connectedUser authenticated principal performing the operation
+     * @return persisted profile image metadata
+     */
+    public UserImageResponse addUserProfileImage(Long userId, UserImageRequest request, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
+
+        if (userImageRepository.findByUserId(userId).isPresent()) {
+            throw new ConflictException("User already has a profile image. Use update instead.");
+        }
+
+        S3ImageLocationResolver.ResolvedImageLocation resolvedLocation =
+                S3ImageLocationResolver.resolveAndValidate(
+                        request.getS3Key(),
+                        request.getUrl(),
+                        s3Properties.getUserAllowedPrefix(),
+                        s3Properties
+                );
+
+        ensureUniqueS3Key(resolvedLocation.getS3Key(), null);
+
+        UserImage image = new UserImage();
+        image.setUser(targetUser);
+        image.setS3Key(resolvedLocation.getS3Key());
+        image.setUrl(resolvedLocation.getUrl());
+        image.setRole(ImageRole.MAIN);
+        image.setAltText(trimToNull(request.getAltText()));
+        image.setWidth(request.getWidth());
+        image.setHeight(request.getHeight());
+        image.setMimeType(trimToNull(request.getMimeType()));
+        image.setOrderIndex(0);
+
+        UserImage saved = userImageRepository.save(image);
+        targetUser.setProfileImage(saved);
+        return mapToImageResponse(saved);
+    }
+
+    /**
+     * Updates an existing profile image for a user. Allowed for the user themself and global admins.
+     *
+     * @param userId user identifier
+     * @param request image payload
+     * @param connectedUser authenticated principal performing the operation
+     * @return updated profile image metadata
+     */
+    public UserImageResponse updateUserProfileImage(Long userId, UserImageRequest request, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
+
+        UserImage image = userImageRepository.findByUserId(userId)
+                .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
+
+        S3ImageLocationResolver.ResolvedImageLocation resolvedLocation =
+                S3ImageLocationResolver.resolveAndValidate(
+                        request.getS3Key(),
+                        request.getUrl(),
+                        s3Properties.getUserAllowedPrefix(),
+                        s3Properties
+                );
+
+        ensureUniqueS3Key(resolvedLocation.getS3Key(), image.getId());
+
+        image.setS3Key(resolvedLocation.getS3Key());
+        image.setUrl(resolvedLocation.getUrl());
+        image.setRole(ImageRole.MAIN);
+        image.setAltText(trimToNull(request.getAltText()));
+        image.setWidth(request.getWidth());
+        image.setHeight(request.getHeight());
+        image.setMimeType(trimToNull(request.getMimeType()));
+        image.setOrderIndex(0);
+
+        UserImage saved = userImageRepository.save(image);
+        return mapToImageResponse(saved);
+    }
+
+    /**
+     * Deletes a user's profile image. Allowed for the user themself and global admins.
+     *
+     * @param userId user identifier
+     * @param connectedUser authenticated principal performing the operation
+     */
+    public void deleteUserProfileImage(Long userId, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
+
+        UserImage image = userImageRepository.findByUserId(userId)
+                .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
+        targetUser.setProfileImage(null);
+        userImageRepository.delete(image);
+    }
+
     private User resolveUser(Principal connectedUser) {
         if (!(connectedUser instanceof UsernamePasswordAuthenticationToken authToken)) {
             throw new UnauthorizedException("You must be authenticated to perform this action.");
@@ -104,13 +288,72 @@ public class UserService {
                 .lastname(user.getLastname())
                 .email(user.getEmail())
                 .username(user.getUsername())
+                .description(user.getDescription())
                 .role(user.getRole())
+                .profileImage(user.getProfileImage() != null ? mapToImageResponse(user.getProfileImage()) : null)
                 .administratedLyceumId(user.getAdministratedLyceum() != null ? user.getAdministratedLyceum().getId() : null)
                 .lecturedCourseIds(extractLecturedCourseIds(user))
                 .lecturedLyceumIds(extractLecturedLyceumIds(user))
                 .enabled(user.isEnabled())
                 .averageRating(userReviewRepository.findAverageRatingByReviewedUserId(user.getId()))
                 .build();
+    }
+
+    private User requireUser(Long userId) {
+        return repository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+    }
+
+    private void ensureCanManageUser(Long targetUserId, User actor, String message) {
+        boolean isAdmin = actor.getRole() == Role.ADMIN;
+        boolean isSelf = actor.getId() != null && actor.getId().equals(targetUserId);
+        if (!isAdmin && !isSelf) {
+            throw new AccessDeniedException(message);
+        }
+    }
+
+    private void ensureEmailNotTaken(String email, Long currentUserId) {
+        repository.findByEmailIgnoreCase(email).ifPresent(existing -> {
+            if (!existing.getId().equals(currentUserId)) {
+                throw new ConflictException("User with such email already exists!");
+            }
+        });
+    }
+
+    private void ensureUsernameNotTaken(String username, Long currentUserId) {
+        repository.findByUsername(username).ifPresent(existing -> {
+            if (!existing.getId().equals(currentUserId)) {
+                throw new ConflictException("User with such username already exists!");
+            }
+        });
+    }
+
+    private void ensureUniqueS3Key(String s3Key, Long currentImageId) {
+        userImageRepository.findByS3Key(s3Key).ifPresent(existing -> {
+            if (currentImageId == null || !existing.getId().equals(currentImageId)) {
+                throw new ConflictException("An image with the same S3 key is already registered.");
+            }
+        });
+    }
+
+    private UserImageResponse mapToImageResponse(UserImage image) {
+        return UserImageResponse.builder()
+                .id(image.getId())
+                .userId(image.getUser() != null ? image.getUser().getId() : null)
+                .s3Key(image.getS3Key())
+                .url(image.getUrl())
+                .role(image.getRole())
+                .altText(image.getAltText())
+                .width(image.getWidth())
+                .height(image.getHeight())
+                .mimeType(image.getMimeType())
+                .orderIndex(image.getOrderIndex())
+                .build();
+    }
+
+    private String trimToNull(String value) {
+        String trimmed = value == null ? null : value.trim();
+        return StringUtils.hasText(trimmed) ? trimmed : null;
     }
 
     private List<Long> extractLecturedCourseIds(User user) {

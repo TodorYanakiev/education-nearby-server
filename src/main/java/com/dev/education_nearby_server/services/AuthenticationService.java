@@ -23,6 +23,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 
@@ -61,6 +62,7 @@ public class AuthenticationService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .username(request.getUsername())
+                .description(trimToNull(request.getDescription()))
                 .role(Role.USER)
                 .enabled(true)
                 .build();
@@ -166,5 +168,10 @@ public class AuthenticationService {
         } catch (Exception ex) {
             throw new UnauthorizedException("Invalid refresh token");
         }
+    }
+
+    private String trimToNull(String value) {
+        String trimmed = value == null ? null : value.trim();
+        return StringUtils.hasText(trimmed) ? trimmed : null;
     }
 }

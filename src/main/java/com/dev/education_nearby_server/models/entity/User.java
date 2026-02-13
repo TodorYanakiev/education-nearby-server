@@ -7,6 +7,7 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -14,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.validation.constraints.Email;
@@ -73,6 +75,10 @@ public class User implements UserDetails, Serializable {
     @Length(min = 8, message = "The length should be at least 8!")
     private String password;
 
+    @Length(max = 500, message = "Description must be at most 500 characters.")
+    @Column(length = 500)
+    private String description;
+
     @ManyToOne
     @JoinColumn(name = "administrated_lyceum_id")
     private Lyceum administratedLyceum;
@@ -92,6 +98,9 @@ public class User implements UserDetails, Serializable {
 
     @OneToMany(mappedBy = "reviewedUser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserReview> receivedReviewLinks = new ArrayList<>();
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserImage profileImage;
 
     @Transient
     public List<Review> getReviews() {
