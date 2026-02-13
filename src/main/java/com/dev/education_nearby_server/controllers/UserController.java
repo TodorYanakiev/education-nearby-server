@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
@@ -56,6 +57,39 @@ public class UserController {
     @GetMapping("/{userId}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long userId) {
         return ResponseEntity.ok(service.getUserById(userId));
+    }
+
+    /**
+     * Updates a user profile. Allowed for the user and global admins.
+     *
+     * @param userId user identifier
+     * @param request updated user profile payload
+     * @param connectedUser authenticated principal performing the action
+     * @return updated user representation
+     */
+    @PutMapping("/{userId}")
+    public ResponseEntity<UserResponse> updateUser(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserUpdateRequest request,
+            Principal connectedUser
+    ) {
+        return ResponseEntity.ok(service.updateUser(userId, request, connectedUser));
+    }
+
+    /**
+     * Deletes a user profile. Allowed for the user and global admins.
+     *
+     * @param userId user identifier
+     * @param connectedUser authenticated principal performing the action
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable Long userId,
+            Principal connectedUser
+    ) {
+        service.deleteUser(userId, connectedUser);
+        return ResponseEntity.noContent().build();
     }
 
     /**

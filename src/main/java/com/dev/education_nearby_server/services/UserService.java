@@ -10,10 +10,13 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.UserImage;
 import com.dev.education_nearby_server.models.entity.User;
+import com.dev.education_nearby_server.repositories.ReviewRepository;
+import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserImageRepository;
 import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
@@ -22,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.security.Principal;
@@ -37,6 +41,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository repository;
     private final UserReviewRepository userReviewRepository;
+    private final ReviewRepository reviewRepository;
+    private final TokenRepository tokenRepository;
     private final UserImageRepository userImageRepository;
     private final S3Properties s3Properties;
 
@@ -73,6 +79,60 @@ public class UserService {
     public UserResponse getAuthenticatedUser(Principal connectedUser) {
         User user = resolveUser(connectedUser);
         return mapToResponse(user);
+    }
+
+    /**
+     * Updates mutable profile fields for a selected user.
+     * Allowed for the user themself and global admins.
+     *
+     * @param userId target user identifier
+     * @param request update payload
+     * @param connectedUser authenticated principal performing the operation
+     * @return updated user representation
+     */
+    public UserResponse updateUser(Long userId, UserUpdateRequest request, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only update your own profile.");
+
+        String normalizedEmail = trimToNull(request.getEmail());
+        String normalizedUsername = trimToNull(request.getUsername());
+        if (!StringUtils.hasText(normalizedEmail)) {
+            throw new ValidationException("The email should not be blank!");
+        }
+        if (!StringUtils.hasText(normalizedUsername)) {
+            throw new ValidationException("The username should not be blank!");
+        }
+
+        ensureEmailNotTaken(normalizedEmail, targetUser.getId());
+        ensureUsernameNotTaken(normalizedUsername, targetUser.getId());
+
+        targetUser.setFirstname(trimToNull(request.getFirstname()));
+        targetUser.setLastname(trimToNull(request.getLastname()));
+        targetUser.setEmail(normalizedEmail);
+        targetUser.setUsername(normalizedUsername);
+        targetUser.setDescription(trimToNull(request.getDescription()));
+
+        User saved = repository.save(targetUser);
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Deletes a user account and related auth/review records.
+     * Allowed for the user themself and global admins.
+     *
+     * @param userId target user identifier
+     * @param connectedUser authenticated principal performing the operation
+     */
+    @Transactional
+    public void deleteUser(Long userId, Principal connectedUser) {
+        User targetUser = requireUser(userId);
+        User actor = resolveUser(connectedUser);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only delete your own profile.");
+
+        tokenRepository.deleteAllByUser_Id(targetUser.getId());
+        reviewRepository.deleteAllByUser_Id(targetUser.getId());
+        repository.delete(targetUser);
     }
 
     /**
@@ -119,10 +179,9 @@ public class UserService {
      * @return persisted profile image metadata
      */
     public UserImageResponse addUserProfileImage(Long userId, UserImageRequest request, Principal connectedUser) {
-        User targetUser = repository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+        User targetUser = requireUser(userId);
         User actor = resolveUser(connectedUser);
-        ensureCanManageProfileImage(targetUser.getId(), actor);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
 
         if (userImageRepository.findByUserId(userId).isPresent()) {
             throw new ConflictException("User already has a profile image. Use update instead.");
@@ -163,10 +222,9 @@ public class UserService {
      * @return updated profile image metadata
      */
     public UserImageResponse updateUserProfileImage(Long userId, UserImageRequest request, Principal connectedUser) {
-        User targetUser = repository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+        User targetUser = requireUser(userId);
         User actor = resolveUser(connectedUser);
-        ensureCanManageProfileImage(targetUser.getId(), actor);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
 
         UserImage image = userImageRepository.findByUserId(userId)
                 .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
@@ -201,10 +259,9 @@ public class UserService {
      * @param connectedUser authenticated principal performing the operation
      */
     public void deleteUserProfileImage(Long userId, Principal connectedUser) {
-        User targetUser = repository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+        User targetUser = requireUser(userId);
         User actor = resolveUser(connectedUser);
-        ensureCanManageProfileImage(targetUser.getId(), actor);
+        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
 
         UserImage image = userImageRepository.findByUserId(userId)
                 .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
@@ -242,12 +299,33 @@ public class UserService {
                 .build();
     }
 
-    private void ensureCanManageProfileImage(Long targetUserId, User actor) {
+    private User requireUser(Long userId) {
+        return repository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+    }
+
+    private void ensureCanManageUser(Long targetUserId, User actor, String message) {
         boolean isAdmin = actor.getRole() == Role.ADMIN;
         boolean isSelf = actor.getId() != null && actor.getId().equals(targetUserId);
         if (!isAdmin && !isSelf) {
-            throw new AccessDeniedException("You can only manage your own profile image.");
+            throw new AccessDeniedException(message);
         }
+    }
+
+    private void ensureEmailNotTaken(String email, Long currentUserId) {
+        repository.findByEmailIgnoreCase(email).ifPresent(existing -> {
+            if (!existing.getId().equals(currentUserId)) {
+                throw new ConflictException("User with such email already exists!");
+            }
+        });
+    }
+
+    private void ensureUsernameNotTaken(String username, Long currentUserId) {
+        repository.findByUsername(username).ifPresent(existing -> {
+            if (!existing.getId().equals(currentUserId)) {
+                throw new ConflictException("User with such username already exists!");
+            }
+        });
     }
 
     private void ensureUniqueS3Key(String s3Key, Long currentImageId) {
