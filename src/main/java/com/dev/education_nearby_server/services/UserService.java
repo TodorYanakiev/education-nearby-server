@@ -11,6 +11,7 @@ import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserRoleUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
@@ -138,6 +139,26 @@ public class UserService {
         targetUser.setEmail(normalizedEmail);
         targetUser.setUsername(normalizedUsername);
         targetUser.setDescription(trimToNull(request.getDescription()));
+
+        User saved = repository.save(targetUser);
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Updates the role of a selected user.
+     * Allowed for global admins only.
+     *
+     * @param userId target user identifier
+     * @param request role update payload
+     * @param connectedUser authenticated principal performing the operation
+     * @return updated user representation
+     */
+    public UserResponse changeUserRole(Long userId, UserRoleUpdateRequest request, Principal connectedUser) {
+        User actor = resolveUser(connectedUser);
+        ensureGlobalAdmin(actor, "Only global admins can change user roles.");
+
+        User targetUser = requireUser(userId);
+        targetUser.setRole(request.getRole());
 
         User saved = repository.save(targetUser);
         return mapToResponse(saved);
@@ -343,6 +364,12 @@ public class UserService {
         boolean isAdmin = actor.getRole() == Role.ADMIN;
         boolean isSelf = actor.getId() != null && actor.getId().equals(targetUserId);
         if (!isAdmin && !isSelf) {
+            throw new AccessDeniedException(message);
+        }
+    }
+
+    private void ensureGlobalAdmin(User actor, String message) {
+        if (actor.getRole() != Role.ADMIN) {
             throw new AccessDeniedException(message);
         }
     }

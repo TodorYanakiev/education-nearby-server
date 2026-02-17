@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserRoleUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
@@ -92,6 +93,23 @@ public class UserController {
             Principal connectedUser
     ) {
         return ResponseEntity.ok(service.updateUser(userId, request, connectedUser));
+    }
+
+    /**
+     * Changes a user's global role. Allowed for global admins only.
+     *
+     * @param userId user identifier
+     * @param request role update payload
+     * @param connectedUser authenticated principal performing the action
+     * @return updated user representation
+     */
+    @PatchMapping("/{userId}/role")
+    public ResponseEntity<UserResponse> changeUserRole(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserRoleUpdateRequest request,
+            Principal connectedUser
+    ) {
+        return ResponseEntity.ok(service.changeUserRole(userId, request, connectedUser));
     }
 
     /**
