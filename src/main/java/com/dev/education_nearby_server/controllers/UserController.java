@@ -12,6 +12,7 @@ import com.dev.education_nearby_server.services.ReviewService;
 import com.dev.education_nearby_server.services.UserService;
 import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
@@ -39,13 +41,29 @@ public class UserController {
     private final ReviewService reviewService;
 
     /**
-     * Lists all users.
+     * Lists users with pagination.
      *
-     * @return public user representations
+     * @param page zero-based page index
+     * @param size page size
+     * @return paginated public user representations
      */
     @GetMapping
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        return ResponseEntity.ok(service.getAllUsers());
+    public ResponseEntity<Page<UserResponse>> getAllUsers(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "9") Integer size
+    ) {
+        return ResponseEntity.ok(service.getAllUsers(page, size));
+    }
+
+    /**
+     * Fetches a single user by email.
+     *
+     * @param email user email
+     * @return user representation
+     */
+    @GetMapping("/by-email")
+    public ResponseEntity<UserResponse> getUserByEmail(@RequestParam String email) {
+        return ResponseEntity.ok(service.getUserByEmail(email));
     }
 
     /**
