@@ -4,12 +4,14 @@ import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserRoleUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
@@ -22,6 +24,9 @@ import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.utils.S3ImageLocationResolver;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -45,17 +50,22 @@ public class UserService {
     private final TokenRepository tokenRepository;
     private final UserImageRepository userImageRepository;
     private final S3Properties s3Properties;
+    private static final String NOT_FOUND = " not found.";
+    private static final String PROFILE_IMAGE_MESSAGE = "You can only manage your own profile image.";
+    private static final String PROFILE_IMAGE_USER = "Profile image for user ";
 
     /**
-     * Returns a view of every user in the system. Intended for administrative dashboards.
+     * Returns users in the system as a paginated result. Intended for administrative dashboards.
      *
-     * @return all users with public fields only
+     * @param page zero-based page index
+     * @param size page size
+     * @return paged users with public fields only
      */
-    public List<UserResponse> getAllUsers() {
-        return repository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+    public Page<UserResponse> getAllUsers(Integer page, Integer size) {
+        validatePageRequest(page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        return repository.findAll(pageable)
+                .map(this::mapToResponse);
     }
 
     /**
@@ -66,7 +76,24 @@ public class UserService {
      */
     public UserResponse getUserById(Long userId) {
         User user = repository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + NOT_FOUND));
+        return mapToResponse(user);
+    }
+
+    /**
+     * Fetches a single user by email.
+     *
+     * @param email user email
+     * @return user with the given email
+     */
+    public UserResponse getUserByEmail(String email) {
+        String normalizedEmail = trimToNull(email);
+        if (!StringUtils.hasText(normalizedEmail)) {
+            throw new BadRequestException("Email must not be blank.");
+        }
+
+        User user = repository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new NoSuchElementException("User with email " + normalizedEmail + NOT_FOUND));
         return mapToResponse(user);
     }
 
@@ -112,6 +139,26 @@ public class UserService {
         targetUser.setEmail(normalizedEmail);
         targetUser.setUsername(normalizedUsername);
         targetUser.setDescription(trimToNull(request.getDescription()));
+
+        User saved = repository.save(targetUser);
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Updates the role of a selected user.
+     * Allowed for global admins only.
+     *
+     * @param userId target user identifier
+     * @param request role update payload
+     * @param connectedUser authenticated principal performing the operation
+     * @return updated user representation
+     */
+    public UserResponse changeUserRole(Long userId, UserRoleUpdateRequest request, Principal connectedUser) {
+        User actor = resolveUser(connectedUser);
+        ensureGlobalAdmin(actor, "Only global admins can change user roles.");
+
+        User targetUser = requireUser(userId);
+        targetUser.setRole(request.getRole());
 
         User saved = repository.save(targetUser);
         return mapToResponse(saved);
@@ -166,7 +213,7 @@ public class UserService {
      */
     public UserImageResponse getUserProfileImage(Long userId) {
         UserImage image = userImageRepository.findByUserId(userId)
-                .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(PROFILE_IMAGE_USER + userId + NOT_FOUND));
         return mapToImageResponse(image);
     }
 
@@ -181,7 +228,7 @@ public class UserService {
     public UserImageResponse addUserProfileImage(Long userId, UserImageRequest request, Principal connectedUser) {
         User targetUser = requireUser(userId);
         User actor = resolveUser(connectedUser);
-        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
+        ensureCanManageUser(targetUser.getId(), actor, PROFILE_IMAGE_MESSAGE);
 
         if (userImageRepository.findByUserId(userId).isPresent()) {
             throw new ConflictException("User already has a profile image. Use update instead.");
@@ -224,10 +271,10 @@ public class UserService {
     public UserImageResponse updateUserProfileImage(Long userId, UserImageRequest request, Principal connectedUser) {
         User targetUser = requireUser(userId);
         User actor = resolveUser(connectedUser);
-        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
+        ensureCanManageUser(targetUser.getId(), actor, PROFILE_IMAGE_MESSAGE);
 
         UserImage image = userImageRepository.findByUserId(userId)
-                .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(PROFILE_IMAGE_USER + userId + NOT_FOUND));
 
         S3ImageLocationResolver.ResolvedImageLocation resolvedLocation =
                 S3ImageLocationResolver.resolveAndValidate(
@@ -261,10 +308,10 @@ public class UserService {
     public void deleteUserProfileImage(Long userId, Principal connectedUser) {
         User targetUser = requireUser(userId);
         User actor = resolveUser(connectedUser);
-        ensureCanManageUser(targetUser.getId(), actor, "You can only manage your own profile image.");
+        ensureCanManageUser(targetUser.getId(), actor, PROFILE_IMAGE_MESSAGE);
 
         UserImage image = userImageRepository.findByUserId(userId)
-                .orElseThrow(() -> new NoSuchElementException("Profile image for user " + userId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException(PROFILE_IMAGE_USER + userId + NOT_FOUND));
         targetUser.setProfileImage(null);
         userImageRepository.delete(image);
     }
@@ -299,15 +346,30 @@ public class UserService {
                 .build();
     }
 
+    private void validatePageRequest(Integer page, Integer size) {
+        if (page == null || page < 0) {
+            throw new BadRequestException("Page index must be zero or positive.");
+        }
+        if (size == null || size <= 0) {
+            throw new BadRequestException("Page size must be greater than zero.");
+        }
+    }
+
     private User requireUser(Long userId) {
         return repository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + " not found."));
+                .orElseThrow(() -> new NoSuchElementException("User with id " + userId + NOT_FOUND));
     }
 
     private void ensureCanManageUser(Long targetUserId, User actor, String message) {
         boolean isAdmin = actor.getRole() == Role.ADMIN;
         boolean isSelf = actor.getId() != null && actor.getId().equals(targetUserId);
         if (!isAdmin && !isSelf) {
+            throw new AccessDeniedException(message);
+        }
+    }
+
+    private void ensureGlobalAdmin(User actor, String message) {
+        if (actor.getRole() != Role.ADMIN) {
             throw new AccessDeniedException(message);
         }
     }
