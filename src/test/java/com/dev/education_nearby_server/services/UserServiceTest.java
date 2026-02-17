@@ -4,13 +4,16 @@ import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.exceptions.common.ValidationException;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserRoleUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
@@ -22,9 +25,14 @@ import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -148,6 +156,94 @@ class UserServiceTest {
 
         assertThat(user.getPassword()).isEqualTo("new-encoded");
         verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    void getAllUsersReturnsMappedPage() {
+        User first = User.builder()
+                .id(1L)
+                .firstname("First")
+                .lastname("User")
+                .email("first@example.com")
+                .username("first")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        User second = User.builder()
+                .id(2L)
+                .firstname("Second")
+                .lastname("User")
+                .email("second@example.com")
+                .username("second")
+                .role(Role.ADMIN)
+                .enabled(true)
+                .build();
+        Page<User> users = new PageImpl<>(List.of(first, second), PageRequest.of(1, 2), 5);
+        when(userRepository.findAll(any(Pageable.class))).thenReturn(users);
+        when(userReviewRepository.findAverageRatingByReviewedUserId(1L)).thenReturn(4.8);
+        when(userReviewRepository.findAverageRatingByReviewedUserId(2L)).thenReturn(3.9);
+
+        Page<UserResponse> result = userService.getAllUsers(1, 2);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(userRepository).findAll(pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(2);
+
+        assertThat(result.getContent()).extracting(UserResponse::getEmail)
+                .containsExactly("first@example.com", "second@example.com");
+        assertThat(result.getContent()).extracting(UserResponse::getAverageRating)
+                .containsExactly(4.8, 3.9);
+        assertThat(result.getTotalElements()).isEqualTo(5);
+    }
+
+    @Test
+    void getAllUsersThrowsWhenPageIsNegative() {
+        assertThrows(BadRequestException.class, () -> userService.getAllUsers(-1, 10));
+
+        verify(userRepository, never()).findAll(any(Pageable.class));
+    }
+
+    @Test
+    void getAllUsersThrowsWhenSizeIsNotPositive() {
+        assertThrows(BadRequestException.class, () -> userService.getAllUsers(0, 0));
+
+        verify(userRepository, never()).findAll(any(Pageable.class));
+    }
+
+    @Test
+    void getUserByEmailReturnsMappedUser() {
+        User user = User.builder()
+                .id(6L)
+                .firstname("Annie")
+                .lastname("Blackburn")
+                .email("annie@example.com")
+                .username("annie")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        when(userRepository.findByEmailIgnoreCase("annie@example.com")).thenReturn(Optional.of(user));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(6L)).thenReturn(4.3);
+
+        UserResponse response = userService.getUserByEmail("  annie@example.com  ");
+
+        assertThat(response.getId()).isEqualTo(6L);
+        assertThat(response.getEmail()).isEqualTo("annie@example.com");
+        assertThat(response.getAverageRating()).isEqualTo(4.3);
+    }
+
+    @Test
+    void getUserByEmailThrowsWhenEmailIsBlank() {
+        assertThrows(BadRequestException.class, () -> userService.getUserByEmail("   "));
+
+        verify(userRepository, never()).findByEmailIgnoreCase(any());
+    }
+
+    @Test
+    void getUserByEmailThrowsWhenUserIsMissing() {
+        when(userRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class, () -> userService.getUserByEmail("missing@example.com"));
     }
 
     @Test
@@ -351,6 +447,46 @@ class UserServiceTest {
         when(userRepository.findByEmailIgnoreCase("taken@example.com")).thenReturn(Optional.of(duplicate));
 
         assertThrows(ConflictException.class, () -> userService.updateUser(14L, request, principal));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void changeUserRoleAllowsGlobalAdmin() {
+        User admin = User.builder().id(1L).role(Role.ADMIN).build();
+        User target = User.builder()
+                .id(22L)
+                .email("target@example.com")
+                .username("target")
+                .role(Role.USER)
+                .enabled(true)
+                .build();
+        Principal principal = new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities());
+        UserRoleUpdateRequest request = UserRoleUpdateRequest.builder()
+                .role(Role.ADMIN)
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(userRepository.findById(22L)).thenReturn(Optional.of(target));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserResponse response = userService.changeUserRole(22L, request, principal);
+
+        assertThat(target.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(response.getRole()).isEqualTo(Role.ADMIN);
+        verify(userRepository).save(target);
+    }
+
+    @Test
+    void changeUserRoleThrowsWhenActorIsNotGlobalAdmin() {
+        User actor = User.builder().id(2L).role(Role.USER).build();
+        Principal principal = new UsernamePasswordAuthenticationToken(actor, null, actor.getAuthorities());
+        UserRoleUpdateRequest request = UserRoleUpdateRequest.builder()
+                .role(Role.ADMIN)
+                .build();
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
+
+        assertThrows(AccessDeniedException.class, () -> userService.changeUserRole(22L, request, principal));
         verify(userRepository, never()).save(any(User.class));
     }
 

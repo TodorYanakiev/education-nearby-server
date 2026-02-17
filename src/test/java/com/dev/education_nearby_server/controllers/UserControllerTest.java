@@ -1,7 +1,9 @@
 package com.dev.education_nearby_server.controllers;
 
+import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserRoleUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserImageResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
@@ -11,6 +13,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -37,13 +41,14 @@ class UserControllerTest {
                 UserResponse.builder().id(1L).email("one@example.com").build(),
                 UserResponse.builder().id(2L).email("two@example.com").build()
         );
-        when(userService.getAllUsers()).thenReturn(users);
+        Page<UserResponse> pagedUsers = new PageImpl<>(users);
+        when(userService.getAllUsers(0, 9)).thenReturn(pagedUsers);
 
-        ResponseEntity<List<UserResponse>> response = userController.getAllUsers();
+        ResponseEntity<Page<UserResponse>> response = userController.getAllUsers(0, 9);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).containsExactlyElementsOf(users);
-        verify(userService).getAllUsers();
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(pagedUsers);
+        verify(userService).getAllUsers(0, 9);
     }
 
     @Test
@@ -56,6 +61,18 @@ class UserControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(user);
         verify(userService).getUserById(10L);
+    }
+
+    @Test
+    void getUserByEmailReturnsServicePayload() {
+        UserResponse user = UserResponse.builder().id(11L).email("email.lookup@example.com").build();
+        when(userService.getUserByEmail("email.lookup@example.com")).thenReturn(user);
+
+        ResponseEntity<UserResponse> response = userController.getUserByEmail("email.lookup@example.com");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(user);
+        verify(userService).getUserByEmail("email.lookup@example.com");
     }
 
     @Test
@@ -83,6 +100,26 @@ class UserControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(responseBody);
         verify(userService).updateUser(10L, request, principal);
+    }
+
+    @Test
+    void changeUserRoleReturnsServicePayload() {
+        UserRoleUpdateRequest request = UserRoleUpdateRequest.builder()
+                .role(Role.ADMIN)
+                .build();
+        UserResponse responseBody = UserResponse.builder()
+                .id(10L)
+                .email("user@example.com")
+                .role(Role.ADMIN)
+                .build();
+        Principal principal = mock(Principal.class);
+        when(userService.changeUserRole(10L, request, principal)).thenReturn(responseBody);
+
+        ResponseEntity<UserResponse> response = userController.changeUserRole(10L, request, principal);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).usingRecursiveComparison().isEqualTo(responseBody);
+        verify(userService).changeUserRole(10L, request, principal);
     }
 
     @Test

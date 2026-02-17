@@ -5,9 +5,11 @@ import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.ChangePasswordRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
 import com.dev.education_nearby_server.models.dto.request.UserImageRequest;
+import com.dev.education_nearby_server.models.dto.request.UserRoleUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.UserUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.User;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -79,9 +81,12 @@ class UserControllerIT {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        UserResponse[] responses = objectMapper.readValue(result.getResponse().getContentAsString(), UserResponse[].class);
+        JsonNode payload = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode content = payload.path("content");
+        UserResponse[] responses = objectMapper.treeToValue(content, UserResponse[].class);
         List<UserResponse> users = Arrays.asList(responses);
 
+        assertThat(users).hasSize(2);
         assertThat(users).extracting(UserResponse::getEmail)
                 .containsExactlyInAnyOrder(firstUser.getEmail(), secondUser.getEmail());
         assertThat(users).allSatisfy(user -> {
@@ -91,6 +96,8 @@ class UserControllerIT {
             assertThat(user.getLecturedCourseIds()).isEmpty();
             assertThat(user.getLecturedLyceumIds()).isEmpty();
         });
+        assertThat(payload.path("number").asInt()).isEqualTo(0);
+        assertThat(payload.path("size").asInt()).isEqualTo(9);
     }
 
     @Test
@@ -112,6 +119,30 @@ class UserControllerIT {
 
         UserResponse response = objectMapper.readValue(result.getResponse().getContentAsString(), UserResponse.class);
         assertThat(response.getId()).isEqualTo(userId);
+        assertThat(response.getEmail()).isEqualTo(registerRequest.getEmail());
+        assertThat(response.getRole()).isEqualTo(Role.USER);
+        assertThat(response.getLecturedCourseIds()).isEmpty();
+        assertThat(response.getLecturedLyceumIds()).isEmpty();
+    }
+
+    @Test
+    void getUserByEmailReturnsSingleUser() throws Exception {
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .firstname("Norma")
+                .lastname("Jennings")
+                .email("norma@example.com")
+                .username("norma@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        registerViaHttp(registerRequest);
+
+        MvcResult result = mockMvc.perform(get("/api/v1/users/by-email")
+                        .param("email", "  norma@example.com  "))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        UserResponse response = objectMapper.readValue(result.getResponse().getContentAsString(), UserResponse.class);
         assertThat(response.getEmail()).isEqualTo(registerRequest.getEmail());
         assertThat(response.getRole()).isEqualTo(Role.USER);
         assertThat(response.getLecturedCourseIds()).isEmpty();
@@ -301,6 +332,86 @@ class UserControllerIT {
 
         mockMvc.perform(get("/api/v1/users/{userId}", targetUserId))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminCanChangeAnotherUsersRole() throws Exception {
+        RegisterRequest adminRegister = RegisterRequest.builder()
+                .firstname("Major")
+                .lastname("Briggs")
+                .email("major.admin@example.com")
+                .username("major.admin@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        RegisterRequest targetRegister = RegisterRequest.builder()
+                .firstname("Bobby")
+                .lastname("Briggs")
+                .email("bobby@example.com")
+                .username("bobby@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+
+        AuthenticationResponse adminAuth = registerViaHttp(adminRegister);
+        registerViaHttp(targetRegister);
+
+        User admin = userRepository.findByEmail(adminRegister.getEmail()).orElseThrow();
+        admin.setRole(Role.ADMIN);
+        userRepository.save(admin);
+
+        Long targetUserId = userRepository.findByEmail(targetRegister.getEmail()).orElseThrow().getId();
+        UserRoleUpdateRequest roleRequest = UserRoleUpdateRequest.builder()
+                .role(Role.ADMIN)
+                .build();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/role", targetUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + adminAuth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(roleRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(targetUserId))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+
+        User targetAfterUpdate = userRepository.findById(targetUserId).orElseThrow();
+        assertThat(targetAfterUpdate.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void nonAdminCannotChangeUsersRole() throws Exception {
+        RegisterRequest firstUser = RegisterRequest.builder()
+                .firstname("Andy")
+                .lastname("Brennan")
+                .email("andy@example.com")
+                .username("andy@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+        RegisterRequest secondUser = RegisterRequest.builder()
+                .firstname("James")
+                .lastname("Hurley")
+                .email("james@example.com")
+                .username("james@example.com")
+                .password("Password123")
+                .repeatedPassword("Password123")
+                .build();
+
+        AuthenticationResponse firstAuth = registerViaHttp(firstUser);
+        registerViaHttp(secondUser);
+
+        Long secondUserId = userRepository.findByEmail(secondUser.getEmail()).orElseThrow().getId();
+        UserRoleUpdateRequest roleRequest = UserRoleUpdateRequest.builder()
+                .role(Role.ADMIN)
+                .build();
+
+        mockMvc.perform(patch("/api/v1/users/{userId}/role", secondUserId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + firstAuth.getAccessToken())
+                        .content(objectMapper.writeValueAsString(roleRequest)))
+                .andExpect(status().isForbidden());
+
+        User untouched = userRepository.findById(secondUserId).orElseThrow();
+        assertThat(untouched.getRole()).isEqualTo(Role.USER);
     }
 
     @Test
