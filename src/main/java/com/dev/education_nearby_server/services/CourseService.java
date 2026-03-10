@@ -16,6 +16,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
@@ -131,7 +132,7 @@ public class CourseService {
      * @return courses that satisfy the provided filters
      */
     @Transactional(readOnly = true)
-    public Page<CourseResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size, Sort sort) {
+    public Page<CourseFilterResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size, Sort sort) {
         CourseFilterRequest filters = filterRequest != null ? filterRequest : new CourseFilterRequest();
         validatePageRequest(page, size);
 
@@ -184,7 +185,7 @@ public class CourseService {
                 applyActivePeriodFilter,
                 pageable
         );
-        return courses.map(this::mapToResponse);
+        return courses.map(this::mapToFilterResponse);
     }
 
     /**
@@ -828,12 +829,7 @@ public class CourseService {
     }
 
     private CourseResponse mapToResponse(Course course) {
-        CourseImageResponse mainImage = null;
-        if (course.getImages() != null) {
-            mainImage = course.getMainImage()
-                    .map(this::mapToResponse)
-                    .orElse(null);
-        }
+        CourseImageResponse mainImage = resolveMainImage(course);
         return CourseResponse.builder()
                 .id(course.getId())
                 .name(course.getName())
@@ -858,6 +854,46 @@ public class CourseService {
                                 .toList())
                 .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
                 .build();
+    }
+
+    private CourseFilterResponse mapToFilterResponse(Course course) {
+        CourseImageResponse mainImage = resolveMainImage(course);
+        Lyceum lyceum = course.getLyceum();
+        return CourseFilterResponse.builder()
+                .id(course.getId())
+                .name(course.getName())
+                .description(course.getDescription())
+                .type(course.getType())
+                .executionType(course.getExecutionType())
+                .ageGroupList(course.getAgeGroupList())
+                .schedule(course.getSchedule())
+                .mainImage(mainImage)
+                .address(course.getAddress())
+                .price(course.getPrice())
+                .facebookLink(course.getFacebookLink())
+                .websiteLink(course.getWebsiteLink())
+                .lyceumId(lyceum != null ? lyceum.getId() : null)
+                .lyceumTown(lyceum != null ? lyceum.getTown() : null)
+                .lyceumAddress(lyceum != null ? lyceum.getAddress() : null)
+                .achievements(course.getAchievements())
+                .activeStartMonth(course.getActiveStartMonth())
+                .activeEndMonth(course.getActiveEndMonth())
+                .lecturerIds(course.getLecturers() == null ? List.of() :
+                        course.getLecturers().stream()
+                                .map(User::getId)
+                                .filter(Objects::nonNull)
+                                .toList())
+                .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
+                .build();
+    }
+
+    private CourseImageResponse resolveMainImage(Course course) {
+        if (course.getImages() == null) {
+            return null;
+        }
+        return course.getMainImage()
+                .map(this::mapToResponse)
+                .orElse(null);
     }
 
     private String trimToNull(String value) {

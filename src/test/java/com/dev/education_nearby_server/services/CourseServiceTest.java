@@ -16,6 +16,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
@@ -172,7 +173,7 @@ class CourseServiceTest {
         when(courseRepository.filterCourses(anyList(), anyBoolean(), anyList(), anyBoolean(), any(), any(), any(), anyList(), anyBoolean(), any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(course), PageRequest.of(0, 9), 1));
 
-        Page<CourseResponse> responses = courseService.filterCourses(null, 0, 9, Sort.unsorted());
+        Page<CourseFilterResponse> responses = courseService.filterCourses(null, 0, 9, Sort.unsorted());
 
         assertThat(responses.getContent()).hasSize(1);
         assertThat(responses.getContent().getFirst().getId()).isEqualTo(1L);
