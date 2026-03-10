@@ -29,7 +29,7 @@ public class CourseResponse {
     private CourseExecutionType executionType;
     private List<AgeGroup> ageGroupList;
     private CourseSchedule schedule;
-    private List<CourseImageResponse> images;
+    private CourseImageResponse mainImage;
     private String address;
     private Float price;
     private String facebookLink;

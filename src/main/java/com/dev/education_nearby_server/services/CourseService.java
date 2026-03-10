@@ -47,7 +47,6 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -829,7 +828,12 @@ public class CourseService {
     }
 
     private CourseResponse mapToResponse(Course course) {
-        List<CourseImageResponse> images = mapCourseImages(course);
+        CourseImageResponse mainImage = null;
+        if (course.getImages() != null) {
+            mainImage = course.getMainImage()
+                    .map(this::mapToResponse)
+                    .orElse(null);
+        }
         return CourseResponse.builder()
                 .id(course.getId())
                 .name(course.getName())
@@ -838,7 +842,7 @@ public class CourseService {
                 .executionType(course.getExecutionType())
                 .ageGroupList(course.getAgeGroupList())
                 .schedule(course.getSchedule())
-                .images(images)
+                .mainImage(mainImage)
                 .address(course.getAddress())
                 .price(course.getPrice())
                 .facebookLink(course.getFacebookLink())
@@ -854,19 +858,6 @@ public class CourseService {
                                 .toList())
                 .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
                 .build();
-    }
-
-    private List<CourseImageResponse> mapCourseImages(Course course) {
-        if (course.getImages() == null || course.getImages().isEmpty()) {
-            return List.of();
-        }
-        Comparator<CourseImage> ordering = Comparator
-                .comparing(CourseImage::getOrderIndex, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(CourseImage::getId, Comparator.nullsLast(Comparator.naturalOrder()));
-        return course.getImages().stream()
-                .sorted(ordering)
-                .map(this::mapToResponse)
-                .toList();
     }
 
     private String trimToNull(String value) {
