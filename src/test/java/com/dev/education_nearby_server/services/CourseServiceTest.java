@@ -98,7 +98,7 @@ class CourseServiceTest {
 
         assertThat(responses).hasSize(2);
         assertThat(responses.get(0).getId()).isEqualTo(1L);
-        assertThat(responses.get(0).getImages()).isEmpty();
+        assertThat(responses.get(0).getMainImage()).isNull();
         assertThat(responses.get(1).getId()).isEqualTo(2L);
         verify(courseRepository).findAll();
     }
@@ -322,9 +322,9 @@ class CourseServiceTest {
 
         assertThat(response.getId()).isEqualTo(9L);
         assertThat(response.getName()).isEqualTo(course.getName());
-        assertThat(response.getImages()).hasSize(2);
-        assertThat(response.getImages().getFirst().getId()).isEqualTo(1L);
-        assertThat(response.getImages().get(1).getRole()).isEqualTo(ImageRole.MAIN);
+        assertThat(response.getMainImage()).isNotNull();
+        assertThat(response.getMainImage().getId()).isEqualTo(2L);
+        assertThat(response.getMainImage().getRole()).isEqualTo(ImageRole.MAIN);
         assertThat(response.getAverageRating()).isEqualTo(4.4);
         verify(courseRepository).findDetailedById(9L);
     }

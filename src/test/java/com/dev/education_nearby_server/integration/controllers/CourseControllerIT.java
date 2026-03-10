@@ -140,12 +140,11 @@ class CourseControllerIT {
                 .id(courseId)
                 .name("Course")
                 .description("Description")
-                .images(List.of(
-                        CourseImageResponse.builder()
-                                .id(11L)
-                                .url("https://example.com/main.jpg")
-                                .role(ImageRole.MAIN)
-                                .build()))
+                .mainImage(CourseImageResponse.builder()
+                        .id(11L)
+                        .url("https://example.com/main.jpg")
+                        .role(ImageRole.MAIN)
+                        .build())
                 .build();
 
         when(courseService.getCourseById(courseId)).thenReturn(response);
@@ -154,8 +153,8 @@ class CourseControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(courseId))
                 .andExpect(jsonPath("$.name").value("Course"))
-                .andExpect(jsonPath("$.images[0].url").value("https://example.com/main.jpg"))
-                .andExpect(jsonPath("$.images[0].role").value("MAIN"));
+                .andExpect(jsonPath("$.mainImage.url").value("https://example.com/main.jpg"))
+                .andExpect(jsonPath("$.mainImage.role").value("MAIN"));
 
         verify(courseService).getCourseById(courseId);
     }
