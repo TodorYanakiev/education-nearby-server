@@ -829,62 +829,43 @@ public class CourseService {
     }
 
     private CourseResponse mapToResponse(Course course) {
-        CourseImageResponse mainImage = resolveMainImage(course);
-        return CourseResponse.builder()
-                .id(course.getId())
-                .name(course.getName())
-                .description(course.getDescription())
-                .type(course.getType())
-                .executionType(course.getExecutionType())
-                .ageGroupList(course.getAgeGroupList())
-                .schedule(course.getSchedule())
-                .mainImage(mainImage)
-                .address(course.getAddress())
-                .price(course.getPrice())
-                .facebookLink(course.getFacebookLink())
-                .websiteLink(course.getWebsiteLink())
-                .lyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null)
-                .achievements(course.getAchievements())
-                .activeStartMonth(course.getActiveStartMonth())
-                .activeEndMonth(course.getActiveEndMonth())
-                .lecturerIds(course.getLecturers() == null ? List.of() :
-                        course.getLecturers().stream()
-                                .map(User::getId)
-                                .filter(Objects::nonNull)
-                                .toList())
-                .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
-                .build();
+        CourseResponse response = new CourseResponse();
+        populateCourseResponse(course, response);
+        return response;
     }
 
     private CourseFilterResponse mapToFilterResponse(Course course) {
-        CourseImageResponse mainImage = resolveMainImage(course);
+        CourseFilterResponse response = new CourseFilterResponse();
+        populateCourseResponse(course, response);
         Lyceum lyceum = course.getLyceum();
-        return CourseFilterResponse.builder()
-                .id(course.getId())
-                .name(course.getName())
-                .description(course.getDescription())
-                .type(course.getType())
-                .executionType(course.getExecutionType())
-                .ageGroupList(course.getAgeGroupList())
-                .schedule(course.getSchedule())
-                .mainImage(mainImage)
-                .address(course.getAddress())
-                .price(course.getPrice())
-                .facebookLink(course.getFacebookLink())
-                .websiteLink(course.getWebsiteLink())
-                .lyceumId(lyceum != null ? lyceum.getId() : null)
-                .lyceumTown(lyceum != null ? lyceum.getTown() : null)
-                .lyceumAddress(lyceum != null ? lyceum.getAddress() : null)
-                .achievements(course.getAchievements())
-                .activeStartMonth(course.getActiveStartMonth())
-                .activeEndMonth(course.getActiveEndMonth())
-                .lecturerIds(course.getLecturers() == null ? List.of() :
-                        course.getLecturers().stream()
-                                .map(User::getId)
-                                .filter(Objects::nonNull)
-                                .toList())
-                .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
-                .build();
+        response.setLyceumTown(lyceum != null ? lyceum.getTown() : null);
+        response.setLyceumAddress(lyceum != null ? lyceum.getAddress() : null);
+        return response;
+    }
+
+    private void populateCourseResponse(Course course, CourseResponse response) {
+        response.setId(course.getId());
+        response.setName(course.getName());
+        response.setDescription(course.getDescription());
+        response.setType(course.getType());
+        response.setExecutionType(course.getExecutionType());
+        response.setAgeGroupList(course.getAgeGroupList());
+        response.setSchedule(course.getSchedule());
+        response.setMainImage(resolveMainImage(course));
+        response.setAddress(course.getAddress());
+        response.setPrice(course.getPrice());
+        response.setFacebookLink(course.getFacebookLink());
+        response.setWebsiteLink(course.getWebsiteLink());
+        response.setLyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null);
+        response.setAchievements(course.getAchievements());
+        response.setActiveStartMonth(course.getActiveStartMonth());
+        response.setActiveEndMonth(course.getActiveEndMonth());
+        response.setLecturerIds(course.getLecturers() == null ? List.of() :
+                course.getLecturers().stream()
+                        .map(User::getId)
+                        .filter(Objects::nonNull)
+                        .toList());
+        response.setAverageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()));
     }
 
     private CourseImageResponse resolveMainImage(Course course) {

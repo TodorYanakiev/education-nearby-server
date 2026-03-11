@@ -1,45 +1,18 @@
 package com.dev.education_nearby_server.models.dto.response;
 
-import com.dev.education_nearby_server.enums.AgeGroup;
-import com.dev.education_nearby_server.enums.CourseExecutionType;
-import com.dev.education_nearby_server.enums.CourseType;
-import com.dev.education_nearby_server.models.entity.CourseSchedule;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.Month;
-import java.util.List;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Course representation used for filtering responses with lyceum location details.
  */
 @Getter
 @Setter
-@Builder
+@SuperBuilder
 @NoArgsConstructor
-@AllArgsConstructor
-public class CourseFilterResponse {
-    private Long id;
-    private String name;
-    private String description;
-    private CourseType type;
-    private CourseExecutionType executionType;
-    private List<AgeGroup> ageGroupList;
-    private CourseSchedule schedule;
-    private CourseImageResponse mainImage;
-    private String address;
-    private Float price;
-    private String facebookLink;
-    private String websiteLink;
-    private Long lyceumId;
+public class CourseFilterResponse extends CourseResponse {
     private String lyceumTown;
     private String lyceumAddress;
-    private String achievements;
-    private Month activeStartMonth;
-    private Month activeEndMonth;
-    private List<Long> lecturerIds;
-    private Double averageRating;
 }
