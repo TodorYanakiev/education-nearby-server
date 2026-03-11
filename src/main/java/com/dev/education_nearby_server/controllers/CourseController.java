@@ -6,6 +6,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewRequest;
 import com.dev.education_nearby_server.models.dto.request.ReviewUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
@@ -62,7 +63,7 @@ public class CourseController {
      * @return courses that satisfy the filters
      */
     @GetMapping("/filter")
-    public ResponseEntity<Page<CourseResponse>> filterCourses(
+    public ResponseEntity<Page<CourseFilterResponse>> filterCourses(
             @Valid @ModelAttribute CourseFilterRequest request,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "9") Integer size,

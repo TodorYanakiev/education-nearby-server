@@ -788,7 +788,8 @@ class LyceumServiceTest {
                         LyceumResponse::getEmail,
                         LyceumResponse::getLongitude,
                         LyceumResponse::getLatitude,
-                        LyceumResponse::getVerificationStatus)
+                        LyceumResponse::getVerificationStatus,
+                        LyceumResponse::getCoursesCount)
                 .containsExactly(
                         20L,
                         "New Lyceum",
@@ -796,7 +797,8 @@ class LyceumServiceTest {
                         "admin@example.org",
                         23.456,
                         43.21,
-                        VerificationStatus.NOT_VERIFIED);
+                        VerificationStatus.NOT_VERIFIED,
+                        0);
     }
 
     @Test

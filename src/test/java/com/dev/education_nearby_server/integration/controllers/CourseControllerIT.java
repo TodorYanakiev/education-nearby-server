@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
@@ -73,9 +74,9 @@ class CourseControllerIT {
 
     @Test
     void filterCoursesReturnsPayloadWithoutAuthentication() throws Exception {
-        List<CourseResponse> responses = List.of(
-                CourseResponse.builder().id(101L).name("Morning music").type(CourseType.MUSIC).build(),
-                CourseResponse.builder().id(102L).name("Evening sport").type(CourseType.SPORT).build()
+        List<CourseFilterResponse> responses = List.of(
+                CourseFilterResponse.builder().id(101L).name("Morning music").type(CourseType.MUSIC).build(),
+                CourseFilterResponse.builder().id(102L).name("Evening sport").type(CourseType.SPORT).build()
         );
         when(courseService.filterCourses(any(), anyInt(), anyInt(), any()))
                 .thenReturn(new PageImpl<>(responses, PageRequest.of(0, 9), responses.size()));
@@ -140,12 +141,11 @@ class CourseControllerIT {
                 .id(courseId)
                 .name("Course")
                 .description("Description")
-                .images(List.of(
-                        CourseImageResponse.builder()
-                                .id(11L)
-                                .url("https://example.com/main.jpg")
-                                .role(ImageRole.MAIN)
-                                .build()))
+                .mainImage(CourseImageResponse.builder()
+                        .id(11L)
+                        .url("https://example.com/main.jpg")
+                        .role(ImageRole.MAIN)
+                        .build())
                 .build();
 
         when(courseService.getCourseById(courseId)).thenReturn(response);
@@ -154,8 +154,8 @@ class CourseControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(courseId))
                 .andExpect(jsonPath("$.name").value("Course"))
-                .andExpect(jsonPath("$.images[0].url").value("https://example.com/main.jpg"))
-                .andExpect(jsonPath("$.images[0].role").value("MAIN"));
+                .andExpect(jsonPath("$.mainImage.url").value("https://example.com/main.jpg"))
+                .andExpect(jsonPath("$.mainImage.role").value("MAIN"));
 
         verify(courseService).getCourseById(courseId);
     }

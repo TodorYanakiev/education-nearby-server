@@ -47,7 +47,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -953,6 +952,13 @@ public class LyceumService {
         if (lyceum == null) {
             return null;
         }
+        LyceumImageResponse mainImage = null;
+        if (lyceum.getImages() != null) {
+            mainImage = lyceum.getMainImage()
+                    .map(this::mapToResponse)
+                    .orElse(null);
+        }
+        int coursesCount = lyceum.getCourses() == null ? 0 : lyceum.getCourses().size();
         return LyceumResponse.builder()
                 .id(lyceum.getId())
                 .name(lyceum.getName())
@@ -969,9 +975,10 @@ public class LyceumService {
                 .address(lyceum.getAddress())
                 .urlToLibrariesSite(lyceum.getUrlToLibrariesSite())
                 .registrationNumber(lyceum.getRegistrationNumber())
+                .coursesCount(coursesCount)
                 .longitude(lyceum.getLongitude())
                 .latitude(lyceum.getLatitude())
-                .images(mapLyceumImages(lyceum))
+                .mainImage(mainImage)
                 .verificationStatus(lyceum.getVerificationStatus())
                 .averageRating(lyceumReviewRepository.findAverageRatingByLyceumId(lyceum.getId()))
                 .build();
@@ -990,19 +997,6 @@ public class LyceumService {
                 .mimeType(image.getMimeType())
                 .orderIndex(image.getOrderIndex())
                 .build();
-    }
-
-    private List<LyceumImageResponse> mapLyceumImages(Lyceum lyceum) {
-        if (lyceum.getImages() == null || lyceum.getImages().isEmpty()) {
-            return List.of();
-        }
-        Comparator<LyceumImage> ordering = Comparator
-                .comparing(LyceumImage::getOrderIndex, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(LyceumImage::getId, Comparator.nullsLast(Comparator.naturalOrder()));
-        return lyceum.getImages().stream()
-                .sorted(ordering)
-                .map(this::mapToResponse)
-                .toList();
     }
 
     private UserResponse mapToUserResponse(User user) {

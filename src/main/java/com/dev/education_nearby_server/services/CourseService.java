@@ -16,6 +16,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.entity.Course;
@@ -47,7 +48,6 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -132,7 +132,7 @@ public class CourseService {
      * @return courses that satisfy the provided filters
      */
     @Transactional(readOnly = true)
-    public Page<CourseResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size, Sort sort) {
+    public Page<CourseFilterResponse> filterCourses(CourseFilterRequest filterRequest, Integer page, Integer size, Sort sort) {
         CourseFilterRequest filters = filterRequest != null ? filterRequest : new CourseFilterRequest();
         validatePageRequest(page, size);
 
@@ -185,7 +185,7 @@ public class CourseService {
                 applyActivePeriodFilter,
                 pageable
         );
-        return courses.map(this::mapToResponse);
+        return courses.map(this::mapToFilterResponse);
     }
 
     /**
@@ -829,44 +829,52 @@ public class CourseService {
     }
 
     private CourseResponse mapToResponse(Course course) {
-        List<CourseImageResponse> images = mapCourseImages(course);
-        return CourseResponse.builder()
-                .id(course.getId())
-                .name(course.getName())
-                .description(course.getDescription())
-                .type(course.getType())
-                .executionType(course.getExecutionType())
-                .ageGroupList(course.getAgeGroupList())
-                .schedule(course.getSchedule())
-                .images(images)
-                .address(course.getAddress())
-                .price(course.getPrice())
-                .facebookLink(course.getFacebookLink())
-                .websiteLink(course.getWebsiteLink())
-                .lyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null)
-                .achievements(course.getAchievements())
-                .activeStartMonth(course.getActiveStartMonth())
-                .activeEndMonth(course.getActiveEndMonth())
-                .lecturerIds(course.getLecturers() == null ? List.of() :
-                        course.getLecturers().stream()
-                                .map(User::getId)
-                                .filter(Objects::nonNull)
-                                .toList())
-                .averageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()))
-                .build();
+        CourseResponse response = new CourseResponse();
+        populateCourseResponse(course, response);
+        return response;
     }
 
-    private List<CourseImageResponse> mapCourseImages(Course course) {
-        if (course.getImages() == null || course.getImages().isEmpty()) {
-            return List.of();
+    private CourseFilterResponse mapToFilterResponse(Course course) {
+        CourseFilterResponse response = new CourseFilterResponse();
+        populateCourseResponse(course, response);
+        Lyceum lyceum = course.getLyceum();
+        response.setLyceumTown(lyceum != null ? lyceum.getTown() : null);
+        response.setLyceumAddress(lyceum != null ? lyceum.getAddress() : null);
+        return response;
+    }
+
+    private void populateCourseResponse(Course course, CourseResponse response) {
+        response.setId(course.getId());
+        response.setName(course.getName());
+        response.setDescription(course.getDescription());
+        response.setType(course.getType());
+        response.setExecutionType(course.getExecutionType());
+        response.setAgeGroupList(course.getAgeGroupList());
+        response.setSchedule(course.getSchedule());
+        response.setMainImage(resolveMainImage(course));
+        response.setAddress(course.getAddress());
+        response.setPrice(course.getPrice());
+        response.setFacebookLink(course.getFacebookLink());
+        response.setWebsiteLink(course.getWebsiteLink());
+        response.setLyceumId(course.getLyceum() != null ? course.getLyceum().getId() : null);
+        response.setAchievements(course.getAchievements());
+        response.setActiveStartMonth(course.getActiveStartMonth());
+        response.setActiveEndMonth(course.getActiveEndMonth());
+        response.setLecturerIds(course.getLecturers() == null ? List.of() :
+                course.getLecturers().stream()
+                        .map(User::getId)
+                        .filter(Objects::nonNull)
+                        .toList());
+        response.setAverageRating(courseReviewRepository.findAverageRatingByCourseId(course.getId()));
+    }
+
+    private CourseImageResponse resolveMainImage(Course course) {
+        if (course.getImages() == null) {
+            return null;
         }
-        Comparator<CourseImage> ordering = Comparator
-                .comparing(CourseImage::getOrderIndex, Comparator.nullsLast(Comparator.naturalOrder()))
-                .thenComparing(CourseImage::getId, Comparator.nullsLast(Comparator.naturalOrder()));
-        return course.getImages().stream()
-                .sorted(ordering)
+        return course.getMainImage()
                 .map(this::mapToResponse)
-                .toList();
+                .orElse(null);
     }
 
     private String trimToNull(String value) {

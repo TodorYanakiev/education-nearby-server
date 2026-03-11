@@ -8,6 +8,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
+import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.services.CourseService;
@@ -77,17 +78,17 @@ class CourseControllerTest {
                 .maxPrice(50.0f)
                 .recurrence(ScheduleRecurrence.WEEKLY)
                 .build();
-        Page<CourseResponse> responses = new PageImpl<>(
+        Page<CourseFilterResponse> responses = new PageImpl<>(
                 List.of(
-                        CourseResponse.builder().id(3L).name("Music course").build(),
-                        CourseResponse.builder().id(4L).name("Sport course").build()
+                        CourseFilterResponse.builder().id(3L).name("Music course").build(),
+                        CourseFilterResponse.builder().id(4L).name("Sport course").build()
                 ),
                 PageRequest.of(0, 9),
                 2
         );
         when(courseService.filterCourses(request, 0, 9, Sort.unsorted())).thenReturn(responses);
 
-        ResponseEntity<Page<CourseResponse>> result = courseController.filterCourses(request, 0, 9, Sort.unsorted());
+        ResponseEntity<Page<CourseFilterResponse>> result = courseController.filterCourses(request, 0, 9, Sort.unsorted());
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(responses);
