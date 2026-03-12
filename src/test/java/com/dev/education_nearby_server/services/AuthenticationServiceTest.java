@@ -22,7 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -55,7 +55,7 @@ class AuthenticationServiceTest {
     @Mock
     private JwtService jwtService;
     @Mock
-    private AuthenticationManager authenticationManager;
+    private AuthenticationProvider authenticationProvider;
     @Mock
     private LyceumService lyceumService;
 
@@ -200,7 +200,7 @@ class AuthenticationServiceTest {
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
         Authentication authentication = new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword());
-        doReturn(authentication).when(authenticationManager).authenticate(any(Authentication.class));
+        doReturn(authentication).when(authenticationProvider).authenticate(any(Authentication.class));
         when(tokenRepository.findAllValidTokenByUser(user.getId())).thenReturn(List.of(existingToken));
         when(jwtService.generateToken(user)).thenReturn("new-access");
         when(jwtService.generateRefreshToken(user)).thenReturn("new-refresh");
@@ -213,7 +213,7 @@ class AuthenticationServiceTest {
         assertThat(existingToken.isRevoked()).isTrue();
 
         ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
-        verify(authenticationManager).authenticate(authCaptor.capture());
+        verify(authenticationProvider).authenticate(authCaptor.capture());
         Authentication authRequest = authCaptor.getValue();
         assertThat(authRequest).isInstanceOf(UsernamePasswordAuthenticationToken.class);
         assertEquals(request.getEmail(), authRequest.getPrincipal());

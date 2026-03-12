@@ -192,6 +192,10 @@ public class UserService {
     public void changePassword(ChangePasswordRequest request, Principal connectedUser) {
         User user = resolveUser(connectedUser);
 
+        if (!StringUtils.hasText(user.getPassword())) {
+            throw new ValidationException("Password is not set for this account.");
+        }
+
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new ValidationException("Wrong password");
         }

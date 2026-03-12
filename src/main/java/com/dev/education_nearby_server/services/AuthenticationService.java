@@ -1,6 +1,7 @@
 package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.JwtService;
+import com.dev.education_nearby_server.enums.AuthProvider;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
@@ -19,7 +20,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,7 +39,7 @@ public class AuthenticationService {
     private final TokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
+    private final AuthenticationProvider authenticationProvider;
     private final ObjectMapper objectMapper;
     private final LyceumService lyceumService;
 
@@ -64,17 +65,14 @@ public class AuthenticationService {
                 .username(request.getUsername())
                 .description(trimToNull(request.getDescription()))
                 .role(Role.USER)
+                .authProvider(AuthProvider.LOCAL)
+                .emailVerified(true)
+                .registrationComplete(true)
                 .enabled(true)
                 .build();
         User savedUser = repository.save(user);
         lyceumService.acceptLecturerInvitationsFor(savedUser);
-        String jwtToken = jwtService.generateToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-        saveUserToken(savedUser, jwtToken);
-        return AuthenticationResponse.builder()
-                .accessToken(jwtToken)
-                .refreshToken(refreshToken)
-                .build();
+        return issueTokens(savedUser);
     }
 
     /**
@@ -88,12 +86,22 @@ public class AuthenticationService {
             .orElseThrow(() -> new UnauthorizedException("Invalid credentials!"));
         if (!user.isEnabled())
             throw new AccessDeniedException("The user is disabled");
-        authenticationManager.authenticate(
+        authenticationProvider.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
                         request.getPassword()
                 )
         );
+        return issueTokens(user);
+    }
+
+    /**
+     * Issues a fresh access/refresh token pair for the provided user and revokes previous access tokens.
+     *
+     * @param user authenticated user
+     * @return token pair for API usage
+     */
+    public AuthenticationResponse issueTokens(User user) {
         String jwtToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
         revokeAllUserTokens(user);
