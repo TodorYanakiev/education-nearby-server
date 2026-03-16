@@ -1222,6 +1222,48 @@ class CourseServiceTest {
     }
 
     @Test
+    void subscribeToCourseAddsSubscriptionWhenMissing() {
+        Course course = createCourseEntity(58L);
+        when(courseRepository.findById(58L)).thenReturn(Optional.of(course));
+
+        User user = createUser(95L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>());
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        courseService.subscribeToCourse(58L);
+
+        assertThat(user.getSubscribedCourses()).hasSize(1);
+        assertThat(user.getSubscribedCourses().getFirst().getId()).isEqualTo(58L);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void subscribeToCourseSkipsDuplicateSubscription() {
+        Course course = createCourseEntity(59L);
+        when(courseRepository.findById(59L)).thenReturn(Optional.of(course));
+
+        User user = createUser(96L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>(List.of(course)));
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        courseService.subscribeToCourse(59L);
+
+        assertThat(user.getSubscribedCourses()).hasSize(1);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void subscribeToCourseThrowsWhenUnauthenticated() {
+        Course course = createCourseEntity(60L);
+        when(courseRepository.findById(60L)).thenReturn(Optional.of(course));
+
+        assertThrows(UnauthorizedException.class, () -> courseService.subscribeToCourse(60L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     void deleteCourseImageThrowsWhenImageBelongsToDifferentCourse() {
         Course requested = createCourseEntity(14L);
         Course other = createCourseEntity(99L);

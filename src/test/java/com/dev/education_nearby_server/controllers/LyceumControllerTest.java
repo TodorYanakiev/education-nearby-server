@@ -126,6 +126,15 @@ class LyceumControllerTest {
     }
 
     @Test
+    void subscribeToLyceumReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.subscribeToLyceum(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).subscribeToLyceum(1L);
+    }
+
+    @Test
     void getLyceumsByIdsReturnsServiceResponse() {
         List<Long> ids = List.of(1L, 2L);
         List<LyceumResponse> lyceums = List.of(lyceumResponse);

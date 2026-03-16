@@ -580,6 +580,35 @@ public class LyceumService {
     }
 
     /**
+     * Subscribes the authenticated user to a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional
+    public void subscribeToLyceum(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+
+        if (currentUser.getSubscribedLyceums() == null) {
+            currentUser.setSubscribedLyceums(new ArrayList<>());
+        }
+        boolean alreadySubscribed = currentUser.getSubscribedLyceums().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lyceum.getId()));
+        if (!alreadySubscribed) {
+            currentUser.getSubscribedLyceums().add(lyceum);
+            if (lyceum.getSubscribers() != null) {
+                boolean userAlreadyMapped = lyceum.getSubscribers().stream()
+                        .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
+                if (!userAlreadyMapped) {
+                    lyceum.getSubscribers().add(currentUser);
+                }
+            }
+        }
+
+        userRepository.save(currentUser);
+    }
+
+    /**
      * Lists images for a given lyceum id.
      *
      * @param lyceumId lyceum identifier

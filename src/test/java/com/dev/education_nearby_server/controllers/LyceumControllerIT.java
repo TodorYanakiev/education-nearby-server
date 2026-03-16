@@ -147,6 +147,25 @@ class LyceumControllerIT {
     }
 
     @Test
+    void subscribeToLyceumRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribe", 2L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void subscribeToLyceumReturnsNoContent() throws Exception {
+        Long lyceumId = 2L;
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).subscribeToLyceum(lyceumId);
+    }
+
+    @Test
     void getLyceumImagesReturnsPayload() throws Exception {
         Long lyceumId = 12L;
         List<LyceumImageResponse> responses = List.of(

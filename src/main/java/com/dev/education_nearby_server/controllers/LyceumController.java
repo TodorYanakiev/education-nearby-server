@@ -98,6 +98,18 @@ public class LyceumController {
     }
 
     /**
+     * Subscribes the authenticated user to a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return empty 204 on success
+     */
+    @PostMapping("/{lyceumId}/subscribe")
+    public ResponseEntity<Void> subscribeToLyceum(@PathVariable Long lyceumId) {
+        lyceumService.subscribeToLyceum(lyceumId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Fetches lyceums that match the provided ids.
      *
      * @param ids list of lyceum identifiers

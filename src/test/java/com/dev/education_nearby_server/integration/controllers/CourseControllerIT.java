@@ -342,6 +342,25 @@ class CourseControllerIT {
     }
 
     @Test
+    void subscribeToCourseRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribe", 40L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void subscribeToCourseReturnsNoContent() throws Exception {
+        Long courseId = 41L;
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(courseService).subscribeToCourse(courseId);
+    }
+
+    @Test
     void deleteCourseRequiresAuthentication() throws Exception {
         mockMvc.perform(delete("/api/v1/courses/{courseId}", 21L))
                 .andExpect(status().isUnauthorized());

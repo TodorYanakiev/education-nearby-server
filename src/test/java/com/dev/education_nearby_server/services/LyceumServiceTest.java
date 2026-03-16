@@ -183,6 +183,48 @@ class LyceumServiceTest {
     }
 
     @Test
+    void subscribeToLyceumAddsSubscriptionWhenMissing() {
+        Lyceum lyceum = createLyceum(6L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(6L)).thenReturn(Optional.of(lyceum));
+
+        User user = createUser(30L);
+        user.setSubscribedLyceums(new ArrayList<>());
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        lyceumService.subscribeToLyceum(6L);
+
+        assertThat(user.getSubscribedLyceums()).hasSize(1);
+        assertThat(user.getSubscribedLyceums().getFirst().getId()).isEqualTo(6L);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void subscribeToLyceumSkipsDuplicateSubscription() {
+        Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
+
+        User user = createUser(31L);
+        user.setSubscribedLyceums(new ArrayList<>(List.of(lyceum)));
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        lyceumService.subscribeToLyceum(7L);
+
+        assertThat(user.getSubscribedLyceums()).hasSize(1);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void subscribeToLyceumThrowsWhenUnauthenticated() {
+        Lyceum lyceum = createLyceum(8L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(8L)).thenReturn(Optional.of(lyceum));
+
+        assertThrows(UnauthorizedException.class, () -> lyceumService.subscribeToLyceum(8L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     void getLyceumsByIdsReturnsRepositoryResult() {
         Lyceum first = createLyceum(1L, "First", "Sofia", "first@example.com");
         Lyceum second = createLyceum(2L, "Second", "Varna", "second@example.com");

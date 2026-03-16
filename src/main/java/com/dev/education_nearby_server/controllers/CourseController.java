@@ -153,6 +153,19 @@ public class CourseController {
     }
 
     /**
+     * Subscribes the authenticated user to a course.
+     *
+     * @param courseId course identifier
+     * @return empty 204 on success
+     */
+    @PostMapping("/{courseId}/subscribe")
+    public ResponseEntity<Void> subscribeToCourse(@PathVariable Long courseId) {
+        log.debug("Subscribe to course request received. courseId={}", courseId);
+        courseService.subscribeToCourse(courseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Registers a new course image; validates S3 key/url and role before saving.
      *
      * @param courseId course identifier

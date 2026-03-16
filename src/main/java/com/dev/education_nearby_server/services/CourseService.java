@@ -394,6 +394,35 @@ public class CourseService {
         courseRepository.save(course);
     }
 
+    /**
+     * Subscribes the authenticated user to a course.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional
+    public void subscribeToCourse(Long courseId) {
+        Course course = requireCourse(courseId, false);
+        User currentUser = getManagedCurrentUser();
+
+        if (currentUser.getSubscribedCourses() == null) {
+            currentUser.setSubscribedCourses(new ArrayList<>());
+        }
+        boolean alreadySubscribed = currentUser.getSubscribedCourses().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(course.getId()));
+        if (!alreadySubscribed) {
+            currentUser.getSubscribedCourses().add(course);
+            if (course.getSubscribers() != null) {
+                boolean userAlreadyMapped = course.getSubscribers().stream()
+                        .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
+                if (!userAlreadyMapped) {
+                    course.getSubscribers().add(currentUser);
+                }
+            }
+        }
+
+        userRepository.save(currentUser);
+    }
+
     private CourseUpdateRequest requireValidCourseUpdateRequest(CourseUpdateRequest request) {
         if (request == null) {
             throw new BadRequestException("Course payload must not be null.");
