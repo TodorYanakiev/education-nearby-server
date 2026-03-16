@@ -114,4 +114,7 @@ public class Lyceum implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private List<User> lecturers = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "subscribedLyceums")
+    private List<User> subscribers = new ArrayList<>();
 }

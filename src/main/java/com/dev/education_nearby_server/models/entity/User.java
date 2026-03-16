@@ -13,6 +13,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -105,6 +106,22 @@ public class User implements UserDetails, Serializable {
 
     @ManyToMany(mappedBy = "lecturers")
     private List<Lyceum> lecturedLyceums = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "user_course_subscriptions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "course_id")
+    )
+    private List<Course> subscribedCourses = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "user_lyceum_subscriptions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "lyceum_id")
+    )
+    private List<Lyceum> subscribedLyceums = new ArrayList<>();
 
     @NotNull
     @Enumerated(EnumType.STRING)
