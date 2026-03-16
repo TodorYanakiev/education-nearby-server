@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.models.entity;
 
+import com.dev.education_nearby_server.enums.AuthProvider;
 import com.dev.education_nearby_server.enums.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,6 +23,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.validator.constraints.Length;
@@ -71,9 +73,24 @@ public class User implements UserDetails, Serializable {
     @Column(unique = true)
     private String username;
 
-    @NotNull(message = "The password should not be null!")
     @Length(min = 8, message = "The length should be at least 8!")
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false)
+    @Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    @Column(name = "auth_provider_id")
+    private String authProviderId;
+
+    @Column(name = "email_verified", nullable = false)
+    @Default
+    private boolean emailVerified = true;
+
+    @Column(name = "registration_complete", nullable = false)
+    @Default
+    private boolean registrationComplete = true;
 
     @Length(max = 500, message = "Description must be at most 500 characters.")
     @Column(length = 500)

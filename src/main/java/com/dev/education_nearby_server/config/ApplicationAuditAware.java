@@ -28,7 +28,10 @@ public class ApplicationAuditAware implements AuditorAware<Long> {
             return Optional.empty();
         }
 
-        User userPrincipal = (User) authentication.getPrincipal();
-        return Optional.ofNullable(userPrincipal.getId());
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof User userPrincipal) {
+            return Optional.ofNullable(userPrincipal.getId());
+        }
+        return Optional.empty();
     }
 }

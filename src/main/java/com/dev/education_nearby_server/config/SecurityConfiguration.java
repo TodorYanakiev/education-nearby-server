@@ -1,5 +1,8 @@
 package com.dev.education_nearby_server.config;
 
+import com.dev.education_nearby_server.config.oauth2.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.dev.education_nearby_server.config.oauth2.OAuth2AuthenticationFailureHandler;
+import com.dev.education_nearby_server.config.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.exceptions.handlers.JwtAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,8 @@ public class SecurityConfiguration {
     private static final String API_V1_USERS = "/api/v1/users/**";
 
     private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
+            "/oauth2/**",
+            "/login/oauth2/**",
             "/v2/api-docs",
             "/v3/api-docs",
             "/v3/api-docs/**",
@@ -53,6 +58,9 @@ public class SecurityConfiguration {
     private final AuthenticationProvider authenticationProvider;
     private final LogoutHandler logoutHandler;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+    private final HttpCookieOAuth2AuthorizationRequestRepository authorizationRequestRepository;
 
 
     /**
@@ -91,6 +99,13 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(endpoint -> endpoint.authorizationRequestRepository(
+                                authorizationRequestRepository
+                        ))
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler)
+                )
                 .logout(logout ->
                         logout.logoutUrl("/api/v1/auth/logout")
                                 .addLogoutHandler(logoutHandler)

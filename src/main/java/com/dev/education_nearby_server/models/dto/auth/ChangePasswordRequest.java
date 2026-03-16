@@ -20,7 +20,10 @@ import com.dev.education_nearby_server.validation.FieldMatch;
 @FieldMatch(first = "newPassword", second = "confirmationPassword", message = "Passwords do not match!")
 public class ChangePasswordRequest {
 
-    @NotBlank(message = "Current password must not be blank!")
+    /**
+     * Optional for OAuth2-only accounts that do not yet have a local password.
+     * Required by service logic when an existing password is present.
+     */
     private String currentPassword;
 
     @NotBlank(message = "New password must not be blank!")

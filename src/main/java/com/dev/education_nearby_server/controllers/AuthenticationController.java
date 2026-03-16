@@ -3,7 +3,9 @@ package com.dev.education_nearby_server.controllers;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
+import com.dev.education_nearby_server.models.dto.auth.OAuth2CompleteRegistrationRequest;
 import com.dev.education_nearby_server.services.AuthenticationService;
+import com.dev.education_nearby_server.services.oauth2.OAuth2AuthenticationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import java.io.IOException;
 public class AuthenticationController {
 
     private final AuthenticationService service;
+    private final OAuth2AuthenticationService oAuth2AuthenticationService;
 
     /**
      * Registers a new user account and returns authentication tokens.
@@ -65,5 +68,18 @@ public class AuthenticationController {
             HttpServletResponse response
     ) throws IOException {
         service.refreshToken(request, response);
+    }
+
+    /**
+     * Completes OAuth2 registration by providing application-specific fields.
+     *
+     * @param request completion payload
+     * @return access/refresh tokens on success
+     */
+    @PostMapping("/oauth2/complete")
+    public ResponseEntity<AuthenticationResponse> completeOauth2Registration(
+            @Valid @RequestBody OAuth2CompleteRegistrationRequest request
+    ) {
+        return ResponseEntity.ok(oAuth2AuthenticationService.completeRegistration(request));
     }
 }

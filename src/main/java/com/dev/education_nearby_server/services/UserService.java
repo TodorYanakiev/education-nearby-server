@@ -192,8 +192,13 @@ public class UserService {
     public void changePassword(ChangePasswordRequest request, Principal connectedUser) {
         User user = resolveUser(connectedUser);
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new ValidationException("Wrong password");
+        if (StringUtils.hasText(user.getPassword())) {
+            if (!StringUtils.hasText(request.getCurrentPassword())) {
+                throw new ValidationException("Current password is required.");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new ValidationException("Wrong password");
+            }
         }
 
         if (!request.getNewPassword().equals(request.getConfirmationPassword())) {

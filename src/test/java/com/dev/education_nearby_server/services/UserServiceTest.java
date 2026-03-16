@@ -48,6 +48,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -88,6 +89,25 @@ class UserServiceTest {
         when(passwordEncoder.matches("old", "encoded")).thenReturn(false);
 
         assertThrows(ValidationException.class, () -> userService.changePassword(request, principal));
+    }
+
+    @Test
+    void changePasswordThrowsWhenCurrentPasswordMissingForLocalAccount() {
+        User user = User.builder()
+                .id(1L)
+                .password("encoded")
+                .role(Role.USER)
+                .build();
+        Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        ChangePasswordRequest request = ChangePasswordRequest.builder()
+                .currentPassword("   ")
+                .newPassword("newPassword123")
+                .confirmationPassword("newPassword123")
+                .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThrows(ValidationException.class, () -> userService.changePassword(request, principal));
+        verifyNoInteractions(passwordEncoder);
     }
 
     @Test
@@ -156,6 +176,30 @@ class UserServiceTest {
 
         assertThat(user.getPassword()).isEqualTo("new-encoded");
         verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    void changePasswordForOauthOnlyAccountSetsFirstPasswordWithoutCurrentPassword() {
+        User user = User.builder()
+                .id(1L)
+                .password(null)
+                .role(Role.USER)
+                .build();
+        Principal principal = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        ChangePasswordRequest request = ChangePasswordRequest.builder()
+                .currentPassword(null)
+                .newPassword("newPassword123")
+                .confirmationPassword("newPassword123")
+                .build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded");
+
+        userService.changePassword(request, principal);
+
+        assertThat(user.getPassword()).isEqualTo("new-encoded");
+        verify(userRepository).save(any(User.class));
+        verify(passwordEncoder).encode("newPassword123");
+        verifyNoMoreInteractions(passwordEncoder);
     }
 
     @Test
