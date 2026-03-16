@@ -29,6 +29,7 @@ public final class CookieUtils {
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
+        cookie.setSecure(true);
         cookie.setMaxAge(maxAge);
         response.addCookie(cookie);
     }
@@ -41,6 +42,8 @@ public final class CookieUtils {
             if (name.equals(cookie.getName())) {
                 Cookie deleteCookie = new Cookie(name, "");
                 deleteCookie.setPath("/");
+                deleteCookie.setHttpOnly(true);
+                deleteCookie.setSecure(true);
                 deleteCookie.setMaxAge(0);
                 response.addCookie(deleteCookie);
             }

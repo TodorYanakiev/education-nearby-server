@@ -2,8 +2,10 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
+import com.dev.education_nearby_server.models.dto.auth.OAuth2CompleteRegistrationRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
 import com.dev.education_nearby_server.services.AuthenticationService;
+import com.dev.education_nearby_server.services.oauth2.OAuth2AuthenticationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,6 +29,8 @@ class AuthenticationControllerTest {
 
     @Mock
     private AuthenticationService authenticationService;
+    @Mock
+    private OAuth2AuthenticationService oauth2AuthenticationService;
 
     @InjectMocks
     private AuthenticationController controller;
@@ -78,5 +82,27 @@ class AuthenticationControllerTest {
         controller.refreshToken(request, response);
 
         verify(authenticationService).refreshToken(any(), any());
+    }
+
+    @Test
+    void completeOauth2RegistrationDelegatesToService() {
+        OAuth2CompleteRegistrationRequest request = OAuth2CompleteRegistrationRequest.builder()
+                .registrationToken("token")
+                .username("new-user")
+                .email("new-user@example.com")
+                .firstname("New")
+                .lastname("User")
+                .build();
+        AuthenticationResponse response = AuthenticationResponse.builder()
+                .accessToken("access")
+                .refreshToken("refresh")
+                .build();
+        when(oauth2AuthenticationService.completeRegistration(request)).thenReturn(response);
+
+        ResponseEntity<AuthenticationResponse> result = controller.completeOauth2Registration(request);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertThat(result.getBody()).isEqualTo(response);
+        verify(oauth2AuthenticationService).completeRegistration(request);
     }
 }
