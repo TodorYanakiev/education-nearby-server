@@ -4,6 +4,8 @@ import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.ScheduleRecurrence;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
@@ -33,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -358,6 +361,55 @@ class CourseControllerIT {
                 .andExpect(status().isNoContent());
 
         verify(courseService).subscribeToCourse(courseId);
+    }
+
+    @Test
+    void subscribeToCourseMapsConflict() throws Exception {
+        Long courseId = 42L;
+        doThrow(new ConflictException("You are already subscribed to this course."))
+                .when(courseService).subscribeToCourse(courseId);
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("You are already subscribed to this course."))
+                .andExpect(jsonPath("$.status").value("CONFLICT"));
+
+        verify(courseService).subscribeToCourse(courseId);
+    }
+
+    @Test
+    void unsubscribeFromCourseRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/api/v1/courses/{courseId}/subscribe", 41L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void unsubscribeFromCourseReturnsNoContent() throws Exception {
+        Long courseId = 42L;
+
+        mockMvc.perform(delete("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(courseService).unsubscribeFromCourse(courseId);
+    }
+
+    @Test
+    void unsubscribeFromCourseMapsBadRequest() throws Exception {
+        Long courseId = 43L;
+        doThrow(new BadRequestException("You are not subscribed to this course."))
+                .when(courseService).unsubscribeFromCourse(courseId);
+
+        mockMvc.perform(delete("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("You are not subscribed to this course."))
+                .andExpect(jsonPath("$.status").value("BAD_REQUEST"));
+
+        verify(courseService).unsubscribeFromCourse(courseId);
     }
 
     @Test

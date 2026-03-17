@@ -594,15 +594,48 @@ public class LyceumService {
         }
         boolean alreadySubscribed = currentUser.getSubscribedLyceums().stream()
                 .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lyceum.getId()));
-        if (!alreadySubscribed) {
-            currentUser.getSubscribedLyceums().add(lyceum);
-            if (lyceum.getSubscribers() != null) {
-                boolean userAlreadyMapped = lyceum.getSubscribers().stream()
-                        .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
-                if (!userAlreadyMapped) {
-                    lyceum.getSubscribers().add(currentUser);
-                }
+        if (alreadySubscribed) {
+            throw new ConflictException("You are already subscribed to this lyceum.");
+        }
+
+        currentUser.getSubscribedLyceums().add(lyceum);
+        if (lyceum.getSubscribers() != null) {
+            boolean userAlreadyMapped = lyceum.getSubscribers().stream()
+                    .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
+            if (!userAlreadyMapped) {
+                lyceum.getSubscribers().add(currentUser);
             }
+        }
+
+        userRepository.save(currentUser);
+    }
+
+    /**
+     * Unsubscribes the authenticated user from a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional
+    public void unsubscribeFromLyceum(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+
+        List<Lyceum> subscribedLyceums = currentUser.getSubscribedLyceums();
+        if (subscribedLyceums == null || subscribedLyceums.isEmpty()) {
+            throw new BadRequestException("You are not subscribed to this lyceum.");
+        }
+
+        boolean removed = subscribedLyceums.removeIf(
+                existing -> existing.getId() != null && existing.getId().equals(lyceum.getId())
+        );
+        if (!removed) {
+            throw new BadRequestException("You are not subscribed to this lyceum.");
+        }
+
+        if (lyceum.getSubscribers() != null) {
+            lyceum.getSubscribers().removeIf(
+                    existing -> existing.getId() != null && existing.getId().equals(currentUser.getId())
+            );
         }
 
         userRepository.save(currentUser);

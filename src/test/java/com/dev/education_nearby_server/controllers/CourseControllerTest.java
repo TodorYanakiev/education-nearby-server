@@ -179,6 +179,17 @@ class CourseControllerTest {
     }
 
     @Test
+    void unsubscribeFromCourseReturnsNoContent() {
+        Long courseId = 22L;
+
+        ResponseEntity<Void> result = courseController.unsubscribeFromCourse(courseId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(result.hasBody()).isFalse();
+        verify(courseService).unsubscribeFromCourse(courseId);
+    }
+
+    @Test
     void getCourseImagesReturnsResponseFromService() {
         Long courseId = 7L;
         List<CourseImageResponse> responses = List.of(

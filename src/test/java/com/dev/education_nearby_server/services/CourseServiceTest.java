@@ -1239,7 +1239,7 @@ class CourseServiceTest {
     }
 
     @Test
-    void subscribeToCourseSkipsDuplicateSubscription() {
+    void subscribeToCourseThrowsWhenAlreadySubscribed() {
         Course course = createCourseEntity(59L);
         when(courseRepository.findById(59L)).thenReturn(Optional.of(course));
 
@@ -1248,10 +1248,10 @@ class CourseServiceTest {
         authenticate(user);
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
-        courseService.subscribeToCourse(59L);
+        assertThrows(ConflictException.class, () -> courseService.subscribeToCourse(59L));
 
         assertThat(user.getSubscribedCourses()).hasSize(1);
-        verify(userRepository).save(user);
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -1261,6 +1261,53 @@ class CourseServiceTest {
 
         assertThrows(UnauthorizedException.class, () -> courseService.subscribeToCourse(60L));
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromCourseRemovesSubscriptionWhenPresent() {
+        Course course = createCourseEntity(61L);
+        when(courseRepository.findById(61L)).thenReturn(Optional.of(course));
+
+        User user = createUser(97L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>(List.of(course)));
+        course.setSubscribers(new ArrayList<>(List.of(user)));
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        courseService.unsubscribeFromCourse(61L);
+
+        assertThat(user.getSubscribedCourses()).isEmpty();
+        assertThat(course.getSubscribers()).isEmpty();
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void unsubscribeFromCourseThrowsWhenNotSubscribed() {
+        Course course = createCourseEntity(62L);
+        when(courseRepository.findById(62L)).thenReturn(Optional.of(course));
+
+        User user = createUser(98L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>());
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(BadRequestException.class, () -> courseService.unsubscribeFromCourse(62L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromCourseThrowsWhenUnauthenticated() {
+        Course course = createCourseEntity(63L);
+        when(courseRepository.findById(63L)).thenReturn(Optional.of(course));
+
+        assertThrows(UnauthorizedException.class, () -> courseService.unsubscribeFromCourse(63L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromCourseThrowsWhenCourseIdMissing() {
+        assertThrows(BadRequestException.class, () -> courseService.unsubscribeFromCourse(null));
+        verifyNoInteractions(courseRepository, userRepository);
     }
 
     @Test

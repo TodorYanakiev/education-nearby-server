@@ -110,6 +110,18 @@ public class LyceumController {
     }
 
     /**
+     * Unsubscribes the authenticated user from a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{lyceumId}/subscribe")
+    public ResponseEntity<Void> unsubscribeFromLyceum(@PathVariable Long lyceumId) {
+        lyceumService.unsubscribeFromLyceum(lyceumId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Fetches lyceums that match the provided ids.
      *
      * @param ids list of lyceum identifiers

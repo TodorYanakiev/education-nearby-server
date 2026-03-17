@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
@@ -163,6 +164,55 @@ class LyceumControllerIT {
                 .andExpect(status().isNoContent());
 
         verify(lyceumService).subscribeToLyceum(lyceumId);
+    }
+
+    @Test
+    void subscribeToLyceumMapsConflict() throws Exception {
+        Long lyceumId = 3L;
+        doThrow(new ConflictException("You are already subscribed to this lyceum."))
+                .when(lyceumService).subscribeToLyceum(lyceumId);
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("You are already subscribed to this lyceum."))
+                .andExpect(jsonPath("$.status").value("CONFLICT"));
+
+        verify(lyceumService).subscribeToLyceum(lyceumId);
+    }
+
+    @Test
+    void unsubscribeFromLyceumRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/subscribe", 2L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void unsubscribeFromLyceumReturnsNoContent() throws Exception {
+        Long lyceumId = 3L;
+
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).unsubscribeFromLyceum(lyceumId);
+    }
+
+    @Test
+    void unsubscribeFromLyceumMapsBadRequest() throws Exception {
+        Long lyceumId = 4L;
+        doThrow(new BadRequestException("You are not subscribed to this lyceum."))
+                .when(lyceumService).unsubscribeFromLyceum(lyceumId);
+
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("You are not subscribed to this lyceum."))
+                .andExpect(jsonPath("$.status").value("BAD_REQUEST"));
+
+        verify(lyceumService).unsubscribeFromLyceum(lyceumId);
     }
 
     @Test

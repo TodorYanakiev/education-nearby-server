@@ -200,7 +200,7 @@ class LyceumServiceTest {
     }
 
     @Test
-    void subscribeToLyceumSkipsDuplicateSubscription() {
+    void subscribeToLyceumThrowsWhenAlreadySubscribed() {
         Lyceum lyceum = createLyceum(7L, "Lyceum", "Varna", "contact@example.com");
         when(lyceumRepository.findById(7L)).thenReturn(Optional.of(lyceum));
 
@@ -209,10 +209,10 @@ class LyceumServiceTest {
         mockAuthenticatedUser(user);
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 
-        lyceumService.subscribeToLyceum(7L);
+        assertThrows(ConflictException.class, () -> lyceumService.subscribeToLyceum(7L));
 
         assertThat(user.getSubscribedLyceums()).hasSize(1);
-        verify(userRepository).save(user);
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -222,6 +222,53 @@ class LyceumServiceTest {
 
         assertThrows(UnauthorizedException.class, () -> lyceumService.subscribeToLyceum(8L));
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromLyceumRemovesSubscriptionWhenPresent() {
+        Lyceum lyceum = createLyceum(9L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(9L)).thenReturn(Optional.of(lyceum));
+
+        User user = createUser(32L);
+        user.setSubscribedLyceums(new ArrayList<>(List.of(lyceum)));
+        lyceum.setSubscribers(new ArrayList<>(List.of(user)));
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        lyceumService.unsubscribeFromLyceum(9L);
+
+        assertThat(user.getSubscribedLyceums()).isEmpty();
+        assertThat(lyceum.getSubscribers()).isEmpty();
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void unsubscribeFromLyceumThrowsWhenNotSubscribed() {
+        Lyceum lyceum = createLyceum(10L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(10L)).thenReturn(Optional.of(lyceum));
+
+        User user = createUser(33L);
+        user.setSubscribedLyceums(new ArrayList<>());
+        mockAuthenticatedUser(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(BadRequestException.class, () -> lyceumService.unsubscribeFromLyceum(10L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromLyceumThrowsWhenUnauthenticated() {
+        Lyceum lyceum = createLyceum(11L, "Lyceum", "Varna", "contact@example.com");
+        when(lyceumRepository.findById(11L)).thenReturn(Optional.of(lyceum));
+
+        assertThrows(UnauthorizedException.class, () -> lyceumService.unsubscribeFromLyceum(11L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromLyceumThrowsWhenLyceumIdMissing() {
+        assertThrows(BadRequestException.class, () -> lyceumService.unsubscribeFromLyceum(null));
+        verifyNoInteractions(lyceumRepository, userRepository);
     }
 
     @Test

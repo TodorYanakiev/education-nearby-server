@@ -409,15 +409,51 @@ public class CourseService {
         }
         boolean alreadySubscribed = currentUser.getSubscribedCourses().stream()
                 .anyMatch(existing -> existing.getId() != null && existing.getId().equals(course.getId()));
-        if (!alreadySubscribed) {
-            currentUser.getSubscribedCourses().add(course);
-            if (course.getSubscribers() != null) {
-                boolean userAlreadyMapped = course.getSubscribers().stream()
-                        .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
-                if (!userAlreadyMapped) {
-                    course.getSubscribers().add(currentUser);
-                }
+        if (alreadySubscribed) {
+            throw new ConflictException("You are already subscribed to this course.");
+        }
+
+        currentUser.getSubscribedCourses().add(course);
+        if (course.getSubscribers() != null) {
+            boolean userAlreadyMapped = course.getSubscribers().stream()
+                    .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
+            if (!userAlreadyMapped) {
+                course.getSubscribers().add(currentUser);
             }
+        }
+
+        userRepository.save(currentUser);
+    }
+
+    /**
+     * Unsubscribes the authenticated user from a course.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional
+    public void unsubscribeFromCourse(Long courseId) {
+        if (courseId == null) {
+            throw new BadRequestException("Course id must be provided.");
+        }
+        Course course = requireCourse(courseId, false);
+        User currentUser = getManagedCurrentUser();
+
+        List<Course> subscribedCourses = currentUser.getSubscribedCourses();
+        if (subscribedCourses == null || subscribedCourses.isEmpty()) {
+            throw new BadRequestException("You are not subscribed to this course.");
+        }
+
+        boolean removed = subscribedCourses.removeIf(
+                existing -> existing.getId() != null && existing.getId().equals(course.getId())
+        );
+        if (!removed) {
+            throw new BadRequestException("You are not subscribed to this course.");
+        }
+
+        if (course.getSubscribers() != null) {
+            course.getSubscribers().removeIf(
+                    existing -> existing.getId() != null && existing.getId().equals(currentUser.getId())
+            );
         }
 
         userRepository.save(currentUser);

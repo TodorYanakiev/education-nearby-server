@@ -166,6 +166,19 @@ public class CourseController {
     }
 
     /**
+     * Unsubscribes the authenticated user from a course.
+     *
+     * @param courseId course identifier
+     * @return empty 204 on success
+     */
+    @DeleteMapping("/{courseId}/subscribe")
+    public ResponseEntity<Void> unsubscribeFromCourse(@PathVariable Long courseId) {
+        log.debug("Unsubscribe from course request received. courseId={}", courseId);
+        courseService.unsubscribeFromCourse(courseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Registers a new course image; validates S3 key/url and role before saving.
      *
      * @param courseId course identifier
