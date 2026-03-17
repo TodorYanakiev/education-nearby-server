@@ -82,6 +82,8 @@ public class SecurityConfiguration {
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/lecturers").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/images").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/reviews/**").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/subscribers").authenticated()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/courses/*/subscribers").authenticated()
                                 .requestMatchers(HttpMethod.GET, API_V1_LYCEUMS).permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_COURSES).permitAll()
                                 .requestMatchers(HttpMethod.GET, API_V1_USERS).permitAll()

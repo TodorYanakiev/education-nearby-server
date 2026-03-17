@@ -122,6 +122,17 @@ public class LyceumController {
     }
 
     /**
+     * Lists users subscribed to a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return subscribers associated with the lyceum
+     */
+    @GetMapping("/{lyceumId}/subscribers")
+    public ResponseEntity<List<UserResponse>> getLyceumSubscribers(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(lyceumService.getLyceumSubscribers(lyceumId));
+    }
+
+    /**
      * Fetches lyceums that match the provided ids.
      *
      * @param ids list of lyceum identifiers

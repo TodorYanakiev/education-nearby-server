@@ -216,6 +216,48 @@ class LyceumControllerIT {
     }
 
     @Test
+    void getLyceumSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers", 5L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void getLyceumSubscribersReturnsPayloadForAuthorizedUser() throws Exception {
+        Long lyceumId = 6L;
+        UserResponse subscriber = UserResponse.builder()
+                .id(21L)
+                .firstname("Elena")
+                .lastname("Georgieva")
+                .build();
+        when(lyceumService.getLyceumSubscribers(lyceumId)).thenReturn(List.of(subscriber));
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers", lyceumId)
+                        .with(user("lyceum-admin").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(21L))
+                .andExpect(jsonPath("$[0].firstname").value("Elena"));
+
+        verify(lyceumService).getLyceumSubscribers(lyceumId);
+    }
+
+    @Test
+    void getLyceumSubscribersMapsAccessDenied() throws Exception {
+        Long lyceumId = 7L;
+        doThrow(new AccessDeniedException("You do not have permission to modify this lyceum."))
+                .when(lyceumService).getLyceumSubscribers(lyceumId);
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."))
+                .andExpect(jsonPath("$.status").value("FORBIDDEN"));
+
+        verify(lyceumService).getLyceumSubscribers(lyceumId);
+    }
+
+    @Test
     void getLyceumImagesReturnsPayload() throws Exception {
         Long lyceumId = 12L;
         List<LyceumImageResponse> responses = List.of(

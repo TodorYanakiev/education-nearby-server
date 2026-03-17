@@ -144,6 +144,23 @@ class LyceumControllerTest {
     }
 
     @Test
+    void getLyceumSubscribersReturnsServiceResponse() {
+        UserResponse subscriber = UserResponse.builder()
+                .id(14L)
+                .firstname("Petya")
+                .lastname("Dimitrova")
+                .build();
+        List<UserResponse> subscribers = List.of(subscriber);
+        when(lyceumService.getLyceumSubscribers(1L)).thenReturn(subscribers);
+
+        ResponseEntity<List<UserResponse>> response = lyceumController.getLyceumSubscribers(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(subscribers);
+        verify(lyceumService).getLyceumSubscribers(1L);
+    }
+
+    @Test
     void getLyceumsByIdsReturnsServiceResponse() {
         List<Long> ids = List.of(1L, 2L);
         List<LyceumResponse> lyceums = List.of(lyceumResponse);

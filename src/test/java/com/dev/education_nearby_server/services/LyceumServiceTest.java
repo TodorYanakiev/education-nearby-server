@@ -272,6 +272,55 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumSubscribersAllowsAdmin() {
+        Lyceum lyceum = createLyceum(12L, "Lyceum", "Varna", "contact@example.com");
+        User admin = createUser(34L);
+        admin.setRole(Role.ADMIN);
+        User subscriber = createUser(35L);
+        lyceum.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        mockAuthenticatedUser(admin);
+        when(lyceumRepository.findById(12L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(4.7);
+
+        List<UserResponse> response = lyceumService.getLyceumSubscribers(12L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(35L);
+        assertThat(response.getFirst().getAverageRating()).isEqualTo(4.7);
+    }
+
+    @Test
+    void getLyceumSubscribersAllowsLyceumAdministrator() {
+        Lyceum lyceum = createLyceum(13L, "Lyceum", "Varna", "contact@example.com");
+        User lyceumAdmin = createUser(36L);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User subscriber = createUser(37L);
+        lyceum.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        mockAuthenticatedUser(lyceumAdmin);
+        when(lyceumRepository.findById(13L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(4.0);
+
+        List<UserResponse> response = lyceumService.getLyceumSubscribers(13L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(37L);
+    }
+
+    @Test
+    void getLyceumSubscribersThrowsWhenUserCannotView() {
+        Lyceum lyceum = createLyceum(14L, "Lyceum", "Varna", "contact@example.com");
+        User regularUser = createUser(38L);
+        mockAuthenticatedUser(regularUser);
+        when(lyceumRepository.findById(14L)).thenReturn(Optional.of(lyceum));
+        when(userRepository.findById(regularUser.getId())).thenReturn(Optional.of(regularUser));
+
+        assertThrows(AccessDeniedException.class, () -> lyceumService.getLyceumSubscribers(14L));
+        verify(userReviewRepository, never()).findAverageRatingByReviewedUserId(any());
+    }
+
+    @Test
     void getLyceumsByIdsReturnsRepositoryResult() {
         Lyceum first = createLyceum(1L, "First", "Sofia", "first@example.com");
         Lyceum second = createLyceum(2L, "Second", "Varna", "second@example.com");

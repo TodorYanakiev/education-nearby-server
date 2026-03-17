@@ -738,6 +738,27 @@ public class LyceumService {
     }
 
     /**
+     * Lists users subscribed to a lyceum after validating access permissions.
+     *
+     * @param lyceumId lyceum identifier
+     * @return subscribers associated with the lyceum
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getLyceumSubscribers(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        List<User> subscribers = lyceum.getSubscribers();
+        if (subscribers == null || subscribers.isEmpty()) {
+            return List.of();
+        }
+        return subscribers.stream()
+                .map(this::mapToUserResponse)
+                .toList();
+    }
+
+    /**
      * Lists lecturers assigned to a specific lyceum.
      *
      * @param lyceumId lyceum identifier

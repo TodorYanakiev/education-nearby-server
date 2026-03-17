@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.ScheduleRecurrence;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
@@ -13,6 +14,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -260,6 +262,49 @@ class CourseControllerIT {
                 .andExpect(jsonPath("$[1].role").value("GALLERY"));
 
         verify(courseService).getCourseImages(courseId);
+    }
+
+    @Test
+    void getCourseSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers", 12L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void getCourseSubscribersReturnsPayloadForAuthenticatedUser() throws Exception {
+        Long courseId = 13L;
+        when(courseService.getCourseSubscribers(courseId)).thenReturn(List.of(
+                UserResponse.builder()
+                        .id(5L)
+                        .firstname("Ivan")
+                        .lastname("Petrov")
+                        .build()
+        ));
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers", courseId)
+                        .with(user("lecturer").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(5L))
+                .andExpect(jsonPath("$[0].firstname").value("Ivan"));
+
+        verify(courseService).getCourseSubscribers(courseId);
+    }
+
+    @Test
+    void getCourseSubscribersMapsAccessDenied() throws Exception {
+        Long courseId = 14L;
+        doThrow(new AccessDeniedException("You do not have permission to modify this course."))
+                .when(courseService).getCourseSubscribers(courseId);
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this course."))
+                .andExpect(jsonPath("$.status").value("FORBIDDEN"));
+
+        verify(courseService).getCourseSubscribers(courseId);
     }
 
     @Test

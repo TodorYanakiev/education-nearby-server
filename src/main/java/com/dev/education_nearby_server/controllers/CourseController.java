@@ -10,6 +10,7 @@ import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import com.dev.education_nearby_server.services.ReviewService;
 import jakarta.validation.Valid;
@@ -103,6 +104,17 @@ public class CourseController {
     @GetMapping("/{courseId}/images")
     public ResponseEntity<List<CourseImageResponse>> getCourseImages(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseImages(courseId));
+    }
+
+    /**
+     * Lists users subscribed to a course.
+     *
+     * @param courseId course identifier
+     * @return subscribers associated with the course
+     */
+    @GetMapping("/{courseId}/subscribers")
+    public ResponseEntity<List<UserResponse>> getCourseSubscribers(@PathVariable Long courseId) {
+        return ResponseEntity.ok(courseService.getCourseSubscribers(courseId));
     }
 
     /**

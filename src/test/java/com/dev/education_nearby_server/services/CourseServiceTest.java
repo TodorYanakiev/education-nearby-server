@@ -29,6 +29,7 @@ import com.dev.education_nearby_server.repositories.CourseImageRepository;
 import com.dev.education_nearby_server.repositories.CourseReviewRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,8 @@ class CourseServiceTest {
     private LyceumRepository lyceumRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserReviewRepository userReviewRepository;
     @Mock
     private S3Properties s3Properties;
 
@@ -1219,6 +1222,75 @@ class CourseServiceTest {
 
         assertThat(course.getLecturers()).containsExactly(lecturer);
         verify(courseRepository).save(course);
+    }
+
+    @Test
+    void getCourseSubscribersAllowsCourseLecturer() {
+        Course course = createCourseEntity(571L);
+        User lecturer = createUser(150L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        User subscriber = createUser(151L, Role.USER);
+        course.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        when(courseRepository.findDetailedById(571L)).thenReturn(Optional.of(course));
+        authenticate(lecturer);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(4.8);
+
+        var response = courseService.getCourseSubscribers(571L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(151L);
+        assertThat(response.getFirst().getAverageRating()).isEqualTo(4.8);
+    }
+
+    @Test
+    void getCourseSubscribersAllowsLyceumAdministrator() {
+        Course course = createCourseEntity(572L);
+        Lyceum lyceum = new Lyceum();
+        lyceum.setId(99L);
+        course.setLyceum(lyceum);
+        User lyceumAdmin = createUser(152L, Role.USER);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User subscriber = createUser(153L, Role.USER);
+        course.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        when(courseRepository.findDetailedById(572L)).thenReturn(Optional.of(course));
+        authenticate(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(4.1);
+
+        var response = courseService.getCourseSubscribers(572L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(153L);
+    }
+
+    @Test
+    void getCourseSubscribersAllowsAdmin() {
+        Course course = createCourseEntity(573L);
+        User admin = createUser(154L, Role.ADMIN);
+        User subscriber = createUser(155L, Role.USER);
+        course.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        when(courseRepository.findDetailedById(573L)).thenReturn(Optional.of(course));
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(3.9);
+
+        var response = courseService.getCourseSubscribers(573L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(155L);
+    }
+
+    @Test
+    void getCourseSubscribersThrowsWhenUserCannotView() {
+        Course course = createCourseEntity(574L);
+        User regularUser = createUser(156L, Role.USER);
+        when(courseRepository.findDetailedById(574L)).thenReturn(Optional.of(course));
+        authenticate(regularUser);
+        when(userRepository.findById(regularUser.getId())).thenReturn(Optional.of(regularUser));
+
+        assertThrows(AccessDeniedException.class, () -> courseService.getCourseSubscribers(574L));
+        verify(userReviewRepository, never()).findAverageRatingByReviewedUserId(any());
     }
 
     @Test
