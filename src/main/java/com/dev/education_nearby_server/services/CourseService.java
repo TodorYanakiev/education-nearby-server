@@ -237,6 +237,18 @@ public class CourseService {
     }
 
     /**
+     * Ensures the current user can access subscribers for the given course.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional(readOnly = true)
+    public void ensureCurrentUserCanAccessCourseSubscribers(Long courseId) {
+        Course course = requireCourse(courseId, true);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyCourse(currentUser, course);
+    }
+
+    /**
      * Adds a course image after validating S3 key/url consistency, uniqueness, and role constraints,
      * then returns the persisted image metadata.
      */

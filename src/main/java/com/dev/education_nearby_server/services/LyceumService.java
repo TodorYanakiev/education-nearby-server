@@ -759,6 +759,18 @@ public class LyceumService {
     }
 
     /**
+     * Ensures the current user can access subscribers for the given lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional(readOnly = true)
+    public void ensureCurrentUserCanAccessLyceumSubscribers(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+    }
+
+    /**
      * Lists lecturers assigned to a specific lyceum.
      *
      * @param lyceumId lyceum identifier
