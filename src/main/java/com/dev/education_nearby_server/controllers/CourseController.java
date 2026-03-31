@@ -10,7 +10,6 @@ import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
-import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import com.dev.education_nearby_server.services.ReviewService;
 import jakarta.validation.Valid;
@@ -107,17 +106,6 @@ public class CourseController {
     }
 
     /**
-     * Lists users subscribed to a course.
-     *
-     * @param courseId course identifier
-     * @return subscribers associated with the course
-     */
-    @GetMapping("/{courseId}/subscribers")
-    public ResponseEntity<List<UserResponse>> getCourseSubscribers(@PathVariable Long courseId) {
-        return ResponseEntity.ok(courseService.getCourseSubscribers(courseId));
-    }
-
-    /**
      * Creates a new course.
      *
      * @param request validated course payload
@@ -161,32 +149,6 @@ public class CourseController {
     ) {
         log.debug("Add lecturer request received. courseId={} lecturerId={}", courseId, userId);
         courseService.addLecturerToCourse(courseId, userId);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Subscribes the authenticated user to a course.
-     *
-     * @param courseId course identifier
-     * @return empty 204 on success
-     */
-    @PostMapping("/{courseId}/subscribe")
-    public ResponseEntity<Void> subscribeToCourse(@PathVariable Long courseId) {
-        log.debug("Subscribe to course request received. courseId={}", courseId);
-        courseService.subscribeToCourse(courseId);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Unsubscribes the authenticated user from a course.
-     *
-     * @param courseId course identifier
-     * @return empty 204 on success
-     */
-    @DeleteMapping("/{courseId}/subscribe")
-    public ResponseEntity<Void> unsubscribeFromCourse(@PathVariable Long courseId) {
-        log.debug("Unsubscribe from course request received. courseId={}", courseId);
-        courseService.unsubscribeFromCourse(courseId);
         return ResponseEntity.noContent().build();
     }
 

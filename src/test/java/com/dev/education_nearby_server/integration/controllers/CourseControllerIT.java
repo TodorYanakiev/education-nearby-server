@@ -4,6 +4,7 @@ import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.ScheduleRecurrence;
+import com.dev.education_nearby_server.enums.SubscriberExportFormat;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
@@ -14,8 +15,10 @@ import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.SubscriberExportJobResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.CourseService;
+import com.dev.education_nearby_server.services.SubscriberExportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -60,6 +63,8 @@ class CourseControllerIT {
 
     @MockitoBean
     private CourseService courseService;
+    @MockitoBean
+    private SubscriberExportService subscriberExportService;
 
     @Test
     void getAllCoursesReturnsPayloadWithoutAuthentication() throws Exception {
@@ -305,6 +310,51 @@ class CourseControllerIT {
                 .andExpect(jsonPath("$.status").value("FORBIDDEN"));
 
         verify(courseService).getCourseSubscribers(courseId);
+    }
+
+    @Test
+    void exportCourseSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribers/export", 15L)
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void exportCourseSubscribersReturnsAccepted() throws Exception {
+        Long courseId = 16L;
+        SubscriberExportJobResponse response = SubscriberExportJobResponse.builder()
+                .id(500L)
+                .format(SubscriberExportFormat.CSV)
+                .build();
+        when(subscriberExportService.createCourseSubscribersExport(courseId, SubscriberExportFormat.CSV))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribers/export", courseId)
+                        .with(user("lecturer").roles("USER"))
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").value(500L))
+                .andExpect(jsonPath("$.format").value("CSV"));
+
+        verify(subscriberExportService).createCourseSubscribersExport(courseId, SubscriberExportFormat.CSV);
+    }
+
+    @Test
+    void getCourseSubscribersExportStatusRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}", 17L, 700L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadCourseSubscribersExportRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download", 18L, 701L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
     }
 
     @Test

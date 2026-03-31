@@ -98,41 +98,6 @@ public class LyceumController {
     }
 
     /**
-     * Subscribes the authenticated user to a lyceum.
-     *
-     * @param lyceumId lyceum identifier
-     * @return empty 204 on success
-     */
-    @PostMapping("/{lyceumId}/subscribe")
-    public ResponseEntity<Void> subscribeToLyceum(@PathVariable Long lyceumId) {
-        lyceumService.subscribeToLyceum(lyceumId);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Unsubscribes the authenticated user from a lyceum.
-     *
-     * @param lyceumId lyceum identifier
-     * @return empty 204 on success
-     */
-    @DeleteMapping("/{lyceumId}/subscribe")
-    public ResponseEntity<Void> unsubscribeFromLyceum(@PathVariable Long lyceumId) {
-        lyceumService.unsubscribeFromLyceum(lyceumId);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Lists users subscribed to a lyceum.
-     *
-     * @param lyceumId lyceum identifier
-     * @return subscribers associated with the lyceum
-     */
-    @GetMapping("/{lyceumId}/subscribers")
-    public ResponseEntity<List<UserResponse>> getLyceumSubscribers(@PathVariable Long lyceumId) {
-        return ResponseEntity.ok(lyceumService.getLyceumSubscribers(lyceumId));
-    }
-
-    /**
      * Fetches lyceums that match the provided ids.
      *
      * @param ids list of lyceum identifiers

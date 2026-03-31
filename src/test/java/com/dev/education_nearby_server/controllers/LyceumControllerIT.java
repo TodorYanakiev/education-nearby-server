@@ -2,6 +2,7 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.enums.SubscriberExportFormat;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
@@ -16,12 +17,14 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.SubscriberExportJobResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.services.LyceumService;
+import com.dev.education_nearby_server.services.SubscriberExportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -65,6 +68,8 @@ class LyceumControllerIT {
 
     @MockitoBean
     private LyceumService lyceumService;
+    @MockitoBean
+    private SubscriberExportService subscriberExportService;
 
     @Autowired
     private UserRepository userRepository;
@@ -255,6 +260,51 @@ class LyceumControllerIT {
                 .andExpect(jsonPath("$.status").value("FORBIDDEN"));
 
         verify(lyceumService).getLyceumSubscribers(lyceumId);
+    }
+
+    @Test
+    void exportLyceumSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribers/export", 8L)
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void exportLyceumSubscribersReturnsAccepted() throws Exception {
+        Long lyceumId = 9L;
+        SubscriberExportJobResponse response = SubscriberExportJobResponse.builder()
+                .id(900L)
+                .format(SubscriberExportFormat.CSV)
+                .build();
+        when(subscriberExportService.createLyceumSubscribersExport(lyceumId, SubscriberExportFormat.CSV))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribers/export", lyceumId)
+                        .with(user("lyceum-admin").roles("USER"))
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").value(900L))
+                .andExpect(jsonPath("$.format").value("CSV"));
+
+        verify(subscriberExportService).createLyceumSubscribersExport(lyceumId, SubscriberExportFormat.CSV);
+    }
+
+    @Test
+    void getLyceumSubscribersExportStatusRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}", 10L, 901L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadLyceumSubscribersExportRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download", 11L, 902L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
     }
 
     @Test

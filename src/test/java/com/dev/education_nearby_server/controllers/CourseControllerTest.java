@@ -11,7 +11,6 @@ import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
-import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -169,28 +168,6 @@ class CourseControllerTest {
     }
 
     @Test
-    void subscribeToCourseReturnsNoContent() {
-        Long courseId = 21L;
-
-        ResponseEntity<Void> result = courseController.subscribeToCourse(courseId);
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(result.hasBody()).isFalse();
-        verify(courseService).subscribeToCourse(courseId);
-    }
-
-    @Test
-    void unsubscribeFromCourseReturnsNoContent() {
-        Long courseId = 22L;
-
-        ResponseEntity<Void> result = courseController.unsubscribeFromCourse(courseId);
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(result.hasBody()).isFalse();
-        verify(courseService).unsubscribeFromCourse(courseId);
-    }
-
-    @Test
     void getCourseImagesReturnsResponseFromService() {
         Long courseId = 7L;
         List<CourseImageResponse> responses = List.of(
@@ -204,22 +181,6 @@ class CourseControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(responses);
         verify(courseService).getCourseImages(courseId);
-    }
-
-    @Test
-    void getCourseSubscribersReturnsResponseFromService() {
-        Long courseId = 8L;
-        List<UserResponse> responses = List.of(
-                UserResponse.builder().id(1L).firstname("Ivan").lastname("Ivanov").build(),
-                UserResponse.builder().id(2L).firstname("Maria").lastname("Petrova").build()
-        );
-        when(courseService.getCourseSubscribers(courseId)).thenReturn(responses);
-
-        ResponseEntity<List<UserResponse>> result = courseController.getCourseSubscribers(courseId);
-
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getBody()).isEqualTo(responses);
-        verify(courseService).getCourseSubscribers(courseId);
     }
 
     @Test
