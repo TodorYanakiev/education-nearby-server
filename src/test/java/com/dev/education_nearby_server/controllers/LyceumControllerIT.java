@@ -38,6 +38,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.net.URI;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +54,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -305,6 +307,23 @@ class LyceumControllerIT {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadLyceumSubscribersExportReturnsRedirectForAuthenticatedUser() throws Exception {
+        Long lyceumId = 11L;
+        Long exportId = 903L;
+        when(subscriberExportService.downloadLyceumSubscribersExport(lyceumId, exportId))
+                .thenReturn(new SubscriberExportService.ExportDownload(
+                        URI.create("https://download.example.com/export-903.xlsx")
+                ));
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download", lyceumId, exportId)
+                        .with(user("lyceum-admin").roles("USER")))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://download.example.com/export-903.xlsx"));
+
+        verify(subscriberExportService).downloadLyceumSubscribersExport(lyceumId, exportId);
     }
 
     @Test

@@ -10,12 +10,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.PathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,15 +111,15 @@ class CourseSubscriberControllerTest {
         Long courseId = 11L;
         Long exportId = 103L;
         when(subscriberExportService.downloadCourseSubscribersExport(courseId, exportId))
-                .thenReturn(new SubscriberExportService.ExportFile(
-                        new PathResource(Path.of("subscribers.csv")),
-                        "subscribers.csv",
-                        "text/csv"
+                .thenReturn(new SubscriberExportService.ExportDownload(
+                        URI.create("https://example.com/presigned/subscribers.csv")
                 ));
 
-        ResponseEntity<Resource> result = courseSubscriberController.downloadCourseSubscribersExport(courseId, exportId);
+        ResponseEntity<Void> result = courseSubscriberController.downloadCourseSubscribersExport(courseId, exportId);
 
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(result.getHeaders().getLocation())
+                .isEqualTo(URI.create("https://example.com/presigned/subscribers.csv"));
         verify(subscriberExportService).downloadCourseSubscribersExport(courseId, exportId);
     }
 }

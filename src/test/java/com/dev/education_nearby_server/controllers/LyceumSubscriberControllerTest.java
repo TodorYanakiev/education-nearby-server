@@ -10,12 +10,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.PathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -105,15 +103,15 @@ class LyceumSubscriberControllerTest {
     @Test
     void downloadLyceumSubscribersExportReturnsResponseFromService() {
         when(subscriberExportService.downloadLyceumSubscribersExport(1L, 203L))
-                .thenReturn(new SubscriberExportService.ExportFile(
-                        new PathResource(Path.of("subscribers.xlsx")),
-                        "subscribers.xlsx",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                .thenReturn(new SubscriberExportService.ExportDownload(
+                        URI.create("https://example.com/presigned/subscribers.xlsx")
                 ));
 
-        ResponseEntity<Resource> response = lyceumSubscriberController.downloadLyceumSubscribersExport(1L, 203L);
+        ResponseEntity<Void> response = lyceumSubscriberController.downloadLyceumSubscribersExport(1L, 203L);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+        assertThat(response.getHeaders().getLocation())
+                .isEqualTo(URI.create("https://example.com/presigned/subscribers.xlsx"));
         verify(subscriberExportService).downloadLyceumSubscribersExport(1L, 203L);
     }
 }

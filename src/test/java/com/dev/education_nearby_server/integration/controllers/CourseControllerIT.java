@@ -31,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.net.URI;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.Month;
@@ -48,6 +49,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -355,6 +357,23 @@ class CourseControllerIT {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadCourseSubscribersExportReturnsRedirectForAuthenticatedUser() throws Exception {
+        Long courseId = 18L;
+        Long exportId = 702L;
+        when(subscriberExportService.downloadCourseSubscribersExport(courseId, exportId))
+                .thenReturn(new SubscriberExportService.ExportDownload(
+                        URI.create("https://download.example.com/export-702.csv")
+                ));
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download", courseId, exportId)
+                        .with(user("lecturer").roles("USER")))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://download.example.com/export-702.csv"));
+
+        verify(subscriberExportService).downloadCourseSubscribersExport(courseId, exportId);
     }
 
     @Test
