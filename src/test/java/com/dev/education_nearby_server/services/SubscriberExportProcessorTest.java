@@ -152,7 +152,6 @@ class SubscriberExportProcessorTest {
         when(courseRepository.existsById(31L)).thenReturn(true);
         when(userRepository.findDistinctBySubscribedCourses_IdOrderByIdAsc(31L)).thenReturn(List.of());
         when(exportProperties.getDirectory()).thenReturn(tempDir.toString());
-        when(exportProperties.getS3Prefix()).thenReturn("exports/subscribers/");
         when(s3Properties.getBucketName()).thenReturn(" ");
 
         subscriberExportProcessor.processExportJob(5L);
@@ -191,7 +190,7 @@ class SubscriberExportProcessorTest {
 
         subscriberExportProcessor.processExportJob(6L);
 
-        assertThat(uploadedCsv.get()).contains("\"id\",\"firstname\",\"lastname\",\"email\",\"username\",\"role\",\"enabled\"");
+        assertThat(uploadedCsv.get()).contains("id,firstname,lastname,email,username,role,enabled");
         assertThat(uploadedCsv.get()).contains("\"Ivan, Jr.\"");
         assertThat(uploadedCsv.get()).contains("\"Quote \"\"inside\"\"\"");
         assertThat(uploadedCsv.get()).contains("\"ivan,user\"");

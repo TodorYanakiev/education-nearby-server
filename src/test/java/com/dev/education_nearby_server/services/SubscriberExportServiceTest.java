@@ -271,13 +271,13 @@ class SubscriberExportServiceTest {
         when(exportProperties.getPresignedUrlMinutes()).thenReturn(7);
         PresignedGetObjectRequest presignedGetObjectRequest = org.mockito.Mockito.mock(PresignedGetObjectRequest.class);
         when(presignedGetObjectRequest.url()).thenReturn(new URL("https://download.example.com/export-303.csv"));
-        when(s3Presigner.presignGetObject(any())).thenReturn(presignedGetObjectRequest);
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presignedGetObjectRequest);
 
         SubscriberExportService.ExportDownload response =
                 subscriberExportService.downloadCourseSubscribersExport(11L, 303L);
 
         assertThat(response.url()).isEqualTo(URI.create("https://download.example.com/export-303.csv"));
-        verify(s3Presigner).presignGetObject(any());
+        verify(s3Presigner).presignGetObject(any(GetObjectPresignRequest.class));
     }
 
     @Test
@@ -292,7 +292,7 @@ class SubscriberExportServiceTest {
         when(exportProperties.getPresignedUrlMinutes()).thenReturn(0);
         PresignedGetObjectRequest presignedGetObjectRequest = org.mockito.Mockito.mock(PresignedGetObjectRequest.class);
         when(presignedGetObjectRequest.url()).thenReturn(new URL("https://download.example.com/defaults"));
-        when(s3Presigner.presignGetObject(any())).thenReturn(presignedGetObjectRequest);
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presignedGetObjectRequest);
 
         SubscriberExportService.ExportDownload response =
                 subscriberExportService.downloadCourseSubscribersExport(15L, 333L);
@@ -333,7 +333,7 @@ class SubscriberExportServiceTest {
         when(exportProperties.getPresignedUrlMinutes()).thenReturn(10);
         PresignedGetObjectRequest presignedGetObjectRequest = org.mockito.Mockito.mock(PresignedGetObjectRequest.class);
         when(presignedGetObjectRequest.url()).thenReturn(new URL("https://download.example.com/export-401.xlsx"));
-        when(s3Presigner.presignGetObject(any())).thenReturn(presignedGetObjectRequest);
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenReturn(presignedGetObjectRequest);
 
         SubscriberExportService.ExportDownload response =
                 subscriberExportService.downloadLyceumSubscribersExport(20L, 401L);
@@ -351,7 +351,7 @@ class SubscriberExportServiceTest {
                 .thenReturn(Optional.of(job));
         when(s3Properties.getBucketName()).thenReturn("education-nearby-demo-bucket");
         when(exportProperties.getPresignedUrlMinutes()).thenReturn(10);
-        when(s3Presigner.presignGetObject(any())).thenThrow(new RuntimeException("boom"));
+        when(s3Presigner.presignGetObject(any(GetObjectPresignRequest.class))).thenThrow(new RuntimeException("boom"));
 
         InternalServerErrorException exception = assertThrows(InternalServerErrorException.class,
                 () -> subscriberExportService.downloadCourseSubscribersExport(13L, 305L));
