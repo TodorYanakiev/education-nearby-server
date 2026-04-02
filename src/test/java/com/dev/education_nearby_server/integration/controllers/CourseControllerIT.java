@@ -4,6 +4,10 @@ import com.dev.education_nearby_server.enums.AgeGroup;
 import com.dev.education_nearby_server.enums.CourseType;
 import com.dev.education_nearby_server.enums.ImageRole;
 import com.dev.education_nearby_server.enums.ScheduleRecurrence;
+import com.dev.education_nearby_server.enums.SubscriberExportFormat;
+import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.models.dto.request.CourseFilterRequest;
 import com.dev.education_nearby_server.models.dto.request.CourseImageRequest;
@@ -11,7 +15,10 @@ import com.dev.education_nearby_server.models.dto.request.CourseRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.SubscriberExportJobResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.CourseService;
+import com.dev.education_nearby_server.services.SubscriberExportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.net.URI;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.Month;
@@ -33,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -40,6 +49,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,6 +65,8 @@ class CourseControllerIT {
 
     @MockitoBean
     private CourseService courseService;
+    @MockitoBean
+    private SubscriberExportService subscriberExportService;
 
     @Test
     void getAllCoursesReturnsPayloadWithoutAuthentication() throws Exception {
@@ -260,6 +272,111 @@ class CourseControllerIT {
     }
 
     @Test
+    void getCourseSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers", 12L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void getCourseSubscribersReturnsPayloadForAuthenticatedUser() throws Exception {
+        Long courseId = 13L;
+        when(courseService.getCourseSubscribers(courseId)).thenReturn(List.of(
+                UserResponse.builder()
+                        .id(5L)
+                        .firstname("Ivan")
+                        .lastname("Petrov")
+                        .build()
+        ));
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers", courseId)
+                        .with(user("lecturer").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(5L))
+                .andExpect(jsonPath("$[0].firstname").value("Ivan"));
+
+        verify(courseService).getCourseSubscribers(courseId);
+    }
+
+    @Test
+    void getCourseSubscribersMapsAccessDenied() throws Exception {
+        Long courseId = 14L;
+        doThrow(new AccessDeniedException("You do not have permission to modify this course."))
+                .when(courseService).getCourseSubscribers(courseId);
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this course."))
+                .andExpect(jsonPath("$.status").value("FORBIDDEN"));
+
+        verify(courseService).getCourseSubscribers(courseId);
+    }
+
+    @Test
+    void exportCourseSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribers/export", 15L)
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void exportCourseSubscribersReturnsAccepted() throws Exception {
+        Long courseId = 16L;
+        SubscriberExportJobResponse response = SubscriberExportJobResponse.builder()
+                .id(500L)
+                .format(SubscriberExportFormat.CSV)
+                .build();
+        when(subscriberExportService.createCourseSubscribersExport(courseId, SubscriberExportFormat.CSV))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribers/export", courseId)
+                        .with(user("lecturer").roles("USER"))
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").value(500L))
+                .andExpect(jsonPath("$.format").value("CSV"));
+
+        verify(subscriberExportService).createCourseSubscribersExport(courseId, SubscriberExportFormat.CSV);
+    }
+
+    @Test
+    void getCourseSubscribersExportStatusRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}", 17L, 700L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadCourseSubscribersExportRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download", 18L, 701L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadCourseSubscribersExportReturnsRedirectForAuthenticatedUser() throws Exception {
+        Long courseId = 18L;
+        Long exportId = 702L;
+        when(subscriberExportService.downloadCourseSubscribersExport(courseId, exportId))
+                .thenReturn(new SubscriberExportService.ExportDownload(
+                        URI.create("https://download.example.com/export-702.csv")
+                ));
+
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download", courseId, exportId)
+                        .with(user("lecturer").roles("USER")))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://download.example.com/export-702.csv"));
+
+        verify(subscriberExportService).downloadCourseSubscribersExport(courseId, exportId);
+    }
+
+    @Test
     void addCourseImageRequiresAuthentication() throws Exception {
         CourseImageRequest request = CourseImageRequest.builder()
                 .url("https://example.com/cover.jpg")
@@ -339,6 +456,74 @@ class CourseControllerIT {
                 .andExpect(status().isNoContent());
 
         verify(courseService).addLecturerToCourse(courseId, userId);
+    }
+
+    @Test
+    void subscribeToCourseRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribe", 40L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void subscribeToCourseReturnsNoContent() throws Exception {
+        Long courseId = 41L;
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(courseService).subscribeToCourse(courseId);
+    }
+
+    @Test
+    void subscribeToCourseMapsConflict() throws Exception {
+        Long courseId = 42L;
+        doThrow(new ConflictException("You are already subscribed to this course."))
+                .when(courseService).subscribeToCourse(courseId);
+
+        mockMvc.perform(post("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("You are already subscribed to this course."))
+                .andExpect(jsonPath("$.status").value("CONFLICT"));
+
+        verify(courseService).subscribeToCourse(courseId);
+    }
+
+    @Test
+    void unsubscribeFromCourseRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/api/v1/courses/{courseId}/subscribe", 41L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(courseService);
+    }
+
+    @Test
+    void unsubscribeFromCourseReturnsNoContent() throws Exception {
+        Long courseId = 42L;
+
+        mockMvc.perform(delete("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(courseService).unsubscribeFromCourse(courseId);
+    }
+
+    @Test
+    void unsubscribeFromCourseMapsBadRequest() throws Exception {
+        Long courseId = 43L;
+        doThrow(new BadRequestException("You are not subscribed to this course."))
+                .when(courseService).unsubscribeFromCourse(courseId);
+
+        mockMvc.perform(delete("/api/v1/courses/{courseId}/subscribe", courseId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("You are not subscribed to this course."))
+                .andExpect(jsonPath("$.status").value("BAD_REQUEST"));
+
+        verify(courseService).unsubscribeFromCourse(courseId);
     }
 
     @Test

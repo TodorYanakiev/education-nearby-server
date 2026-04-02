@@ -2,8 +2,10 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.enums.Role;
 import com.dev.education_nearby_server.enums.ImageRole;
+import com.dev.education_nearby_server.enums.SubscriberExportFormat;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.exceptions.common.ConflictException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.request.LyceumImageRequest;
@@ -15,12 +17,14 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.SubscriberExportJobResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Lyceum;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.services.LyceumService;
+import com.dev.education_nearby_server.services.SubscriberExportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +38,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.net.URI;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,6 +54,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +70,8 @@ class LyceumControllerIT {
 
     @MockitoBean
     private LyceumService lyceumService;
+    @MockitoBean
+    private SubscriberExportService subscriberExportService;
 
     @Autowired
     private UserRepository userRepository;
@@ -144,6 +152,178 @@ class LyceumControllerIT {
                 .andExpect(jsonPath("$[0].lyceumId").value(2L));
 
         verify(lyceumService).getLyceumCourses(2L);
+    }
+
+    @Test
+    void subscribeToLyceumRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribe", 2L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void subscribeToLyceumReturnsNoContent() throws Exception {
+        Long lyceumId = 2L;
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).subscribeToLyceum(lyceumId);
+    }
+
+    @Test
+    void subscribeToLyceumMapsConflict() throws Exception {
+        Long lyceumId = 3L;
+        doThrow(new ConflictException("You are already subscribed to this lyceum."))
+                .when(lyceumService).subscribeToLyceum(lyceumId);
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("You are already subscribed to this lyceum."))
+                .andExpect(jsonPath("$.status").value("CONFLICT"));
+
+        verify(lyceumService).subscribeToLyceum(lyceumId);
+    }
+
+    @Test
+    void unsubscribeFromLyceumRequiresAuthentication() throws Exception {
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/subscribe", 2L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void unsubscribeFromLyceumReturnsNoContent() throws Exception {
+        Long lyceumId = 3L;
+
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isNoContent());
+
+        verify(lyceumService).unsubscribeFromLyceum(lyceumId);
+    }
+
+    @Test
+    void unsubscribeFromLyceumMapsBadRequest() throws Exception {
+        Long lyceumId = 4L;
+        doThrow(new BadRequestException("You are not subscribed to this lyceum."))
+                .when(lyceumService).unsubscribeFromLyceum(lyceumId);
+
+        mockMvc.perform(delete("/api/v1/lyceums/{lyceumId}/subscribe", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("You are not subscribed to this lyceum."))
+                .andExpect(jsonPath("$.status").value("BAD_REQUEST"));
+
+        verify(lyceumService).unsubscribeFromLyceum(lyceumId);
+    }
+
+    @Test
+    void getLyceumSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers", 5L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void getLyceumSubscribersReturnsPayloadForAuthorizedUser() throws Exception {
+        Long lyceumId = 6L;
+        UserResponse subscriber = UserResponse.builder()
+                .id(21L)
+                .firstname("Elena")
+                .lastname("Georgieva")
+                .build();
+        when(lyceumService.getLyceumSubscribers(lyceumId)).thenReturn(List.of(subscriber));
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers", lyceumId)
+                        .with(user("lyceum-admin").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(21L))
+                .andExpect(jsonPath("$[0].firstname").value("Elena"));
+
+        verify(lyceumService).getLyceumSubscribers(lyceumId);
+    }
+
+    @Test
+    void getLyceumSubscribersMapsAccessDenied() throws Exception {
+        Long lyceumId = 7L;
+        doThrow(new AccessDeniedException("You do not have permission to modify this lyceum."))
+                .when(lyceumService).getLyceumSubscribers(lyceumId);
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers", lyceumId)
+                        .with(user("member").roles("USER")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("You do not have permission to modify this lyceum."))
+                .andExpect(jsonPath("$.status").value("FORBIDDEN"));
+
+        verify(lyceumService).getLyceumSubscribers(lyceumId);
+    }
+
+    @Test
+    void exportLyceumSubscribersRequiresAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribers/export", 8L)
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void exportLyceumSubscribersReturnsAccepted() throws Exception {
+        Long lyceumId = 9L;
+        SubscriberExportJobResponse response = SubscriberExportJobResponse.builder()
+                .id(900L)
+                .format(SubscriberExportFormat.CSV)
+                .build();
+        when(subscriberExportService.createLyceumSubscribersExport(lyceumId, SubscriberExportFormat.CSV))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/lyceums/{lyceumId}/subscribers/export", lyceumId)
+                        .with(user("lyceum-admin").roles("USER"))
+                        .param("format", SubscriberExportFormat.CSV.name()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").value(900L))
+                .andExpect(jsonPath("$.format").value("CSV"));
+
+        verify(subscriberExportService).createLyceumSubscribersExport(lyceumId, SubscriberExportFormat.CSV);
+    }
+
+    @Test
+    void getLyceumSubscribersExportStatusRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}", 10L, 901L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadLyceumSubscribersExportRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download", 11L, 902L))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(subscriberExportService);
+    }
+
+    @Test
+    void downloadLyceumSubscribersExportReturnsRedirectForAuthenticatedUser() throws Exception {
+        Long lyceumId = 11L;
+        Long exportId = 903L;
+        when(subscriberExportService.downloadLyceumSubscribersExport(lyceumId, exportId))
+                .thenReturn(new SubscriberExportService.ExportDownload(
+                        URI.create("https://download.example.com/export-903.xlsx")
+                ));
+
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download", lyceumId, exportId)
+                        .with(user("lyceum-admin").roles("USER")))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://download.example.com/export-903.xlsx"));
+
+        verify(subscriberExportService).downloadLyceumSubscribersExport(lyceumId, exportId);
     }
 
     @Test

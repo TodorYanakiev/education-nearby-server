@@ -98,6 +98,9 @@ public class Course implements Serializable {
     )
     private List<User> lecturers = new ArrayList<>();
 
+    @ManyToMany(mappedBy = "subscribedCourses")
+    private List<User> subscribers = new ArrayList<>();
+
     private String achievements;
 
     @Enumerated(EnumType.STRING)

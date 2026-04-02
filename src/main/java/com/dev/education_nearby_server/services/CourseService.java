@@ -19,6 +19,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.CourseImage;
 import com.dev.education_nearby_server.models.entity.CourseSchedule;
@@ -29,6 +30,7 @@ import com.dev.education_nearby_server.repositories.CourseImageRepository;
 import com.dev.education_nearby_server.repositories.CourseReviewRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.utils.S3ImageLocationResolver;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +72,7 @@ public class CourseService {
     private final CourseReviewRepository courseReviewRepository;
     private final LyceumRepository lyceumRepository;
     private final UserRepository userRepository;
+    private final UserReviewRepository userReviewRepository;
     private final S3Properties s3Properties;
     private static final String NOT_FOUND = " not found.";
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id", "name", "price", "type");
@@ -210,6 +213,39 @@ public class CourseService {
         Course course = requireCourse(courseId, false);
         List<CourseImage> images = courseImageRepository.findAllByCourseIdOrderByOrderIndexAscIdAsc(course.getId());
         return images.stream().map(this::mapToResponse).toList();
+    }
+
+    /**
+     * Lists users subscribed to a course after validating access permissions.
+     *
+     * @param courseId course identifier
+     * @return subscribers associated with the course
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getCourseSubscribers(Long courseId) {
+        Course course = requireCourse(courseId, true);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyCourse(currentUser, course);
+
+        List<User> subscribers = course.getSubscribers();
+        if (subscribers == null || subscribers.isEmpty()) {
+            return List.of();
+        }
+        return subscribers.stream()
+                .map(this::mapToUserResponse)
+                .toList();
+    }
+
+    /**
+     * Ensures the current user can access subscribers for the given course.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional(readOnly = true)
+    public void ensureCurrentUserCanAccessCourseSubscribers(Long courseId) {
+        Course course = requireCourse(courseId, true);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyCourse(currentUser, course);
     }
 
     /**
@@ -392,6 +428,71 @@ public class CourseService {
         }
 
         courseRepository.save(course);
+    }
+
+    /**
+     * Subscribes the authenticated user to a course.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional
+    public void subscribeToCourse(Long courseId) {
+        Course course = requireCourse(courseId, false);
+        User currentUser = getManagedCurrentUser();
+
+        if (currentUser.getSubscribedCourses() == null) {
+            currentUser.setSubscribedCourses(new ArrayList<>());
+        }
+        boolean alreadySubscribed = currentUser.getSubscribedCourses().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(course.getId()));
+        if (alreadySubscribed) {
+            throw new ConflictException("You are already subscribed to this course.");
+        }
+
+        currentUser.getSubscribedCourses().add(course);
+        if (course.getSubscribers() != null) {
+            boolean userAlreadyMapped = course.getSubscribers().stream()
+                    .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
+            if (!userAlreadyMapped) {
+                course.getSubscribers().add(currentUser);
+            }
+        }
+
+        userRepository.save(currentUser);
+    }
+
+    /**
+     * Unsubscribes the authenticated user from a course.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional
+    public void unsubscribeFromCourse(Long courseId) {
+        if (courseId == null) {
+            throw new BadRequestException("Course id must be provided.");
+        }
+        Course course = requireCourse(courseId, false);
+        User currentUser = getManagedCurrentUser();
+
+        List<Course> subscribedCourses = currentUser.getSubscribedCourses();
+        if (subscribedCourses == null || subscribedCourses.isEmpty()) {
+            throw new BadRequestException("You are not subscribed to this course.");
+        }
+
+        boolean removed = subscribedCourses.removeIf(
+                existing -> existing.getId() != null && existing.getId().equals(course.getId())
+        );
+        if (!removed) {
+            throw new BadRequestException("You are not subscribed to this course.");
+        }
+
+        if (course.getSubscribers() != null) {
+            course.getSubscribers().removeIf(
+                    existing -> existing.getId() != null && existing.getId().equals(currentUser.getId())
+            );
+        }
+
+        userRepository.save(currentUser);
     }
 
     private CourseUpdateRequest requireValidCourseUpdateRequest(CourseUpdateRequest request) {
@@ -875,6 +976,40 @@ public class CourseService {
         return course.getMainImage()
                 .map(this::mapToResponse)
                 .orElse(null);
+    }
+
+    private UserResponse mapToUserResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .firstname(user.getFirstname())
+                .lastname(user.getLastname())
+                .email(user.getEmail())
+                .username(user.getUsername())
+                .role(user.getRole())
+                .administratedLyceumId(user.getAdministratedLyceum() != null ? user.getAdministratedLyceum().getId() : null)
+                .lecturedCourseIds(extractLecturedCourseIds(user))
+                .lecturedLyceumIds(extractLecturedLyceumIds(user))
+                .enabled(user.isEnabled())
+                .averageRating(userReviewRepository.findAverageRatingByReviewedUserId(user.getId()))
+                .build();
+    }
+
+    private List<Long> extractLecturedCourseIds(User user) {
+        if (user.getCoursesLectured() == null || user.getCoursesLectured().isEmpty()) {
+            return List.of();
+        }
+        return user.getCoursesLectured().stream()
+                .map(Course::getId)
+                .toList();
+    }
+
+    private List<Long> extractLecturedLyceumIds(User user) {
+        if (user.getLecturedLyceums() == null || user.getLecturedLyceums().isEmpty()) {
+            return List.of();
+        }
+        return user.getLecturedLyceums().stream()
+                .map(Lyceum::getId)
+                .toList();
     }
 
     private String trimToNull(String value) {

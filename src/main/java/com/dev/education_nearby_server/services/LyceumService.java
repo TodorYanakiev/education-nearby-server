@@ -580,6 +580,68 @@ public class LyceumService {
     }
 
     /**
+     * Subscribes the authenticated user to a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional
+    public void subscribeToLyceum(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+
+        if (currentUser.getSubscribedLyceums() == null) {
+            currentUser.setSubscribedLyceums(new ArrayList<>());
+        }
+        boolean alreadySubscribed = currentUser.getSubscribedLyceums().stream()
+                .anyMatch(existing -> existing.getId() != null && existing.getId().equals(lyceum.getId()));
+        if (alreadySubscribed) {
+            throw new ConflictException("You are already subscribed to this lyceum.");
+        }
+
+        currentUser.getSubscribedLyceums().add(lyceum);
+        if (lyceum.getSubscribers() != null) {
+            boolean userAlreadyMapped = lyceum.getSubscribers().stream()
+                    .anyMatch(existing -> existing.getId() != null && existing.getId().equals(currentUser.getId()));
+            if (!userAlreadyMapped) {
+                lyceum.getSubscribers().add(currentUser);
+            }
+        }
+
+        userRepository.save(currentUser);
+    }
+
+    /**
+     * Unsubscribes the authenticated user from a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional
+    public void unsubscribeFromLyceum(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+
+        List<Lyceum> subscribedLyceums = currentUser.getSubscribedLyceums();
+        if (subscribedLyceums == null || subscribedLyceums.isEmpty()) {
+            throw new BadRequestException("You are not subscribed to this lyceum.");
+        }
+
+        boolean removed = subscribedLyceums.removeIf(
+                existing -> existing.getId() != null && existing.getId().equals(lyceum.getId())
+        );
+        if (!removed) {
+            throw new BadRequestException("You are not subscribed to this lyceum.");
+        }
+
+        if (lyceum.getSubscribers() != null) {
+            lyceum.getSubscribers().removeIf(
+                    existing -> existing.getId() != null && existing.getId().equals(currentUser.getId())
+            );
+        }
+
+        userRepository.save(currentUser);
+    }
+
+    /**
      * Lists images for a given lyceum id.
      *
      * @param lyceumId lyceum identifier
@@ -673,6 +735,39 @@ public class LyceumService {
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    /**
+     * Lists users subscribed to a lyceum after validating access permissions.
+     *
+     * @param lyceumId lyceum identifier
+     * @return subscribers associated with the lyceum
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getLyceumSubscribers(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
+
+        List<User> subscribers = lyceum.getSubscribers();
+        if (subscribers == null || subscribers.isEmpty()) {
+            return List.of();
+        }
+        return subscribers.stream()
+                .map(this::mapToUserResponse)
+                .toList();
+    }
+
+    /**
+     * Ensures the current user can access subscribers for the given lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional(readOnly = true)
+    public void ensureCurrentUserCanAccessLyceumSubscribers(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyLyceum(currentUser, lyceum);
     }
 
     /**

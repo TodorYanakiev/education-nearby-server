@@ -29,6 +29,7 @@ import com.dev.education_nearby_server.repositories.CourseImageRepository;
 import com.dev.education_nearby_server.repositories.CourseReviewRepository;
 import com.dev.education_nearby_server.repositories.CourseRepository;
 import com.dev.education_nearby_server.repositories.LyceumRepository;
+import com.dev.education_nearby_server.repositories.UserReviewRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +77,8 @@ class CourseServiceTest {
     private LyceumRepository lyceumRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserReviewRepository userReviewRepository;
     @Mock
     private S3Properties s3Properties;
 
@@ -1219,6 +1222,164 @@ class CourseServiceTest {
 
         assertThat(course.getLecturers()).containsExactly(lecturer);
         verify(courseRepository).save(course);
+    }
+
+    @Test
+    void getCourseSubscribersAllowsCourseLecturer() {
+        Course course = createCourseEntity(571L);
+        User lecturer = createUser(150L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        User subscriber = createUser(151L, Role.USER);
+        course.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        when(courseRepository.findDetailedById(571L)).thenReturn(Optional.of(course));
+        authenticate(lecturer);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(4.8);
+
+        var response = courseService.getCourseSubscribers(571L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(151L);
+        assertThat(response.getFirst().getAverageRating()).isEqualTo(4.8);
+    }
+
+    @Test
+    void getCourseSubscribersAllowsLyceumAdministrator() {
+        Course course = createCourseEntity(572L);
+        Lyceum lyceum = new Lyceum();
+        lyceum.setId(99L);
+        course.setLyceum(lyceum);
+        User lyceumAdmin = createUser(152L, Role.USER);
+        lyceumAdmin.setAdministratedLyceum(lyceum);
+        User subscriber = createUser(153L, Role.USER);
+        course.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        when(courseRepository.findDetailedById(572L)).thenReturn(Optional.of(course));
+        authenticate(lyceumAdmin);
+        when(userRepository.findById(lyceumAdmin.getId())).thenReturn(Optional.of(lyceumAdmin));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(4.1);
+
+        var response = courseService.getCourseSubscribers(572L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(153L);
+    }
+
+    @Test
+    void getCourseSubscribersAllowsAdmin() {
+        Course course = createCourseEntity(573L);
+        User admin = createUser(154L, Role.ADMIN);
+        User subscriber = createUser(155L, Role.USER);
+        course.setSubscribers(new ArrayList<>(List.of(subscriber)));
+        when(courseRepository.findDetailedById(573L)).thenReturn(Optional.of(course));
+        authenticate(admin);
+        when(userRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(userReviewRepository.findAverageRatingByReviewedUserId(subscriber.getId())).thenReturn(3.9);
+
+        var response = courseService.getCourseSubscribers(573L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getId()).isEqualTo(155L);
+    }
+
+    @Test
+    void getCourseSubscribersThrowsWhenUserCannotView() {
+        Course course = createCourseEntity(574L);
+        User regularUser = createUser(156L, Role.USER);
+        when(courseRepository.findDetailedById(574L)).thenReturn(Optional.of(course));
+        authenticate(regularUser);
+        when(userRepository.findById(regularUser.getId())).thenReturn(Optional.of(regularUser));
+
+        assertThrows(AccessDeniedException.class, () -> courseService.getCourseSubscribers(574L));
+        verify(userReviewRepository, never()).findAverageRatingByReviewedUserId(any());
+    }
+
+    @Test
+    void subscribeToCourseAddsSubscriptionWhenMissing() {
+        Course course = createCourseEntity(58L);
+        when(courseRepository.findById(58L)).thenReturn(Optional.of(course));
+
+        User user = createUser(95L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>());
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        courseService.subscribeToCourse(58L);
+
+        assertThat(user.getSubscribedCourses()).hasSize(1);
+        assertThat(user.getSubscribedCourses().getFirst().getId()).isEqualTo(58L);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void subscribeToCourseThrowsWhenAlreadySubscribed() {
+        Course course = createCourseEntity(59L);
+        when(courseRepository.findById(59L)).thenReturn(Optional.of(course));
+
+        User user = createUser(96L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>(List.of(course)));
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(ConflictException.class, () -> courseService.subscribeToCourse(59L));
+
+        assertThat(user.getSubscribedCourses()).hasSize(1);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void subscribeToCourseThrowsWhenUnauthenticated() {
+        Course course = createCourseEntity(60L);
+        when(courseRepository.findById(60L)).thenReturn(Optional.of(course));
+
+        assertThrows(UnauthorizedException.class, () -> courseService.subscribeToCourse(60L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromCourseRemovesSubscriptionWhenPresent() {
+        Course course = createCourseEntity(61L);
+        when(courseRepository.findById(61L)).thenReturn(Optional.of(course));
+
+        User user = createUser(97L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>(List.of(course)));
+        course.setSubscribers(new ArrayList<>(List.of(user)));
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        courseService.unsubscribeFromCourse(61L);
+
+        assertThat(user.getSubscribedCourses()).isEmpty();
+        assertThat(course.getSubscribers()).isEmpty();
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void unsubscribeFromCourseThrowsWhenNotSubscribed() {
+        Course course = createCourseEntity(62L);
+        when(courseRepository.findById(62L)).thenReturn(Optional.of(course));
+
+        User user = createUser(98L, Role.USER);
+        user.setSubscribedCourses(new ArrayList<>());
+        authenticate(user);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThrows(BadRequestException.class, () -> courseService.unsubscribeFromCourse(62L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromCourseThrowsWhenUnauthenticated() {
+        Course course = createCourseEntity(63L);
+        when(courseRepository.findById(63L)).thenReturn(Optional.of(course));
+
+        assertThrows(UnauthorizedException.class, () -> courseService.unsubscribeFromCourse(63L));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void unsubscribeFromCourseThrowsWhenCourseIdMissing() {
+        assertThrows(BadRequestException.class, () -> courseService.unsubscribeFromCourse(null));
+        verifyNoInteractions(courseRepository, userRepository);
     }
 
     @Test
