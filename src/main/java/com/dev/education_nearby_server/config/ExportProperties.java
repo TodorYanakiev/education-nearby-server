@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * File-system storage options for asynchronous subscriber exports.
+ * Storage options for asynchronous subscriber exports.
  */
 @Getter
 @Setter
@@ -15,8 +15,17 @@ import org.springframework.stereotype.Component;
 public class ExportProperties {
 
     /**
-     * Base directory where generated export files are stored.
+     * Temporary local directory used while generating export files before uploading to S3.
      */
     private String directory = "exports";
-}
 
+    /**
+     * S3 object key prefix where generated export files are uploaded.
+     */
+    private String s3Prefix = "exports/subscribers/";
+
+    /**
+     * Presigned download URL validity in minutes.
+     */
+    private int presignedUrlMinutes = 10;
+}

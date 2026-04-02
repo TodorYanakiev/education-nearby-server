@@ -1,10 +1,13 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.config.ExportProperties;
+import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.enums.SubscriberExportFormat;
 import com.dev.education_nearby_server.enums.SubscriberExportScope;
 import com.dev.education_nearby_server.enums.SubscriberExportStatus;
 import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.ConflictException;
+import com.dev.education_nearby_server.exceptions.common.InternalServerErrorException;
 import com.dev.education_nearby_server.exceptions.common.NoSuchElementException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.response.SubscriberExportJobResponse;
@@ -13,15 +16,18 @@ import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.SubscriberExportJobRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.PathResource;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.net.URI;
+import java.time.Duration;
 import java.util.Optional;
 
 /**
@@ -36,6 +42,9 @@ public class SubscriberExportService {
     private final CourseService courseService;
     private final LyceumService lyceumService;
     private final SubscriberExportProcessor exportProcessor;
+    private final S3Properties s3Properties;
+    private final ExportProperties exportProperties;
+    private final S3Presigner s3Presigner;
 
     public SubscriberExportJobResponse createCourseSubscribersExport(Long courseId, SubscriberExportFormat format) {
         courseService.ensureCurrentUserCanAccessCourseSubscribers(courseId);
@@ -62,17 +71,17 @@ public class SubscriberExportService {
     }
 
     @Transactional(readOnly = true)
-    public ExportFile downloadCourseSubscribersExport(Long courseId, Long exportId) {
+    public ExportDownload downloadCourseSubscribersExport(Long courseId, Long exportId) {
         courseService.ensureCurrentUserCanAccessCourseSubscribers(courseId);
         SubscriberExportJob job = requireJob(exportId, SubscriberExportScope.COURSE, courseId);
-        return buildExportFile(job);
+        return buildDownloadLink(job);
     }
 
     @Transactional(readOnly = true)
-    public ExportFile downloadLyceumSubscribersExport(Long lyceumId, Long exportId) {
+    public ExportDownload downloadLyceumSubscribersExport(Long lyceumId, Long exportId) {
         lyceumService.ensureCurrentUserCanAccessLyceumSubscribers(lyceumId);
         SubscriberExportJob job = requireJob(exportId, SubscriberExportScope.LYCEUM, lyceumId);
-        return buildExportFile(job);
+        return buildDownloadLink(job);
     }
 
     private SubscriberExportJobResponse createExport(
@@ -101,7 +110,7 @@ public class SubscriberExportService {
                 .orElseThrow(() -> new NoSuchElementException("Export job with id " + exportId + " not found."));
     }
 
-    private ExportFile buildExportFile(SubscriberExportJob job) {
+    private ExportDownload buildDownloadLink(SubscriberExportJob job) {
         if (job.getStatus() == SubscriberExportStatus.FAILED) {
             String message = job.getErrorMessage() == null ? "Export generation failed." : job.getErrorMessage();
             throw new BadRequestException(message);
@@ -113,19 +122,33 @@ public class SubscriberExportService {
             throw new NoSuchElementException("Export file not found.");
         }
 
-        Path path = Path.of(job.getFilePath()).toAbsolutePath().normalize();
-        if (!Files.exists(path) || !Files.isReadable(path)) {
-            throw new NoSuchElementException("Export file not found.");
-        }
-
+        String bucketName = requiredBucketName();
+        String objectKey = job.getFilePath().trim();
         String contentType = job.getContentType() != null
                 ? job.getContentType()
                 : "application/octet-stream";
         String fileName = (job.getFileName() != null && !job.getFileName().isBlank())
                 ? job.getFileName()
-                : path.getFileName().toString();
+                : objectKey.substring(objectKey.lastIndexOf('/') + 1);
 
-        return new ExportFile(new PathResource(path), fileName, contentType);
+        try {
+            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(objectKey)
+                    .responseContentType(contentType)
+                    .responseContentDisposition("attachment; filename=\"" + fileName + "\"")
+                    .build();
+
+            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                    .signatureDuration(resolvePresignedDuration())
+                    .getObjectRequest(getObjectRequest)
+                    .build();
+
+            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
+            return new ExportDownload(URI.create(presignedRequest.url().toString()));
+        } catch (Exception exception) {
+            throw new InternalServerErrorException("Could not generate export download URL.");
+        }
     }
 
     private SubscriberExportJobResponse mapToResponse(SubscriberExportJob job) {
@@ -162,6 +185,22 @@ public class SubscriberExportService {
         return Optional.empty();
     }
 
-    public record ExportFile(PathResource resource, String fileName, String contentType) {
+    private String requiredBucketName() {
+        String bucketName = s3Properties.getBucketName();
+        if (bucketName == null || bucketName.isBlank()) {
+            throw new InternalServerErrorException("S3 bucket name is not configured.");
+        }
+        return bucketName.trim();
+    }
+
+    private Duration resolvePresignedDuration() {
+        int minutes = exportProperties.getPresignedUrlMinutes();
+        if (minutes <= 0) {
+            minutes = 10;
+        }
+        return Duration.ofMinutes(minutes);
+    }
+
+    public record ExportDownload(URI url) {
     }
 }

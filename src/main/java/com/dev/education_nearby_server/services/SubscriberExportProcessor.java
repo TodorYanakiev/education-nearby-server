@@ -1,5 +1,6 @@
 package com.dev.education_nearby_server.services;
 
+import com.dev.education_nearby_server.config.S3Properties;
 import com.dev.education_nearby_server.config.ExportProperties;
 import com.dev.education_nearby_server.enums.SubscriberExportFormat;
 import com.dev.education_nearby_server.enums.SubscriberExportScope;
@@ -17,6 +18,8 @@ import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -47,6 +50,8 @@ public class SubscriberExportProcessor {
     private final CourseRepository courseRepository;
     private final LyceumRepository lyceumRepository;
     private final ExportProperties exportProperties;
+    private final S3Properties s3Properties;
+    private final S3Client s3Client;
 
     @Async("exportTaskExecutor")
     public void processExportJob(Long exportJobId) {
@@ -56,17 +61,19 @@ public class SubscriberExportProcessor {
             return;
         }
 
+        Path localOutputPath = null;
         try {
             markInProgress(job);
             ensureTargetStillExists(job);
 
             List<User> subscribers = loadSubscribers(job.getScope(), job.getTargetId());
-            Path outputPath = createOutputPath(job);
-            Files.createDirectories(outputPath.getParent());
+            localOutputPath = createOutputPath(job);
+            Files.createDirectories(localOutputPath.getParent());
 
-            GeneratedFile generatedFile = generateFile(outputPath, job.getFormat(), subscribers);
+            GeneratedFile generatedFile = generateFile(localOutputPath, job.getFormat(), subscribers);
+            String s3Key = uploadToS3(localOutputPath, generatedFile.fileName(), generatedFile.contentType());
             job.setStatus(SubscriberExportStatus.COMPLETED);
-            job.setFilePath(outputPath.toString());
+            job.setFilePath(s3Key);
             job.setFileName(generatedFile.fileName());
             job.setContentType(generatedFile.contentType());
             job.setCompletedAt(LocalDateTime.now());
@@ -78,6 +85,8 @@ public class SubscriberExportProcessor {
             log.error("Failed subscriber export job {} scope={} targetId={}",
                     job.getId(), job.getScope(), job.getTargetId(), exception);
             markFailed(job, exception.getMessage());
+        } finally {
+            deleteTemporaryFile(localOutputPath);
         }
     }
 
@@ -124,6 +133,21 @@ public class SubscriberExportProcessor {
             case CSV -> writeCsv(outputPath, subscribers);
             case XLSX, EXCEL -> writeXlsx(outputPath, subscribers);
         };
+    }
+
+    private String uploadToS3(Path localOutputPath, String fileName, String contentType) {
+        String bucketName = requiredBucketName();
+        String key = buildObjectKey(fileName);
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType(contentType)
+                .contentDisposition("attachment; filename=\"" + fileName + "\"")
+                .build();
+
+        s3Client.putObject(request, localOutputPath);
+        return key;
     }
 
     private GeneratedFile writeCsv(Path outputPath, List<User> subscribers) throws IOException {
@@ -193,6 +217,44 @@ public class SubscriberExportProcessor {
             return "Unknown export failure.";
         }
         return message.length() > 1024 ? message.substring(0, 1024) : message;
+    }
+
+    private String requiredBucketName() {
+        String bucketName = s3Properties.getBucketName();
+        if (bucketName == null || bucketName.isBlank()) {
+            throw new IllegalStateException("S3 bucket name is not configured.");
+        }
+        return bucketName.trim();
+    }
+
+    private String buildObjectKey(String fileName) {
+        String prefix = normalizedPrefix(exportProperties.getS3Prefix());
+        return prefix + fileName;
+    }
+
+    private String normalizedPrefix(String rawPrefix) {
+        if (rawPrefix == null || rawPrefix.isBlank()) {
+            return "";
+        }
+        String prefix = rawPrefix.trim().replace("\\", "/");
+        while (prefix.startsWith("/")) {
+            prefix = prefix.substring(1);
+        }
+        if (!prefix.isEmpty() && !prefix.endsWith("/")) {
+            prefix = prefix + "/";
+        }
+        return prefix;
+    }
+
+    private void deleteTemporaryFile(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException exception) {
+            log.warn("Failed to delete temporary export file {}", path, exception);
+        }
     }
 
     private record GeneratedFile(String fileName, String contentType) {

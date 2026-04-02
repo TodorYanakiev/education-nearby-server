@@ -26,6 +26,11 @@ public class S3Properties {
     private String publicBaseUrl;
 
     /**
+     * AWS region where the bucket is located.
+     */
+    private String region = "eu-central-1";
+
+    /**
      * Optional required prefix for all course images (e.g. courses/{courseId}/images/).
      */
     private String allowedPrefix = "courses/";

@@ -6,10 +6,7 @@ import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import com.dev.education_nearby_server.services.SubscriberExportService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -99,22 +96,20 @@ public class LyceumSubscriberController {
     }
 
     /**
-     * Downloads generated lyceum subscribers export file when the job is completed.
+     * Redirects to a presigned S3 URL for the generated lyceum subscribers export file.
      *
      * @param lyceumId lyceum identifier
      * @param exportId export job identifier
-     * @return downloadable file response
+     * @return redirect response with presigned download location
      */
     @GetMapping("/{lyceumId}/subscribers/export/{exportId}/download")
-    public ResponseEntity<Resource> downloadLyceumSubscribersExport(
+    public ResponseEntity<Void> downloadLyceumSubscribersExport(
             @PathVariable Long lyceumId,
             @PathVariable Long exportId
     ) {
-        SubscriberExportService.ExportFile exportFile = subscriberExportService.downloadLyceumSubscribersExport(lyceumId, exportId);
-        MediaType mediaType = MediaType.parseMediaType(exportFile.contentType());
-        return ResponseEntity.ok()
-                .contentType(mediaType)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportFile.fileName() + "\"")
-                .body(exportFile.resource());
+        SubscriberExportService.ExportDownload download = subscriberExportService.downloadLyceumSubscribersExport(lyceumId, exportId);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(download.url())
+                .build();
     }
 }
