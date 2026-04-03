@@ -353,25 +353,28 @@ class CourseControllerIT {
 
     @Test
     void downloadCourseSubscribersExportRequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download", 18L, 701L))
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download-url", 18L, 701L))
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(subscriberExportService);
     }
 
     @Test
-    void downloadCourseSubscribersExportReturnsRedirectForAuthenticatedUser() throws Exception {
+    void downloadCourseSubscribersExportReturnsPayloadForAuthenticatedUser() throws Exception {
         Long courseId = 18L;
         Long exportId = 702L;
         when(subscriberExportService.downloadCourseSubscribersExport(courseId, exportId))
                 .thenReturn(new SubscriberExportService.ExportDownload(
-                        URI.create("https://download.example.com/export-702.csv")
+                        URI.create("https://download.example.com/export-702.csv"),
+                        "course-18-subscribers.csv",
+                        null
                 ));
 
-        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download", courseId, exportId)
+        mockMvc.perform(get("/api/v1/courses/{courseId}/subscribers/export/{exportId}/download-url", courseId, exportId)
                         .with(user("lecturer").roles("USER")))
-                .andExpect(status().isFound())
-                .andExpect(header().string("Location", "https://download.example.com/export-702.csv"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://download.example.com/export-702.csv"))
+                .andExpect(jsonPath("$.fileName").value("course-18-subscribers.csv"));
 
         verify(subscriberExportService).downloadCourseSubscribersExport(courseId, exportId);
     }

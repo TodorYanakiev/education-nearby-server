@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,16 +111,23 @@ class CourseSubscriberControllerTest {
     void downloadCourseSubscribersExportReturnsResponseFromService() {
         Long courseId = 11L;
         Long exportId = 103L;
+        Instant expiresAt = Instant.parse("2026-04-03T08:15:00Z");
         when(subscriberExportService.downloadCourseSubscribersExport(courseId, exportId))
                 .thenReturn(new SubscriberExportService.ExportDownload(
-                        URI.create("https://example.com/presigned/subscribers.csv")
+                        URI.create("https://example.com/presigned/subscribers.csv"),
+                        "course-11-subscribers.csv",
+                        expiresAt
                 ));
 
-        ResponseEntity<Void> result = courseSubscriberController.downloadCourseSubscribersExport(courseId, exportId);
+        ResponseEntity<SubscriberExportService.ExportDownload> result =
+                courseSubscriberController.downloadCourseSubscribersExport(courseId, exportId);
 
-        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FOUND);
-        assertThat(result.getHeaders().getLocation())
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isNotNull();
+        assertThat(result.getBody().url())
                 .isEqualTo(URI.create("https://example.com/presigned/subscribers.csv"));
+        assertThat(result.getBody().fileName()).isEqualTo("course-11-subscribers.csv");
+        assertThat(result.getBody().expiresAt()).isEqualTo(expiresAt);
         verify(subscriberExportService).downloadCourseSubscribersExport(courseId, exportId);
     }
 }
