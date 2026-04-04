@@ -96,20 +96,18 @@ public class LyceumSubscriberController {
     }
 
     /**
-     * Redirects to a presigned S3 URL for the generated lyceum subscribers export file.
+     * Returns a presigned S3 URL for the generated lyceum subscribers export file.
      *
      * @param lyceumId lyceum identifier
      * @param exportId export job identifier
-     * @return redirect response with presigned download location
+     * @return payload containing the download URL and expiration metadata
      */
-    @GetMapping("/{lyceumId}/subscribers/export/{exportId}/download")
-    public ResponseEntity<Void> downloadLyceumSubscribersExport(
+    @GetMapping("/{lyceumId}/subscribers/export/{exportId}/download-url")
+    public ResponseEntity<SubscriberExportService.ExportDownload> downloadLyceumSubscribersExport(
             @PathVariable Long lyceumId,
             @PathVariable Long exportId
     ) {
         SubscriberExportService.ExportDownload download = subscriberExportService.downloadLyceumSubscribersExport(lyceumId, exportId);
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(download.url())
-                .build();
+        return ResponseEntity.ok(download);
     }
 }

@@ -100,20 +100,18 @@ public class CourseSubscriberController {
     }
 
     /**
-     * Redirects to a presigned S3 URL for the generated course subscribers export file.
+     * Returns a presigned S3 URL for the generated course subscribers export file.
      *
      * @param courseId course identifier
      * @param exportId export job identifier
-     * @return redirect response with presigned download location
+     * @return payload containing the download URL and expiration metadata
      */
-    @GetMapping("/{courseId}/subscribers/export/{exportId}/download")
-    public ResponseEntity<Void> downloadCourseSubscribersExport(
+    @GetMapping("/{courseId}/subscribers/export/{exportId}/download-url")
+    public ResponseEntity<SubscriberExportService.ExportDownload> downloadCourseSubscribersExport(
             @PathVariable Long courseId,
             @PathVariable Long exportId
     ) {
         SubscriberExportService.ExportDownload download = subscriberExportService.downloadCourseSubscribersExport(courseId, exportId);
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(download.url())
-                .build();
+        return ResponseEntity.ok(download);
     }
 }

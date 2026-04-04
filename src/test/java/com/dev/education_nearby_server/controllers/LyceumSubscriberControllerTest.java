@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -102,16 +103,23 @@ class LyceumSubscriberControllerTest {
 
     @Test
     void downloadLyceumSubscribersExportReturnsResponseFromService() {
+        Instant expiresAt = Instant.parse("2026-04-03T08:15:00Z");
         when(subscriberExportService.downloadLyceumSubscribersExport(1L, 203L))
                 .thenReturn(new SubscriberExportService.ExportDownload(
-                        URI.create("https://example.com/presigned/subscribers.xlsx")
+                        URI.create("https://example.com/presigned/subscribers.xlsx"),
+                        "lyceum-1-subscribers.xlsx",
+                        expiresAt
                 ));
 
-        ResponseEntity<Void> response = lyceumSubscriberController.downloadLyceumSubscribersExport(1L, 203L);
+        ResponseEntity<SubscriberExportService.ExportDownload> response =
+                lyceumSubscriberController.downloadLyceumSubscribersExport(1L, 203L);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
-        assertThat(response.getHeaders().getLocation())
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().url())
                 .isEqualTo(URI.create("https://example.com/presigned/subscribers.xlsx"));
+        assertThat(response.getBody().fileName()).isEqualTo("lyceum-1-subscribers.xlsx");
+        assertThat(response.getBody().expiresAt()).isEqualTo(expiresAt);
         verify(subscriberExportService).downloadLyceumSubscribersExport(1L, 203L);
     }
 }

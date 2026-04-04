@@ -303,25 +303,28 @@ class LyceumControllerIT {
 
     @Test
     void downloadLyceumSubscribersExportRequiresAuthentication() throws Exception {
-        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download", 11L, 902L))
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download-url", 11L, 902L))
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(subscriberExportService);
     }
 
     @Test
-    void downloadLyceumSubscribersExportReturnsRedirectForAuthenticatedUser() throws Exception {
+    void downloadLyceumSubscribersExportReturnsPayloadForAuthenticatedUser() throws Exception {
         Long lyceumId = 11L;
         Long exportId = 903L;
         when(subscriberExportService.downloadLyceumSubscribersExport(lyceumId, exportId))
                 .thenReturn(new SubscriberExportService.ExportDownload(
-                        URI.create("https://download.example.com/export-903.xlsx")
+                        URI.create("https://download.example.com/export-903.xlsx"),
+                        "lyceum-11-subscribers.xlsx",
+                        null
                 ));
 
-        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download", lyceumId, exportId)
+        mockMvc.perform(get("/api/v1/lyceums/{lyceumId}/subscribers/export/{exportId}/download-url", lyceumId, exportId)
                         .with(user("lyceum-admin").roles("USER")))
-                .andExpect(status().isFound())
-                .andExpect(header().string("Location", "https://download.example.com/export-903.xlsx"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://download.example.com/export-903.xlsx"))
+                .andExpect(jsonPath("$.fileName").value("lyceum-11-subscribers.xlsx"));
 
         verify(subscriberExportService).downloadLyceumSubscribersExport(lyceumId, exportId);
     }

@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -130,6 +131,8 @@ public class SubscriberExportService {
         String fileName = (job.getFileName() != null && !job.getFileName().isBlank())
                 ? job.getFileName()
                 : objectKey.substring(objectKey.lastIndexOf('/') + 1);
+        Duration presignedDuration = resolvePresignedDuration();
+        Instant expiresAt = Instant.now().plus(presignedDuration);
 
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -140,12 +143,16 @@ public class SubscriberExportService {
                     .build();
 
             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                    .signatureDuration(resolvePresignedDuration())
+                    .signatureDuration(presignedDuration)
                     .getObjectRequest(getObjectRequest)
                     .build();
 
             PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
-            return new ExportDownload(URI.create(presignedRequest.url().toString()));
+            return new ExportDownload(
+                    URI.create(presignedRequest.url().toString()),
+                    fileName,
+                    expiresAt
+            );
         } catch (Exception exception) {
             throw new InternalServerErrorException("Could not generate export download URL.");
         }
@@ -201,6 +208,9 @@ public class SubscriberExportService {
         return Duration.ofMinutes(minutes);
     }
 
-    public record ExportDownload(URI url) {
+    public record ExportDownload(URI url, String fileName, Instant expiresAt) {
+        public ExportDownload(URI url) {
+            this(url, null, null);
+        }
     }
 }
