@@ -14,7 +14,6 @@ import java.util.Optional;
 
 public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
     Optional<Lyceum> findFirstByNameIgnoreCaseAndTownIgnoreCase(String name, String town);
-    List<Lyceum> findAllByTownIgnoreCase(String town);
     List<Lyceum> findAllByVerificationStatus(VerificationStatus status);
     @EntityGraph(attributePaths = "lecturers")
     Optional<Lyceum> findWithLecturersById(Long id);

@@ -55,17 +55,6 @@ public class LyceumController {
     }
 
     /**
-     * Returns all lyceums in the supplied town regardless of verification status.
-     *
-     * @param town town name used for case-insensitive matching
-     * @return list of lyceums in the town
-     */
-    @GetMapping("/by-town")
-    public ResponseEntity<List<LyceumResponse>> getLyceumsByTown(@RequestParam String town) {
-        return ResponseEntity.ok(lyceumService.getLyceumsByTown(town));
-    }
-
-    /**
      * Returns only lyceums that were verified by administrators.
      *
      * @return list of verified lyceums

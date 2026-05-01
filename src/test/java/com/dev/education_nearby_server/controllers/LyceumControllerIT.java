@@ -120,25 +120,6 @@ class LyceumControllerIT {
     }
 
     @Test
-    void getLyceumsByTownReturnsServicePayload() throws Exception {
-        LyceumResponse response = LyceumResponse.builder()
-                .id(6L)
-                .name("Town Lyceum")
-                .town("Varna")
-                .build();
-        when(lyceumService.getLyceumsByTown("Varna")).thenReturn(List.of(response));
-
-        mockMvc.perform(get("/api/v1/lyceums/by-town")
-                        .param("town", "Varna"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(6L))
-                .andExpect(jsonPath("$[0].name").value("Town Lyceum"))
-                .andExpect(jsonPath("$[0].town").value("Varna"));
-
-        verify(lyceumService).getLyceumsByTown("Varna");
-    }
-
-    @Test
     void getLyceumByIdReturnsPayload() throws Exception {
         LyceumResponse response = LyceumResponse.builder()
                 .id(2L)
