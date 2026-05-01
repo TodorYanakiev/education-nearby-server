@@ -152,6 +152,25 @@ public class LyceumService {
     }
 
     /**
+     * Lists all lyceums in a town regardless of verification status.
+     *
+     * @param town required town filter (case-insensitive)
+     * @return lyceums in the supplied town
+     */
+    @Transactional(readOnly = true)
+    public List<LyceumResponse> getLyceumsByTown(String town) {
+        String normalizedTown = normalize(town);
+        if (normalizedTown == null || normalizedTown.isBlank()) {
+            throw new BadRequestException("Lyceum town must be provided.");
+        }
+
+        return lyceumRepository.findAllByTownIgnoreCase(normalizedTown)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
      * Filters lyceums by town and/or coordinates; only verified lyceums are returned.
      *
      * @param town optional town filter (case-insensitive)
