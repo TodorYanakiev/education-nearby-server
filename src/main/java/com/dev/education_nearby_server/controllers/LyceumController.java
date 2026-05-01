@@ -109,6 +109,17 @@ public class LyceumController {
     }
 
     /**
+     * Fetches lyceums located in the provided town.
+     *
+     * @param town town name
+     * @return lyceums in the supplied town
+     */
+    @GetMapping("/by-town")
+    public ResponseEntity<List<LyceumResponse>> getLyceumsByTown(@RequestParam String town) {
+        return ResponseEntity.ok(lyceumService.getLyceumsByTown(town));
+    }
+
+    /**
      * Filters lyceums by location and pagination.
      *
      * @param town optional town name

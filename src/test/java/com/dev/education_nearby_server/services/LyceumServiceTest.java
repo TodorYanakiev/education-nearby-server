@@ -151,6 +151,40 @@ class LyceumServiceTest {
     }
 
     @Test
+    void getLyceumsByTownReturnsRepositoryResult() {
+        Lyceum lyceum = createLyceum(16L, "Town Lyceum", "Varna", "varna@example.com");
+        when(lyceumRepository.findAllByTownIgnoreCase("Varna")).thenReturn(List.of(lyceum));
+
+        List<LyceumResponse> result = lyceumService.getLyceumsByTown("Varna");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getId()).isEqualTo(16L);
+        assertThat(result.getFirst().getTown()).isEqualTo("Varna");
+        verify(lyceumRepository).findAllByTownIgnoreCase("Varna");
+        verify(lyceumRepository, never()).findAll();
+    }
+
+    @Test
+    void getLyceumsByTownFallsBackToNormalizedTownMatch() {
+        Lyceum lyceum = createLyceum(17L, "Town Lyceum", "  Varna  ", "varna2@example.com");
+        when(lyceumRepository.findAllByTownIgnoreCase("Varna")).thenReturn(List.of());
+        when(lyceumRepository.findAll()).thenReturn(List.of(lyceum));
+
+        List<LyceumResponse> result = lyceumService.getLyceumsByTown(" Varna ");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getId()).isEqualTo(17L);
+        verify(lyceumRepository).findAllByTownIgnoreCase("Varna");
+        verify(lyceumRepository).findAll();
+    }
+
+    @Test
+    void getLyceumsByTownThrowsWhenTownMissing() {
+        assertThrows(BadRequestException.class, () -> lyceumService.getLyceumsByTown("   "));
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
     void getLyceumCoursesReturnsServicePayload() {
         Lyceum lyceum = createLyceum(5L, "Lyceum", "Varna", "contact@example.com");
         when(lyceumRepository.findById(5L)).thenReturn(Optional.of(lyceum));
