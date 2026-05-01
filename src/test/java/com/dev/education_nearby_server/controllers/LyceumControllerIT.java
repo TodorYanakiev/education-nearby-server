@@ -375,6 +375,35 @@ class LyceumControllerIT {
     }
 
     @Test
+    void getLyceumsByTownRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/lyceums/by-town")
+                        .param("town", "Varna"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(lyceumService);
+    }
+
+    @Test
+    void getLyceumsByTownReturnsServicePayloadForAuthenticatedUser() throws Exception {
+        LyceumResponse response = LyceumResponse.builder()
+                .id(12L)
+                .name("Town Lyceum")
+                .town("Varna")
+                .build();
+        when(lyceumService.getLyceumsByTown("Varna")).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/v1/lyceums/by-town")
+                        .with(user("member").roles("USER"))
+                        .param("town", "Varna"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(12L))
+                .andExpect(jsonPath("$[0].name").value("Town Lyceum"))
+                .andExpect(jsonPath("$[0].town").value("Varna"));
+
+        verify(lyceumService).getLyceumsByTown("Varna");
+    }
+
+    @Test
     void getLyceumByIdMapsServiceNotFound() throws Exception {
         when(lyceumService.getLyceumById(9L))
                 .thenThrow(new NoSuchElementException("missing"));

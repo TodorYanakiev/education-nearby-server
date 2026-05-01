@@ -152,6 +152,32 @@ public class LyceumService {
     }
 
     /**
+     * Lists all lyceums located in the provided town.
+     *
+     * @param town required town filter (case-insensitive)
+     * @return matching lyceums
+     */
+    @Transactional(readOnly = true)
+    public List<LyceumResponse> getLyceumsByTown(String town) {
+        String normalizedTown = normalize(town);
+        if (normalizedTown == null || normalizedTown.isBlank()) {
+            throw new BadRequestException("Lyceum town must be provided.");
+        }
+
+        List<Lyceum> lyceums = lyceumRepository.findAllByTownIgnoreCase(normalizedTown);
+        if (lyceums.isEmpty()) {
+            lyceums = Optional.ofNullable(lyceumRepository.findAll()).orElse(List.of())
+                    .stream()
+                    .filter(lyceum -> normalizedTown.equalsIgnoreCase(normalize(lyceum.getTown())))
+                    .toList();
+        }
+
+        return lyceums.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
      * Filters lyceums by town and/or coordinates; only verified lyceums are returned.
      *
      * @param town optional town filter (case-insensitive)

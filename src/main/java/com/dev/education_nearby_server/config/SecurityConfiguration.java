@@ -85,6 +85,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/subscribers").authenticated()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/*/subscribers/export/**").authenticated()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/lyceums/*/subscribers/export").authenticated()
+                                .requestMatchers(HttpMethod.GET, "/api/v1/lyceums/by-town").authenticated()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/courses/*/subscribers").authenticated()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/courses/*/subscribers/export/**").authenticated()
                                 .requestMatchers(HttpMethod.POST, "/api/v1/courses/*/subscribers/export").authenticated()

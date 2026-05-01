@@ -139,6 +139,18 @@ class LyceumControllerTest {
     }
 
     @Test
+    void getLyceumsByTownReturnsServiceResponse() {
+        List<LyceumResponse> lyceums = List.of(lyceumResponse);
+        when(lyceumService.getLyceumsByTown("Varna")).thenReturn(lyceums);
+
+        ResponseEntity<List<LyceumResponse>> response = lyceumController.getLyceumsByTown("Varna");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(lyceums);
+        verify(lyceumService).getLyceumsByTown("Varna");
+    }
+
+    @Test
     void filterLyceumsReturnsServiceResponse() {
         Page<LyceumResponse> lyceums = new PageImpl<>(
                 List.of(lyceumResponse),
