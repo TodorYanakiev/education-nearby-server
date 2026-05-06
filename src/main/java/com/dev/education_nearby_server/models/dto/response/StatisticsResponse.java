@@ -16,4 +16,5 @@ import lombok.Setter;
 @AllArgsConstructor
 public class StatisticsResponse {
     private long seenInResults;
+    private long visits;
 }

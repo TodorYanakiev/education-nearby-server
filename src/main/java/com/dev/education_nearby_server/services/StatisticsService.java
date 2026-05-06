@@ -39,6 +39,22 @@ public class StatisticsService {
         lyceumRepository.incrementSeenInResultsCount(ids);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordCourseVisit(Long courseId) {
+        if (courseId == null) {
+            return;
+        }
+        courseRepository.incrementVisitCount(courseId);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordLyceumVisit(Long lyceumId) {
+        if (lyceumId == null) {
+            return;
+        }
+        lyceumRepository.incrementVisitCount(lyceumId);
+    }
+
     private List<Long> sanitizeIds(Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();

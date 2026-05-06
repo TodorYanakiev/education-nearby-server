@@ -114,6 +114,9 @@ public class Course implements Serializable {
     @Column(name = "seen_in_results_count", nullable = false)
     private long seenInResultsCount;
 
+    @Column(name = "visit_count", nullable = false)
+    private long visitCount;
+
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CourseImage> images = new ArrayList<>();
 

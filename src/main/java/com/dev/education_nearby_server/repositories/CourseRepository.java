@@ -32,6 +32,10 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     @Query("UPDATE Course c SET c.seenInResultsCount = c.seenInResultsCount + 1 WHERE c.id IN :courseIds")
     void incrementSeenInResultsCount(@Param("courseIds") List<Long> courseIds);
 
+    @Modifying
+    @Query("UPDATE Course c SET c.visitCount = c.visitCount + 1 WHERE c.id = :courseId")
+    void incrementVisitCount(@Param("courseId") Long courseId);
+
     @Query(value = """
             SELECT DISTINCT c
             FROM Course c

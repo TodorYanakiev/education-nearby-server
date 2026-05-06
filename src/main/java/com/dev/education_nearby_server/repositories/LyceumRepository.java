@@ -24,6 +24,10 @@ public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
     @Query("UPDATE Lyceum l SET l.seenInResultsCount = l.seenInResultsCount + 1 WHERE l.id IN :lyceumIds")
     void incrementSeenInResultsCount(@Param("lyceumIds") List<Long> lyceumIds);
 
+    @Modifying
+    @Query("UPDATE Lyceum l SET l.visitCount = l.visitCount + 1 WHERE l.id = :lyceumId")
+    void incrementVisitCount(@Param("lyceumId") Long lyceumId);
+
     @Query(value = """
             SELECT *
             FROM lyceums l

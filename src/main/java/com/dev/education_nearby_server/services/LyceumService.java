@@ -600,6 +600,7 @@ public class LyceumService {
                 throw new AccessDeniedException("You do not have permission to access this lyceum.");
             }
         }
+        statisticsService.recordLyceumVisit(lyceum.getId());
         return mapToResponse(lyceum);
     }
 
@@ -616,6 +617,7 @@ public class LyceumService {
         ensureUserCanViewLyceumStatistics(currentUser, lyceum);
         return StatisticsResponse.builder()
                 .seenInResults(lyceum.getSeenInResultsCount())
+                .visits(lyceum.getVisitCount())
                 .build();
     }
 

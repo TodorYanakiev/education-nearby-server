@@ -339,6 +339,7 @@ class CourseServiceTest {
     void getCourseStatisticsAllowsCourseLecturer() {
         Course course = createCourseEntity(64L);
         course.setSeenInResultsCount(12L);
+        course.setVisitCount(4L);
         User lecturer = createUser(201L, Role.USER);
         course.setLecturers(new ArrayList<>(List.of(lecturer)));
         when(courseRepository.findDetailedById(64L)).thenReturn(Optional.of(course));
@@ -348,6 +349,7 @@ class CourseServiceTest {
         var response = courseService.getCourseStatistics(64L);
 
         assertThat(response.getSeenInResults()).isEqualTo(12L);
+        assertThat(response.getVisits()).isEqualTo(4L);
     }
 
     @Test

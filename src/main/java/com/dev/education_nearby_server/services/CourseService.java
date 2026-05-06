@@ -209,6 +209,7 @@ public class CourseService {
     @Transactional(readOnly = true)
     public CourseResponse getCourseById(Long courseId) {
         Course course = requireCourse(courseId, true);
+        statisticsService.recordCourseVisit(course.getId());
         return mapToResponse(course);
     }
 
@@ -225,6 +226,7 @@ public class CourseService {
         ensureUserCanModifyCourse(currentUser, course);
         return StatisticsResponse.builder()
                 .seenInResults(course.getSeenInResultsCount())
+                .visits(course.getVisitCount())
                 .build();
     }
 

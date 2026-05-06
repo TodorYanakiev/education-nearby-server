@@ -1029,6 +1029,7 @@ class LyceumServiceTest {
     void getLyceumStatisticsAllowsLyceumLecturer() {
         Lyceum lyceum = createLyceum(81L, "Lyceum", "Varna", "mail@example.com");
         lyceum.setSeenInResultsCount(19L);
+        lyceum.setVisitCount(5L);
         User lecturer = createUser(201L);
         lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
         when(lyceumRepository.findWithLecturersById(81L)).thenReturn(Optional.of(lyceum));
@@ -1038,6 +1039,7 @@ class LyceumServiceTest {
         var response = lyceumService.getLyceumStatistics(81L);
 
         assertThat(response.getSeenInResults()).isEqualTo(19L);
+        assertThat(response.getVisits()).isEqualTo(5L);
     }
 
     @Test

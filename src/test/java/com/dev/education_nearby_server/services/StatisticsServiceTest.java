@@ -39,4 +39,19 @@ class StatisticsServiceTest {
 
         verifyNoInteractions(courseRepository, lyceumRepository);
     }
+
+    @Test
+    void recordCourseVisitIncrementsCourseCounter() {
+        statisticsService.recordCourseVisit(5L);
+
+        verify(courseRepository).incrementVisitCount(5L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void recordLyceumVisitSkipsNullInput() {
+        statisticsService.recordLyceumVisit(null);
+
+        verifyNoInteractions(courseRepository, lyceumRepository);
+    }
 }
