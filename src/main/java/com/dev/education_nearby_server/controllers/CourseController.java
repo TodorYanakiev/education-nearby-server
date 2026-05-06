@@ -10,6 +10,7 @@ import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
+import com.dev.education_nearby_server.models.dto.response.StatisticsResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import com.dev.education_nearby_server.services.ReviewService;
 import jakarta.validation.Valid;
@@ -92,6 +93,17 @@ public class CourseController {
     @GetMapping("/{courseId}")
     public ResponseEntity<CourseResponse> getCourse(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseById(courseId));
+    }
+
+    /**
+     * Fetches aggregate statistics for a course.
+     *
+     * @param courseId course identifier
+     * @return course statistics
+     */
+    @GetMapping("/{courseId}/statistics")
+    public ResponseEntity<StatisticsResponse> getCourseStatistics(@PathVariable Long courseId) {
+        return ResponseEntity.ok(courseService.getCourseStatistics(courseId));
     }
 
     /**

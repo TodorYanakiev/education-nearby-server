@@ -20,6 +20,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.StatisticsResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.Lyceum;
@@ -48,6 +49,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -69,6 +71,7 @@ public class LyceumService {
     private final EmailService emailService;
     private final CourseService courseService;
     private final S3Properties s3Properties;
+    private final StatisticsService statisticsService;
     private static final String LYCEUM_ID_MESSAGE = "Lyceum with id ";
     private static final String NOT_FOUND_MESSAGE = " not found.";
     private static final String USER_WITH_ID = "User with id ";
@@ -132,7 +135,9 @@ public class LyceumService {
      */
     @Transactional(readOnly = true)
     public List<LyceumResponse> getVerifiedLyceums() {
-        return lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED)
+        List<Lyceum> lyceums = lyceumRepository.findAllByVerificationStatus(VerificationStatus.VERIFIED);
+        statisticsService.recordLyceumsSeenInResults(extractLyceumIds(lyceums));
+        return lyceums
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -145,7 +150,9 @@ public class LyceumService {
      */
     @Transactional(readOnly = true)
     public List<LyceumResponse> getAllLyceums() {
-        return lyceumRepository.findAll()
+        List<Lyceum> lyceums = lyceumRepository.findAll();
+        statisticsService.recordLyceumsSeenInResults(extractLyceumIds(lyceums));
+        return lyceums
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -172,6 +179,7 @@ public class LyceumService {
                     .toList();
         }
 
+        statisticsService.recordLyceumsSeenInResults(extractLyceumIds(lyceums));
         return lyceums.stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -212,6 +220,7 @@ public class LyceumService {
                 VerificationStatus.VERIFIED.name(),
                 pageable
         );
+        statisticsService.recordLyceumsSeenInResults(extractLyceumIds(lyceums.getContent()));
         return lyceums.map(this::mapToResponse);
     }
 
@@ -595,6 +604,22 @@ public class LyceumService {
     }
 
     /**
+     * Returns aggregate lyceum statistics to lyceum lecturers, lyceum admins, and global admins.
+     *
+     * @param lyceumId lyceum identifier
+     * @return lyceum statistics
+     */
+    @Transactional(readOnly = true)
+    public StatisticsResponse getLyceumStatistics(Long lyceumId) {
+        Lyceum lyceum = requireLyceumWithLecturers(lyceumId);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanViewLyceumStatistics(currentUser, lyceum);
+        return StatisticsResponse.builder()
+                .seenInResults(lyceum.getSeenInResultsCount())
+                .build();
+    }
+
+    /**
      * Lists courses linked to a specific lyceum.
      *
      * @param lyceumId lyceum identifier
@@ -757,7 +782,9 @@ public class LyceumService {
         if (ids.stream().anyMatch(id -> id == null)) {
             throw new BadRequestException("Lyceum ids must not contain null values.");
         }
-        return lyceumRepository.findAllById(ids)
+        List<Lyceum> lyceums = lyceumRepository.findAllById(ids);
+        statisticsService.recordLyceumsSeenInResults(extractLyceumIds(lyceums));
+        return lyceums
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -853,6 +880,16 @@ public class LyceumService {
         }
     }
 
+    private List<Long> extractLyceumIds(List<Lyceum> lyceums) {
+        if (lyceums == null || lyceums.isEmpty()) {
+            return List.of();
+        }
+        return lyceums.stream()
+                .map(Lyceum::getId)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
     private Optional<Lyceum> findLyceumByNormalizedValues(String normalizedName, String normalizedTown) {
         if (normalizedName == null || normalizedTown == null) {
             return Optional.empty();
@@ -935,6 +972,23 @@ public class LyceumService {
         if (administrated == null || !administrated.getId().equals(lyceum.getId())) {
             throw new AccessDeniedException("You do not have permission to modify this lyceum.");
         }
+    }
+
+    private void ensureUserCanViewLyceumStatistics(User user, Lyceum lyceum) {
+        if (user.getRole() == Role.ADMIN) {
+            return;
+        }
+        Lyceum administrated = user.getAdministratedLyceum();
+        if (administrated != null && administrated.getId() != null && administrated.getId().equals(lyceum.getId())) {
+            return;
+        }
+        boolean isLecturer = lyceum.getLecturers() != null
+                && lyceum.getLecturers().stream()
+                .anyMatch(lecturer -> lecturer.getId() != null && lecturer.getId().equals(user.getId()));
+        if (isLecturer) {
+            return;
+        }
+        throw new AccessDeniedException("You do not have permission to view this lyceum's statistics.");
     }
 
     private void syncAdministratorsCollection(Lyceum lyceum, User user) {

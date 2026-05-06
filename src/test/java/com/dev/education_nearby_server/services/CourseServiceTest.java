@@ -81,6 +81,8 @@ class CourseServiceTest {
     private UserReviewRepository userReviewRepository;
     @Mock
     private S3Properties s3Properties;
+    @Mock
+    private StatisticsService statisticsService;
 
     @InjectMocks
     private CourseService courseService;
@@ -331,6 +333,21 @@ class CourseServiceTest {
         assertThat(response.getMainImage().getRole()).isEqualTo(ImageRole.MAIN);
         assertThat(response.getAverageRating()).isEqualTo(4.4);
         verify(courseRepository).findDetailedById(9L);
+    }
+
+    @Test
+    void getCourseStatisticsAllowsCourseLecturer() {
+        Course course = createCourseEntity(64L);
+        course.setSeenInResultsCount(12L);
+        User lecturer = createUser(201L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(courseRepository.findDetailedById(64L)).thenReturn(Optional.of(course));
+        authenticate(lecturer);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+
+        var response = courseService.getCourseStatistics(64L);
+
+        assertThat(response.getSeenInResults()).isEqualTo(12L);
     }
 
     @Test

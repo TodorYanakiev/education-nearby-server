@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +19,10 @@ public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
     List<Lyceum> findAllByVerificationStatus(VerificationStatus status);
     @EntityGraph(attributePaths = "lecturers")
     Optional<Lyceum> findWithLecturersById(Long id);
+
+    @Modifying
+    @Query("UPDATE Lyceum l SET l.seenInResultsCount = l.seenInResultsCount + 1 WHERE l.id IN :lyceumIds")
+    void incrementSeenInResultsCount(@Param("lyceumIds") List<Long> lyceumIds);
 
     @Query(value = """
             SELECT *

@@ -9,6 +9,7 @@ import com.dev.education_nearby_server.models.dto.request.LyceumRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
+import com.dev.education_nearby_server.models.dto.response.StatisticsResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import com.dev.education_nearby_server.enums.ImageRole;
@@ -92,6 +93,20 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(lyceumResponse);
         verify(lyceumService).getLyceumById(1L);
+    }
+
+    @Test
+    void getLyceumStatisticsReturnsServiceResponse() {
+        StatisticsResponse statistics = StatisticsResponse.builder()
+                .seenInResults(23L)
+                .build();
+        when(lyceumService.getLyceumStatistics(1L)).thenReturn(statistics);
+
+        ResponseEntity<StatisticsResponse> response = lyceumController.getLyceumStatistics(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(statistics);
+        verify(lyceumService).getLyceumStatistics(1L);
     }
 
     @Test

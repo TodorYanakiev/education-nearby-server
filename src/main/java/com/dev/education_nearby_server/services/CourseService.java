@@ -19,6 +19,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.StatisticsResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.models.entity.Course;
 import com.dev.education_nearby_server.models.entity.CourseImage;
@@ -74,6 +75,7 @@ public class CourseService {
     private final UserRepository userRepository;
     private final UserReviewRepository userReviewRepository;
     private final S3Properties s3Properties;
+    private final StatisticsService statisticsService;
     private static final String NOT_FOUND = " not found.";
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("id", "name", "price", "type");
 
@@ -84,7 +86,9 @@ public class CourseService {
      */
     @Transactional(readOnly = true)
     public List<CourseResponse> getAllCourses() {
-        return courseRepository.findAll()
+        List<Course> courses = courseRepository.findAll();
+        statisticsService.recordCoursesSeenInResults(extractCourseIds(courses));
+        return courses
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -101,7 +105,9 @@ public class CourseService {
         if (lyceumId == null) {
             throw new BadRequestException("Lyceum id must be provided.");
         }
-        return courseRepository.findAllByLyceum_Id(lyceumId)
+        List<Course> courses = courseRepository.findAllByLyceum_Id(lyceumId);
+        statisticsService.recordCoursesSeenInResults(extractCourseIds(courses));
+        return courses
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -118,7 +124,9 @@ public class CourseService {
         if (lecturerId == null) {
             throw new BadRequestException("Lecturer id must be provided.");
         }
-        return courseRepository.findDistinctByLecturers_Id(lecturerId)
+        List<Course> courses = courseRepository.findDistinctByLecturers_Id(lecturerId);
+        statisticsService.recordCoursesSeenInResults(extractCourseIds(courses));
+        return courses
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -188,6 +196,7 @@ public class CourseService {
                 applyActivePeriodFilter,
                 pageable
         );
+        statisticsService.recordCoursesSeenInResults(extractCourseIds(courses.getContent()));
         return courses.map(this::mapToFilterResponse);
     }
 
@@ -201,6 +210,22 @@ public class CourseService {
     public CourseResponse getCourseById(Long courseId) {
         Course course = requireCourse(courseId, true);
         return mapToResponse(course);
+    }
+
+    /**
+     * Returns aggregate course statistics after validating caller ownership.
+     *
+     * @param courseId course identifier
+     * @return course statistics
+     */
+    @Transactional(readOnly = true)
+    public StatisticsResponse getCourseStatistics(Long courseId) {
+        Course course = requireCourse(courseId, true);
+        User currentUser = getManagedCurrentUser();
+        ensureUserCanModifyCourse(currentUser, course);
+        return StatisticsResponse.builder()
+                .seenInResults(course.getSeenInResultsCount())
+                .build();
     }
 
     /**
@@ -804,6 +829,16 @@ public class CourseService {
 
     private <T> List<T> defaultList(List<T> values) {
         return values == null ? List.of() : values;
+    }
+
+    private List<Long> extractCourseIds(List<Course> courses) {
+        if (courses == null || courses.isEmpty()) {
+            return List.of();
+        }
+        return courses.stream()
+                .map(Course::getId)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private void validatePriceRange(Float minPrice, Float maxPrice) {

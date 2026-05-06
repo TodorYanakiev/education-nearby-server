@@ -12,6 +12,7 @@ import com.dev.education_nearby_server.models.dto.response.CourseResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumImageResponse;
 import com.dev.education_nearby_server.models.dto.response.LyceumResponse;
 import com.dev.education_nearby_server.models.dto.response.ReviewResponse;
+import com.dev.education_nearby_server.models.dto.response.StatisticsResponse;
 import com.dev.education_nearby_server.models.dto.response.UserResponse;
 import com.dev.education_nearby_server.services.LyceumService;
 import com.dev.education_nearby_server.services.ReviewService;
@@ -73,6 +74,17 @@ public class LyceumController {
     @GetMapping("/{id}")
     public ResponseEntity<LyceumResponse> getLyceumById(@PathVariable Long id) {
         return ResponseEntity.ok(lyceumService.getLyceumById(id));
+    }
+
+    /**
+     * Fetches aggregate statistics for a lyceum.
+     *
+     * @param lyceumId lyceum identifier
+     * @return lyceum statistics
+     */
+    @GetMapping("/{lyceumId}/statistics")
+    public ResponseEntity<StatisticsResponse> getLyceumStatistics(@PathVariable Long lyceumId) {
+        return ResponseEntity.ok(lyceumService.getLyceumStatistics(lyceumId));
     }
 
     /**

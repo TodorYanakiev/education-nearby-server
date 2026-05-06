@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,6 +27,10 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     @EntityGraph(attributePaths = {"lecturers", "lyceum"})
     List<Course> findDistinctByLecturers_Id(Long lecturerId);
+
+    @Modifying
+    @Query("UPDATE Course c SET c.seenInResultsCount = c.seenInResultsCount + 1 WHERE c.id IN :courseIds")
+    void incrementSeenInResultsCount(@Param("courseIds") List<Long> courseIds);
 
     @Query(value = """
             SELECT DISTINCT c

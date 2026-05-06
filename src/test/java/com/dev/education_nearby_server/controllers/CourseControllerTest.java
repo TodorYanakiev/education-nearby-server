@@ -11,6 +11,7 @@ import com.dev.education_nearby_server.models.dto.request.CourseUpdateRequest;
 import com.dev.education_nearby_server.models.dto.response.CourseFilterResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseImageResponse;
 import com.dev.education_nearby_server.models.dto.response.CourseResponse;
+import com.dev.education_nearby_server.models.dto.response.StatisticsResponse;
 import com.dev.education_nearby_server.services.CourseService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +54,21 @@ class CourseControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(response);
         verify(courseService).getCourseById(courseId);
+    }
+
+    @Test
+    void getCourseStatisticsReturnsResponseFromService() {
+        Long courseId = 4L;
+        StatisticsResponse response = StatisticsResponse.builder()
+                .seenInResults(17L)
+                .build();
+        when(courseService.getCourseStatistics(courseId)).thenReturn(response);
+
+        ResponseEntity<StatisticsResponse> result = courseController.getCourseStatistics(courseId);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody()).isEqualTo(response);
+        verify(courseService).getCourseStatistics(courseId);
     }
 
     @Test
