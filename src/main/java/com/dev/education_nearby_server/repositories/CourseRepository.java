@@ -41,6 +41,13 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
     void incrementShareCount(@Param("courseId") Long courseId);
 
     @Query(value = """
+            SELECT COUNT(*)
+            FROM user_course_subscriptions
+            WHERE course_id = :courseId
+            """, nativeQuery = true)
+    long countSubscriptionsByCourseId(@Param("courseId") Long courseId);
+
+    @Query(value = """
             SELECT DISTINCT c
             FROM Course c
             LEFT JOIN c.ageGroupList ageGroup

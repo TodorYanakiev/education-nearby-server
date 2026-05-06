@@ -33,6 +33,13 @@ public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
     void incrementShareCount(@Param("lyceumId") Long lyceumId);
 
     @Query(value = """
+            SELECT COUNT(*)
+            FROM user_lyceum_subscriptions
+            WHERE lyceum_id = :lyceumId
+            """, nativeQuery = true)
+    long countSubscriptionsByLyceumId(@Param("lyceumId") Long lyceumId);
+
+    @Query(value = """
             SELECT *
             FROM lyceums l
             WHERE l.verification_status = :status

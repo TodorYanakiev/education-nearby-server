@@ -619,6 +619,7 @@ public class LyceumService {
                 .seenInResults(lyceum.getSeenInResultsCount())
                 .visits(lyceum.getVisitCount())
                 .shares(lyceum.getShareCount())
+                .subscriptions(lyceumRepository.countSubscriptionsByLyceumId(lyceum.getId()))
                 .build();
     }
 

@@ -63,6 +63,7 @@ class CourseControllerTest {
                 .seenInResults(17L)
                 .visits(3L)
                 .shares(2L)
+                .subscriptions(5L)
                 .build();
         when(courseService.getCourseStatistics(courseId)).thenReturn(response);
 

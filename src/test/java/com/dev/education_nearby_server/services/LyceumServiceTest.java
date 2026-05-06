@@ -1036,12 +1036,14 @@ class LyceumServiceTest {
         when(lyceumRepository.findWithLecturersById(81L)).thenReturn(Optional.of(lyceum));
         mockAuthenticatedUser(lecturer);
         when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+        when(lyceumRepository.countSubscriptionsByLyceumId(81L)).thenReturn(11L);
 
         var response = lyceumService.getLyceumStatistics(81L);
 
         assertThat(response.getSeenInResults()).isEqualTo(19L);
         assertThat(response.getVisits()).isEqualTo(5L);
         assertThat(response.getShares()).isEqualTo(8L);
+        assertThat(response.getSubscriptions()).isEqualTo(11L);
     }
 
     @Test

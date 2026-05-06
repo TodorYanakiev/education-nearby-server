@@ -346,12 +346,14 @@ class CourseServiceTest {
         when(courseRepository.findDetailedById(64L)).thenReturn(Optional.of(course));
         authenticate(lecturer);
         when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+        when(courseRepository.countSubscriptionsByCourseId(64L)).thenReturn(9L);
 
         var response = courseService.getCourseStatistics(64L);
 
         assertThat(response.getSeenInResults()).isEqualTo(12L);
         assertThat(response.getVisits()).isEqualTo(4L);
         assertThat(response.getShares()).isEqualTo(7L);
+        assertThat(response.getSubscriptions()).isEqualTo(9L);
     }
 
     @Test

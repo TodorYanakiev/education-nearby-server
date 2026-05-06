@@ -101,6 +101,7 @@ class LyceumControllerTest {
                 .seenInResults(23L)
                 .visits(4L)
                 .shares(2L)
+                .subscriptions(6L)
                 .build();
         when(lyceumService.getLyceumStatistics(1L)).thenReturn(statistics);
 

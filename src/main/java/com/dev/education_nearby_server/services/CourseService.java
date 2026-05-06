@@ -228,6 +228,7 @@ public class CourseService {
                 .seenInResults(course.getSeenInResultsCount())
                 .visits(course.getVisitCount())
                 .shares(course.getShareCount())
+                .subscriptions(courseRepository.countSubscriptionsByCourseId(course.getId()))
                 .build();
     }
 
