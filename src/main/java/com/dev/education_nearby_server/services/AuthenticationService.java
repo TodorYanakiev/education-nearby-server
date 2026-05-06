@@ -43,11 +43,16 @@ import java.util.function.Predicate;
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
+    @SuppressWarnings("java:S2068") // False positive: constants are password-reset messages, not credentials.
     private static final String PASSWORD_RESET_REQUEST_MESSAGE =
             "If an account with that email exists, we have sent a verification code.";
+    @SuppressWarnings("java:S2068") // False positive: constants are password-reset messages, not credentials.
     private static final String PASSWORD_RESET_CODE_VALID_MESSAGE = "Verification code confirmed.";
+    @SuppressWarnings("java:S2068") // False positive: constants are password-reset messages, not credentials.
     private static final String PASSWORD_RESET_SUCCESS_MESSAGE = "Password has been reset successfully.";
+    @SuppressWarnings("java:S2068") // False positive: constants are password-reset messages, not credentials.
     private static final String INVALID_PASSWORD_RESET_CODE_MESSAGE = "Invalid verification code.";
+    @SuppressWarnings("java:S2068") // False positive: constants are password-reset messages, not credentials.
     private static final String EXPIRED_PASSWORD_RESET_CODE_MESSAGE = "Verification code has expired.";
 
     private final UserRepository repository;
@@ -194,13 +199,17 @@ public class AuthenticationService {
     public String requestPasswordReset(ForgotPasswordRequest request) {
         String email = normalizeEmail(request.getEmail());
         User user = repository.findByEmailIgnoreCase(email).orElse(null);
-        if (user == null || !user.isEnabled()) {
-            return PASSWORD_RESET_REQUEST_MESSAGE;
+
+        if (!(user == null || !user.isEnabled())) {
+            invalidateActiveTokens(user, token -> token.getTokenType() == TokenType.PASSWORD_RESET);
+            String code = createPasswordResetToken(user);
+            emailService.sendPasswordResetEmail(
+                    user.getEmail(),
+                    code,
+                    passwordResetProperties.getExpirationMinutes()
+            );
         }
 
-        invalidateActiveTokens(user, token -> token.getTokenType() == TokenType.PASSWORD_RESET);
-        String code = createPasswordResetToken(user);
-        emailService.sendPasswordResetEmail(user.getEmail(), code, passwordResetProperties.getExpirationMinutes());
         return PASSWORD_RESET_REQUEST_MESSAGE;
     }
 
