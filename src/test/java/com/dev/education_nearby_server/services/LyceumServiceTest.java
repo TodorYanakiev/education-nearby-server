@@ -1030,6 +1030,7 @@ class LyceumServiceTest {
         Lyceum lyceum = createLyceum(81L, "Lyceum", "Varna", "mail@example.com");
         lyceum.setSeenInResultsCount(19L);
         lyceum.setVisitCount(5L);
+        lyceum.setShareCount(8L);
         User lecturer = createUser(201L);
         lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
         when(lyceumRepository.findWithLecturersById(81L)).thenReturn(Optional.of(lyceum));
@@ -1040,6 +1041,17 @@ class LyceumServiceTest {
 
         assertThat(response.getSeenInResults()).isEqualTo(19L);
         assertThat(response.getVisits()).isEqualTo(5L);
+        assertThat(response.getShares()).isEqualTo(8L);
+    }
+
+    @Test
+    void recordLyceumShareRequiresExistingLyceum() {
+        Lyceum lyceum = createLyceum(82L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(82L)).thenReturn(Optional.of(lyceum));
+
+        lyceumService.recordLyceumShare(82L);
+
+        verify(statisticsService).recordLyceumShare(82L);
     }
 
     @Test

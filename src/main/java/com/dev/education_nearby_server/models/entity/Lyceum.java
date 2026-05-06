@@ -86,6 +86,9 @@ public class Lyceum implements Serializable {
     @Column(name = "visit_count", nullable = false)
     private long visitCount;
 
+    @Column(name = "share_count", nullable = false)
+    private long shareCount;
+
     @OneToMany(mappedBy = "administratedLyceum")
     private List<User> administrators = new ArrayList<>();
 

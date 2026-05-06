@@ -99,6 +99,8 @@ class LyceumControllerTest {
     void getLyceumStatisticsReturnsServiceResponse() {
         StatisticsResponse statistics = StatisticsResponse.builder()
                 .seenInResults(23L)
+                .visits(4L)
+                .shares(2L)
                 .build();
         when(lyceumService.getLyceumStatistics(1L)).thenReturn(statistics);
 
@@ -107,6 +109,15 @@ class LyceumControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(statistics);
         verify(lyceumService).getLyceumStatistics(1L);
+    }
+
+    @Test
+    void shareLyceumReturnsNoContent() {
+        ResponseEntity<Void> response = lyceumController.shareLyceum(1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getBody()).isNull();
+        verify(lyceumService).recordLyceumShare(1L);
     }
 
     @Test

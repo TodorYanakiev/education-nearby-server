@@ -54,4 +54,20 @@ class StatisticsServiceTest {
 
         verifyNoInteractions(courseRepository, lyceumRepository);
     }
+
+    @Test
+    void recordCourseShareIncrementsCourseCounter() {
+        statisticsService.recordCourseShare(7L);
+
+        verify(courseRepository).incrementShareCount(7L);
+        verifyNoInteractions(lyceumRepository);
+    }
+
+    @Test
+    void recordLyceumShareIncrementsLyceumCounter() {
+        statisticsService.recordLyceumShare(8L);
+
+        verify(lyceumRepository).incrementShareCount(8L);
+        verifyNoInteractions(courseRepository);
+    }
 }

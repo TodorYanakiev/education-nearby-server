@@ -340,6 +340,7 @@ class CourseServiceTest {
         Course course = createCourseEntity(64L);
         course.setSeenInResultsCount(12L);
         course.setVisitCount(4L);
+        course.setShareCount(7L);
         User lecturer = createUser(201L, Role.USER);
         course.setLecturers(new ArrayList<>(List.of(lecturer)));
         when(courseRepository.findDetailedById(64L)).thenReturn(Optional.of(course));
@@ -350,6 +351,17 @@ class CourseServiceTest {
 
         assertThat(response.getSeenInResults()).isEqualTo(12L);
         assertThat(response.getVisits()).isEqualTo(4L);
+        assertThat(response.getShares()).isEqualTo(7L);
+    }
+
+    @Test
+    void recordCourseShareRequiresExistingCourse() {
+        Course course = createCourseEntity(65L);
+        when(courseRepository.findById(65L)).thenReturn(Optional.of(course));
+
+        courseService.recordCourseShare(65L);
+
+        verify(statisticsService).recordCourseShare(65L);
     }
 
     @Test

@@ -88,6 +88,18 @@ public class LyceumController {
     }
 
     /**
+     * Records that a lyceum was shared.
+     *
+     * @param lyceumId lyceum identifier
+     * @return empty 204 on success
+     */
+    @PostMapping("/{lyceumId}/share")
+    public ResponseEntity<Void> shareLyceum(@PathVariable Long lyceumId) {
+        lyceumService.recordLyceumShare(lyceumId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Lists images attached to a lyceum.
      *
      * @param lyceumId lyceum identifier

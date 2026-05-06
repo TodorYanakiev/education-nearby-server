@@ -227,7 +227,19 @@ public class CourseService {
         return StatisticsResponse.builder()
                 .seenInResults(course.getSeenInResultsCount())
                 .visits(course.getVisitCount())
+                .shares(course.getShareCount())
                 .build();
+    }
+
+    /**
+     * Records that a course was shared.
+     *
+     * @param courseId course identifier
+     */
+    @Transactional(readOnly = true)
+    public void recordCourseShare(Long courseId) {
+        Course course = requireCourse(courseId, false);
+        statisticsService.recordCourseShare(course.getId());
     }
 
     /**

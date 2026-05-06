@@ -618,7 +618,19 @@ public class LyceumService {
         return StatisticsResponse.builder()
                 .seenInResults(lyceum.getSeenInResultsCount())
                 .visits(lyceum.getVisitCount())
+                .shares(lyceum.getShareCount())
                 .build();
+    }
+
+    /**
+     * Records that a lyceum was shared.
+     *
+     * @param lyceumId lyceum identifier
+     */
+    @Transactional(readOnly = true)
+    public void recordLyceumShare(Long lyceumId) {
+        Lyceum lyceum = requireLyceum(lyceumId);
+        statisticsService.recordLyceumShare(lyceum.getId());
     }
 
     /**

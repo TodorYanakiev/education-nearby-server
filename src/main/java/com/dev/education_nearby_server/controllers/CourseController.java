@@ -107,6 +107,18 @@ public class CourseController {
     }
 
     /**
+     * Records that a course was shared.
+     *
+     * @param courseId course identifier
+     * @return empty 204 on success
+     */
+    @PostMapping("/{courseId}/share")
+    public ResponseEntity<Void> shareCourse(@PathVariable Long courseId) {
+        courseService.recordCourseShare(courseId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Lists images attached to a course.
      *
      * @param courseId course identifier

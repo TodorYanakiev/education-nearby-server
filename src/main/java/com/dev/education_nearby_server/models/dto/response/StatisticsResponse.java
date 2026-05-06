@@ -17,4 +17,5 @@ import lombok.Setter;
 public class StatisticsResponse {
     private long seenInResults;
     private long visits;
+    private long shares;
 }

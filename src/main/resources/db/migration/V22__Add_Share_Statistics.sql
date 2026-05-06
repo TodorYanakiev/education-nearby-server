@@ -1,0 +1,5 @@
+ALTER TABLE courses
+    ADD COLUMN share_count BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE lyceums
+    ADD COLUMN share_count BIGINT NOT NULL DEFAULT 0;
