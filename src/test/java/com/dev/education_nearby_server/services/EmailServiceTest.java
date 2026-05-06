@@ -117,6 +117,30 @@ class EmailServiceTest {
     }
 
     @Test
+    void sendPasswordResetEmailBuildsExpectedMessage() throws Exception {
+        emailService.sendPasswordResetEmail(
+                "user@example.com",
+                "123456",
+                15L);
+
+        ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(messageCaptor.capture());
+        MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
+
+        assertThat(((InternetAddress) message.getAllRecipients()[0]).getAddress())
+                .isEqualTo("user@example.com");
+        assertThat(message.getSubject()).isEqualTo("Shkoli: Password reset verification code");
+
+        EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
+        assertThat(parts.plainText())
+                .contains("Verification code: 123456")
+                .contains("The code expires in 15 minutes.")
+                .contains("If you did not request a password reset");
+        assertThat(parts.htmlText()).contains("cid:educationNearbyLogo");
+    }
+
+    @Test
     void sendLyceumVerificationEmailFallsBackToSvgWhenPngMissing() throws Exception {
         setCachedLogoPng(new byte[0]);
 

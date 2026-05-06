@@ -1,25 +1,34 @@
 package com.dev.education_nearby_server.integration.services;
 
+import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
+import com.dev.education_nearby_server.models.dto.auth.ForgotPasswordRequest;
+import com.dev.education_nearby_server.models.dto.auth.ResetForgottenPasswordRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.TokenRepository;
 import com.dev.education_nearby_server.repositories.UserRepository;
 import com.dev.education_nearby_server.services.AuthenticationService;
+import com.dev.education_nearby_server.services.EmailService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @Transactional
@@ -31,6 +40,11 @@ class AuthenticationServiceIT {
     private UserRepository userRepository;
     @Autowired
     private TokenRepository tokenRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @MockitoBean
+    private EmailService emailService;
 
     private RegisterRequest buildRegisterRequest() {
         return RegisterRequest.builder()
@@ -109,5 +123,62 @@ class AuthenticationServiceIT {
         assertThat(tokens.getFirst().getTokenValue()).isNotBlank();
         assertThat(tokens.getFirst().isExpired()).isFalse();
         assertThat(tokens.getFirst().isRevoked()).isFalse();
+    }
+
+    @Test
+    void requestPasswordResetPersistsResetTokenAndSendsEmail() {
+        authenticationService.register(buildRegisterRequest());
+        User user = userRepository.findByEmail("jane.doe@example.com").orElseThrow();
+
+        String result = authenticationService.requestPasswordReset(ForgotPasswordRequest.builder()
+                .email("jane.doe@example.com")
+                .build());
+
+        assertThat(result).isEqualTo("If an account with that email exists, we have sent a verification code.");
+
+        List<Token> resetTokens = tokenRepository.findAll().stream()
+                .filter(token -> token.getTokenType() == TokenType.PASSWORD_RESET)
+                .toList();
+        assertThat(resetTokens).hasSize(1);
+        assertThat(resetTokens.getFirst().getUser().getId()).isEqualTo(user.getId());
+        assertThat(resetTokens.getFirst().getTokenValue()).hasSize(6);
+        assertThat(resetTokens.getFirst().isExpired()).isFalse();
+        assertThat(resetTokens.getFirst().isRevoked()).isFalse();
+
+        verify(emailService).sendPasswordResetEmail(anyString(), anyString(), anyLong());
+    }
+
+    @Test
+    void resetForgottenPasswordReplacesPasswordAndExpiresResetToken() {
+        RegisterRequest request = buildRegisterRequest();
+        authenticationService.register(request);
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
+
+        Token resetToken = tokenRepository.save(Token.builder()
+                .user(user)
+                .tokenValue("123456")
+                .tokenType(TokenType.PASSWORD_RESET)
+                .expired(false)
+                .revoked(false)
+                .build());
+
+        authenticationService.resetForgottenPassword(ResetForgottenPasswordRequest.builder()
+                .email(request.getEmail())
+                .verificationCode("123456")
+                .newPassword("NewPassword123")
+                .confirmationPassword("NewPassword123")
+                .build());
+
+        User persistedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(passwordEncoder.matches("NewPassword123", persistedUser.getPassword())).isTrue();
+
+        Token persistedResetToken = tokenRepository.findByToken(resetToken.getTokenValue()).orElseThrow();
+        assertThat(persistedResetToken.isExpired()).isTrue();
+        assertThat(persistedResetToken.isRevoked()).isTrue();
+
+        List<Token> activeBearerTokens = tokenRepository.findAllValidTokenByUser(user.getId()).stream()
+                .filter(token -> token.getTokenType() == TokenType.BEARER)
+                .toList();
+        assertThat(activeBearerTokens).isEmpty();
     }
 }

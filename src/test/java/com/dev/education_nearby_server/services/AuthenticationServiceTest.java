@@ -1,13 +1,18 @@
 package com.dev.education_nearby_server.services;
 
 import com.dev.education_nearby_server.config.JwtService;
+import com.dev.education_nearby_server.config.PasswordResetProperties;
 import com.dev.education_nearby_server.enums.Role;
-import com.dev.education_nearby_server.exceptions.common.BadRequestException;
+import com.dev.education_nearby_server.enums.TokenType;
 import com.dev.education_nearby_server.exceptions.common.AccessDeniedException;
+import com.dev.education_nearby_server.exceptions.common.BadRequestException;
 import com.dev.education_nearby_server.exceptions.common.UnauthorizedException;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
+import com.dev.education_nearby_server.models.dto.auth.ForgotPasswordRequest;
+import com.dev.education_nearby_server.models.dto.auth.PasswordResetCodeVerificationRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
+import com.dev.education_nearby_server.models.dto.auth.ResetForgottenPasswordRequest;
 import com.dev.education_nearby_server.models.entity.Token;
 import com.dev.education_nearby_server.models.entity.User;
 import com.dev.education_nearby_server.repositories.TokenRepository;
@@ -28,6 +33,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -36,8 +42,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.anyList;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -58,6 +66,10 @@ class AuthenticationServiceTest {
     private AuthenticationProvider authenticationProvider;
     @Mock
     private LyceumService lyceumService;
+    @Mock
+    private EmailService emailService;
+    @Mock
+    private PasswordResetProperties passwordResetProperties;
 
     @InjectMocks
     private AuthenticationService authenticationService;
@@ -73,6 +85,8 @@ class AuthenticationServiceTest {
                 .username("johnny")
                 .password("password123")
                 .repeatedPassword("password123");
+        lenient().when(passwordResetProperties.getCodeLength()).thenReturn(6);
+        lenient().when(passwordResetProperties.getExpirationMinutes()).thenReturn(15L);
     }
 
     @Test
@@ -80,7 +94,8 @@ class AuthenticationServiceTest {
         RegisterRequest request = baseRegisterRequestBuilder.build();
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(User.builder().build()));
 
-        assertThrows(com.dev.education_nearby_server.exceptions.common.ConflictException.class, () -> authenticationService.register(request));
+        assertThrows(com.dev.education_nearby_server.exceptions.common.ConflictException.class,
+                () -> authenticationService.register(request));
         verify(userRepository, never()).save(any(User.class));
         verify(tokenRepository, never()).save(any(Token.class));
     }
@@ -91,7 +106,8 @@ class AuthenticationServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(userRepository.findByUsername(request.getUsername())).thenReturn(Optional.of(User.builder().build()));
 
-        assertThrows(com.dev.education_nearby_server.exceptions.common.ConflictException.class, () -> authenticationService.register(request));
+        assertThrows(com.dev.education_nearby_server.exceptions.common.ConflictException.class,
+                () -> authenticationService.register(request));
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -158,7 +174,7 @@ class AuthenticationServiceTest {
         verify(tokenRepository).save(tokenCaptor.capture());
         Token savedToken = tokenCaptor.getValue();
         assertEquals("access-token", savedToken.getTokenValue());
-        assertThat(savedToken.getTokenType()).isEqualTo(com.dev.education_nearby_server.enums.TokenType.BEARER);
+        assertThat(savedToken.getTokenType()).isEqualTo(TokenType.BEARER);
         assertThat(savedToken.isExpired()).isFalse();
         assertThat(savedToken.isRevoked()).isFalse();
         assertThat(savedToken.getUser()).isEqualTo(persistedUser);
@@ -193,6 +209,7 @@ class AuthenticationServiceTest {
                 .build();
         Token existingToken = Token.builder()
                 .tokenValue("old-token")
+                .tokenType(TokenType.BEARER)
                 .expired(false)
                 .revoked(false)
                 .user(user)
@@ -260,5 +277,153 @@ class AuthenticationServiceTest {
         assertThat(response.getContentAsString()).contains("refresh-token");
 
         verify(tokenRepository).save(any(Token.class));
+    }
+
+    @Test
+    void requestPasswordResetReturnsGenericMessageWhenUserMissing() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("missing@example.com")
+                .build();
+        when(userRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
+
+        String result = authenticationService.requestPasswordReset(request);
+
+        assertThat(result).isEqualTo("If an account with that email exists, we have sent a verification code.");
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void requestPasswordResetRevokesExistingResetTokensPersistsNewTokenAndSendsEmail() {
+        User user = User.builder()
+                .id(7L)
+                .email("john.doe@example.com")
+                .enabled(true)
+                .build();
+        Token existingResetToken = Token.builder()
+                .tokenValue("123456")
+                .tokenType(TokenType.PASSWORD_RESET)
+                .expired(false)
+                .revoked(false)
+                .user(user)
+                .build();
+        Token existingBearerToken = Token.builder()
+                .tokenValue("access-token")
+                .tokenType(TokenType.BEARER)
+                .expired(false)
+                .revoked(false)
+                .user(user)
+                .build();
+
+        when(userRepository.findByEmailIgnoreCase("john.doe@example.com")).thenReturn(Optional.of(user));
+        when(tokenRepository.findAllValidTokenByUser(user.getId())).thenReturn(List.of(existingResetToken, existingBearerToken));
+        when(tokenRepository.findByToken(anyString())).thenReturn(Optional.empty());
+
+        String result = authenticationService.requestPasswordReset(ForgotPasswordRequest.builder()
+                .email(" john.doe@example.com ")
+                .build());
+
+        assertThat(result).isEqualTo("If an account with that email exists, we have sent a verification code.");
+        assertThat(existingResetToken.isExpired()).isTrue();
+        assertThat(existingResetToken.isRevoked()).isTrue();
+        assertThat(existingBearerToken.isExpired()).isFalse();
+        assertThat(existingBearerToken.isRevoked()).isFalse();
+
+        ArgumentCaptor<Token> tokenCaptor = ArgumentCaptor.forClass(Token.class);
+        verify(tokenRepository).save(tokenCaptor.capture());
+        Token savedToken = tokenCaptor.getValue();
+        assertThat(savedToken.getTokenType()).isEqualTo(TokenType.PASSWORD_RESET);
+        assertThat(savedToken.getTokenValue()).hasSize(6);
+        assertThat(savedToken.getUser()).isEqualTo(user);
+
+        verify(emailService).sendPasswordResetEmail("john.doe@example.com", savedToken.getTokenValue(), 15L);
+    }
+
+    @Test
+    void verifyPasswordResetCodeRejectsExpiredTokens() {
+        User user = User.builder()
+                .id(12L)
+                .email("john.doe@example.com")
+                .enabled(true)
+                .build();
+        Token token = Token.builder()
+                .tokenValue("654321")
+                .tokenType(TokenType.PASSWORD_RESET)
+                .createdAt(LocalDateTime.now().minusMinutes(16))
+                .expired(false)
+                .revoked(false)
+                .user(user)
+                .build();
+
+        when(userRepository.findByEmailIgnoreCase("john.doe@example.com")).thenReturn(Optional.of(user));
+        when(tokenRepository.findByToken("654321")).thenReturn(Optional.of(token));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> authenticationService.verifyPasswordResetCode(
+                PasswordResetCodeVerificationRequest.builder()
+                        .email("john.doe@example.com")
+                        .verificationCode("654321")
+                        .build()
+        ));
+
+        assertThat(ex.getMessage()).isEqualTo("Verification code has expired.");
+        assertThat(token.isExpired()).isTrue();
+        assertThat(token.isRevoked()).isTrue();
+        verify(tokenRepository).save(token);
+    }
+
+    @Test
+    void resetForgottenPasswordUpdatesPasswordAndRevokesBearerAndResetTokens() {
+        User user = User.builder()
+                .id(42L)
+                .email("john.doe@example.com")
+                .enabled(true)
+                .password("old-password")
+                .build();
+        Token resetToken = Token.builder()
+                .tokenValue("654321")
+                .tokenType(TokenType.PASSWORD_RESET)
+                .createdAt(LocalDateTime.now())
+                .expired(false)
+                .revoked(false)
+                .user(user)
+                .build();
+        Token bearerToken = Token.builder()
+                .tokenValue("access-token")
+                .tokenType(TokenType.BEARER)
+                .expired(false)
+                .revoked(false)
+                .user(user)
+                .build();
+        Token lyceumVerificationToken = Token.builder()
+                .tokenValue("lyceum-code")
+                .tokenType(TokenType.VERIFICATION)
+                .expired(false)
+                .revoked(false)
+                .user(user)
+                .build();
+
+        when(userRepository.findByEmailIgnoreCase("john.doe@example.com")).thenReturn(Optional.of(user));
+        when(tokenRepository.findByToken("654321")).thenReturn(Optional.of(resetToken));
+        when(tokenRepository.findAllValidTokenByUser(user.getId()))
+                .thenReturn(List.of(bearerToken, resetToken, lyceumVerificationToken));
+        when(passwordEncoder.encode("new-password")).thenReturn("encoded-password");
+
+        String result = authenticationService.resetForgottenPassword(ResetForgottenPasswordRequest.builder()
+                .email(" john.doe@example.com ")
+                .verificationCode(" 654321 ")
+                .newPassword("new-password")
+                .confirmationPassword("new-password")
+                .build());
+
+        assertThat(result).isEqualTo("Password has been reset successfully.");
+        assertThat(user.getPassword()).isEqualTo("encoded-password");
+        assertThat(bearerToken.isExpired()).isTrue();
+        assertThat(bearerToken.isRevoked()).isTrue();
+        assertThat(resetToken.isExpired()).isTrue();
+        assertThat(resetToken.isRevoked()).isTrue();
+        assertThat(lyceumVerificationToken.isExpired()).isFalse();
+        assertThat(lyceumVerificationToken.isRevoked()).isFalse();
+
+        verify(userRepository).save(user);
+        verify(tokenRepository).saveAll(anyList());
     }
 }

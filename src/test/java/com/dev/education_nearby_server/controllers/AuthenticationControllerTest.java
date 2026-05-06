@@ -2,8 +2,11 @@ package com.dev.education_nearby_server.controllers;
 
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationRequest;
 import com.dev.education_nearby_server.models.dto.auth.AuthenticationResponse;
+import com.dev.education_nearby_server.models.dto.auth.ForgotPasswordRequest;
 import com.dev.education_nearby_server.models.dto.auth.OAuth2CompleteRegistrationRequest;
+import com.dev.education_nearby_server.models.dto.auth.PasswordResetCodeVerificationRequest;
 import com.dev.education_nearby_server.models.dto.auth.RegisterRequest;
+import com.dev.education_nearby_server.models.dto.auth.ResetForgottenPasswordRequest;
 import com.dev.education_nearby_server.services.AuthenticationService;
 import com.dev.education_nearby_server.services.oauth2.OAuth2AuthenticationService;
 import org.junit.jupiter.api.Test;
@@ -104,5 +107,53 @@ class AuthenticationControllerTest {
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertThat(result.getBody()).isEqualTo(response);
         verify(oauth2AuthenticationService).completeRegistration(request);
+    }
+
+    @Test
+    void requestPasswordResetDelegatesToService() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("john.doe@example.com")
+                .build();
+        when(authenticationService.requestPasswordReset(request))
+                .thenReturn("If an account with that email exists, we have sent a verification code.");
+
+        ResponseEntity<String> result = controller.requestPasswordReset(request);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertThat(result.getBody()).isEqualTo("If an account with that email exists, we have sent a verification code.");
+        verify(authenticationService).requestPasswordReset(request);
+    }
+
+    @Test
+    void verifyPasswordResetCodeDelegatesToService() {
+        PasswordResetCodeVerificationRequest request = PasswordResetCodeVerificationRequest.builder()
+                .email("john.doe@example.com")
+                .verificationCode("123456")
+                .build();
+        when(authenticationService.verifyPasswordResetCode(request)).thenReturn("Verification code confirmed.");
+
+        ResponseEntity<String> result = controller.verifyPasswordResetCode(request);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertThat(result.getBody()).isEqualTo("Verification code confirmed.");
+        verify(authenticationService).verifyPasswordResetCode(request);
+    }
+
+    @Test
+    void resetForgottenPasswordDelegatesToService() {
+        ResetForgottenPasswordRequest request = ResetForgottenPasswordRequest.builder()
+                .email("john.doe@example.com")
+                .verificationCode("123456")
+                .newPassword("new-password")
+                .confirmationPassword("new-password")
+                .build();
+        when(authenticationService.resetForgottenPassword(request))
+                .thenReturn("Password has been reset successfully.");
+
+        ResponseEntity<String> result = controller.resetForgottenPassword(request);
+
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertThat(result.getBody()).isEqualTo("Password has been reset successfully.");
+        verify(authenticationService).resetForgottenPassword(request);
     }
 }
