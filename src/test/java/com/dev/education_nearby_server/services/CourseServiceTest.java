@@ -81,6 +81,8 @@ class CourseServiceTest {
     private UserReviewRepository userReviewRepository;
     @Mock
     private S3Properties s3Properties;
+    @Mock
+    private StatisticsService statisticsService;
 
     @InjectMocks
     private CourseService courseService;
@@ -331,6 +333,37 @@ class CourseServiceTest {
         assertThat(response.getMainImage().getRole()).isEqualTo(ImageRole.MAIN);
         assertThat(response.getAverageRating()).isEqualTo(4.4);
         verify(courseRepository).findDetailedById(9L);
+    }
+
+    @Test
+    void getCourseStatisticsAllowsCourseLecturer() {
+        Course course = createCourseEntity(64L);
+        course.setSeenInResultsCount(12L);
+        course.setVisitCount(4L);
+        course.setShareCount(7L);
+        User lecturer = createUser(201L, Role.USER);
+        course.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(courseRepository.findDetailedById(64L)).thenReturn(Optional.of(course));
+        authenticate(lecturer);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+        when(courseRepository.countSubscriptionsByCourseId(64L)).thenReturn(9L);
+
+        var response = courseService.getCourseStatistics(64L);
+
+        assertThat(response.getSeenInResults()).isEqualTo(12L);
+        assertThat(response.getVisits()).isEqualTo(4L);
+        assertThat(response.getShares()).isEqualTo(7L);
+        assertThat(response.getSubscriptions()).isEqualTo(9L);
+    }
+
+    @Test
+    void recordCourseShareRequiresExistingCourse() {
+        Course course = createCourseEntity(65L);
+        when(courseRepository.findById(65L)).thenReturn(Optional.of(course));
+
+        courseService.recordCourseShare(65L);
+
+        verify(statisticsService).recordCourseShare(65L);
     }
 
     @Test

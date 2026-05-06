@@ -80,6 +80,15 @@ public class Lyceum implements Serializable {
     @Enumerated(EnumType.STRING)
     private VerificationStatus verificationStatus = VerificationStatus.NOT_VERIFIED;
 
+    @Column(name = "seen_in_results_count", nullable = false)
+    private long seenInResultsCount;
+
+    @Column(name = "visit_count", nullable = false)
+    private long visitCount;
+
+    @Column(name = "share_count", nullable = false)
+    private long shareCount;
+
     @OneToMany(mappedBy = "administratedLyceum")
     private List<User> administrators = new ArrayList<>();
 

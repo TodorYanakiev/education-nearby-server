@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,6 +27,25 @@ public interface CourseRepository extends JpaRepository<Course, Long> {
 
     @EntityGraph(attributePaths = {"lecturers", "lyceum"})
     List<Course> findDistinctByLecturers_Id(Long lecturerId);
+
+    @Modifying
+    @Query("UPDATE Course c SET c.seenInResultsCount = c.seenInResultsCount + 1 WHERE c.id IN :courseIds")
+    void incrementSeenInResultsCount(@Param("courseIds") List<Long> courseIds);
+
+    @Modifying
+    @Query("UPDATE Course c SET c.visitCount = c.visitCount + 1 WHERE c.id = :courseId")
+    void incrementVisitCount(@Param("courseId") Long courseId);
+
+    @Modifying
+    @Query("UPDATE Course c SET c.shareCount = c.shareCount + 1 WHERE c.id = :courseId")
+    void incrementShareCount(@Param("courseId") Long courseId);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM user_course_subscriptions
+            WHERE course_id = :courseId
+            """, nativeQuery = true)
+    long countSubscriptionsByCourseId(@Param("courseId") Long courseId);
 
     @Query(value = """
             SELECT DISTINCT c

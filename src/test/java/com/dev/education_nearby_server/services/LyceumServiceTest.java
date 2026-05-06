@@ -86,6 +86,8 @@ class LyceumServiceTest {
     private CourseService courseService;
     @Mock
     private S3Properties s3Properties;
+    @Mock
+    private StatisticsService statisticsService;
 
     @InjectMocks
     private LyceumService lyceumService;
@@ -1021,6 +1023,37 @@ class LyceumServiceTest {
         assertThat(response.getId()).isEqualTo(8L);
         assertThat(response.getVerificationStatus()).isEqualTo(VerificationStatus.NOT_VERIFIED);
         verify(lyceumRepository).findById(8L);
+    }
+
+    @Test
+    void getLyceumStatisticsAllowsLyceumLecturer() {
+        Lyceum lyceum = createLyceum(81L, "Lyceum", "Varna", "mail@example.com");
+        lyceum.setSeenInResultsCount(19L);
+        lyceum.setVisitCount(5L);
+        lyceum.setShareCount(8L);
+        User lecturer = createUser(201L);
+        lyceum.setLecturers(new ArrayList<>(List.of(lecturer)));
+        when(lyceumRepository.findWithLecturersById(81L)).thenReturn(Optional.of(lyceum));
+        mockAuthenticatedUser(lecturer);
+        when(userRepository.findById(lecturer.getId())).thenReturn(Optional.of(lecturer));
+        when(lyceumRepository.countSubscriptionsByLyceumId(81L)).thenReturn(11L);
+
+        var response = lyceumService.getLyceumStatistics(81L);
+
+        assertThat(response.getSeenInResults()).isEqualTo(19L);
+        assertThat(response.getVisits()).isEqualTo(5L);
+        assertThat(response.getShares()).isEqualTo(8L);
+        assertThat(response.getSubscriptions()).isEqualTo(11L);
+    }
+
+    @Test
+    void recordLyceumShareRequiresExistingLyceum() {
+        Lyceum lyceum = createLyceum(82L, "Lyceum", "Varna", "mail@example.com");
+        when(lyceumRepository.findById(82L)).thenReturn(Optional.of(lyceum));
+
+        lyceumService.recordLyceumShare(82L);
+
+        verify(statisticsService).recordLyceumShare(82L);
     }
 
     @Test

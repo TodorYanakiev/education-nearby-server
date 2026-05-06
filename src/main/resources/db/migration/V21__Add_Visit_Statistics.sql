@@ -1,0 +1,5 @@
+ALTER TABLE courses
+    ADD COLUMN visit_count BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE lyceums
+    ADD COLUMN visit_count BIGINT NOT NULL DEFAULT 0;

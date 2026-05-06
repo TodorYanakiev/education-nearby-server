@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +19,25 @@ public interface LyceumRepository extends JpaRepository<Lyceum, Long> {
     List<Lyceum> findAllByVerificationStatus(VerificationStatus status);
     @EntityGraph(attributePaths = "lecturers")
     Optional<Lyceum> findWithLecturersById(Long id);
+
+    @Modifying
+    @Query("UPDATE Lyceum l SET l.seenInResultsCount = l.seenInResultsCount + 1 WHERE l.id IN :lyceumIds")
+    void incrementSeenInResultsCount(@Param("lyceumIds") List<Long> lyceumIds);
+
+    @Modifying
+    @Query("UPDATE Lyceum l SET l.visitCount = l.visitCount + 1 WHERE l.id = :lyceumId")
+    void incrementVisitCount(@Param("lyceumId") Long lyceumId);
+
+    @Modifying
+    @Query("UPDATE Lyceum l SET l.shareCount = l.shareCount + 1 WHERE l.id = :lyceumId")
+    void incrementShareCount(@Param("lyceumId") Long lyceumId);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM user_lyceum_subscriptions
+            WHERE lyceum_id = :lyceumId
+            """, nativeQuery = true)
+    long countSubscriptionsByLyceumId(@Param("lyceumId") Long lyceumId);
 
     @Query(value = """
             SELECT *
