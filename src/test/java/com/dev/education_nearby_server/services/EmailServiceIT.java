@@ -83,4 +83,25 @@ class EmailServiceIT {
         EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
         assertThat(parts.plainText()).isEqualTo(expectedText);
     }
+
+    @Test
+    void sendPasswordResetEmailUsesConfiguredBean() throws Exception {
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+        emailService.sendPasswordResetEmail("user@example.com", "123456", 15L);
+
+        ArgumentCaptor<MimeMessage> messageCaptor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(messageCaptor.capture());
+        MimeMessage message = messageCaptor.getValue();
+        message.saveChanges();
+
+        assertThat(((InternetAddress) message.getAllRecipients()[0]).getAddress())
+                .isEqualTo("user@example.com");
+        assertThat(message.getSubject()).isEqualTo("Shkoli: Password reset verification code");
+
+        EmailTestSupport.EmailParts parts = EmailTestSupport.extractParts(message);
+        assertThat(parts.plainText())
+                .contains("Verification code: 123456")
+                .contains("The code expires in 15 minutes.");
+        assertThat(parts.htmlText()).contains("cid:educationNearbyLogo");
+    }
 }

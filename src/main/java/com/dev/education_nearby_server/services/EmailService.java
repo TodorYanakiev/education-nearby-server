@@ -80,6 +80,29 @@ public class EmailService {
         sendEmailWithLogo(to, subject, text);
     }
 
+    /**
+     * Sends a forgot-password verification email with a short-lived reset code.
+     *
+     * @param to recipient email address
+     * @param tokenValue password reset verification code
+     * @param expirationMinutes code validity window in minutes
+     */
+    public void sendPasswordResetEmail(@NonNull String to,
+                                       @NonNull String tokenValue,
+                                       long expirationMinutes) {
+        String subject = "Shkoli: Password reset verification code";
+        String text = "Hello,\n\n" +
+                "We received a request to reset the password for your account.\n" +
+                "Use the verification code below to continue:\n\n" +
+                "Verification code: " + tokenValue + "\n\n" +
+                "The code expires in " + expirationMinutes + " minutes.\n" +
+                "If you did not request a password reset, you can ignore this email.\n\n" +
+                "Regards,\n" +
+                "Shkoli";
+
+        sendEmailWithLogo(to, subject, text);
+    }
+
     private void sendEmailWithLogo(String to, String subject, String text) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
